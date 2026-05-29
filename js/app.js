@@ -43,53 +43,53 @@ F1.App = class App {
         this.setTool('draw');
         this._renderLoop();
         setTimeout(() => this._renderPreview(), 100);
-     }
+    }
 
-     setTool(name) {
-         if (this.activeTool) this.activeTool.deactivate();
-         this.activeToolName = name;
-         this.activeTool = this.tools[name];
-         this.activeTool.activate();
-         document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
-         this.canvas.style.cursor = this.activeTool.getCursor();
-         this.uiManager.updateProperties();
-         this.requestRender();
-     }
+    setTool(name) {
+        if (this.activeTool) this.activeTool.deactivate();
+        this.activeToolName = name;
+        this.activeTool = this.tools[name];
+        this.activeTool.activate();
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
+        this.canvas.style.cursor = this.activeTool.getCursor();
+        this.uiManager.updateProperties();
+        this.requestRender();
+    }
 
-     setSelection(sel) { this.selection = sel; this.uiManager.updateProperties(); this.requestRender(); }
-     setStatus(msg) { document.getElementById('status-info').textContent = msg; }
-     requestRender() { this._needsRender = true; }
+    setSelection(sel) { this.selection = sel; this.uiManager.updateProperties(); this.requestRender(); }
+    setStatus(msg) { document.getElementById('status-info').textContent = msg; }
+    requestRender() { this._needsRender = true; }
 
-     _renderLoop() {
-         if (this._needsRender) { this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName); this._needsRender = false; }
-         requestAnimationFrame(() => this._renderLoop());
-     }
+    _renderLoop() {
+        if (this._needsRender) { this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName); this._needsRender = false; }
+        requestAnimationFrame(() => this._renderLoop());
+    }
 
-     _renderPreview() { this.preview.resize(); this.preview.render(this.data, this.editor); }
+    _renderPreview() { this.preview.resize(); this.preview.render(this.data, this.editor); }
 
-     _initEvents() {
-         const canvas = this.canvas;
-         canvas.addEventListener('mousedown', e => {
-             if (e.button === 1 || (e.button === 0 && e.altKey)) { this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
-             if (e.button === 0) { const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseDown(w.x, w.y, e); }
-         });
-         canvas.addEventListener('mousemove', e => {
-             const r = canvas.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
-             if (this._isPanning) { this.renderer.pan(e.clientX - this._panStart.x, e.clientY - this._panStart.y); this._panStart = { x: e.clientX, y: e.clientY }; this.requestRender(); return; }
-             const w = this.renderer.s2w(sx, sy); this.activeTool.onMouseMove(w.x, w.y, e); this.uiManager.updateStatusBar(w.x, w.y);
-         });
-         canvas.addEventListener('mouseup', e => {
-             if (this._isPanning) { this._isPanning = false; canvas.style.cursor = this.activeTool.getCursor(); return; }
-             const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseUp(w.x, w.y, e);
-         });
-         canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); }, { passive: false });
-         canvas.addEventListener('contextmenu', e => e.preventDefault());
-         window.addEventListener('resize', () => { this.renderer.resize(); this.preview.resize(); this.requestRender(); this._renderPreview(); });
-         document.addEventListener('keydown', e => {
-             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-             const sc = { v: 'select', p: 'draw', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', r: 'garage', e: 'eraser', t: 'turn' };
-             if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
+    _initEvents() {
+        const canvas = this.canvas;
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 1 || (e.button === 0 && e.altKey)) { this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
+            if (e.button === 0) { const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseDown(w.x, w.y, e); }
+        });
+        canvas.addEventListener('mousemove', e => {
+            const r = canvas.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
+            if (this._isPanning) { this.renderer.pan(e.clientX - this._panStart.x, e.clientY - this._panStart.y); this._panStart = { x: e.clientX, y: e.clientY }; this.requestRender(); return; }
+            const w = this.renderer.s2w(sx, sy); this.activeTool.onMouseMove(w.x, w.y, e); this.uiManager.updateStatusBar(w.x, w.y);
+        });
+        canvas.addEventListener('mouseup', e => {
+            if (this._isPanning) { this._isPanning = false; canvas.style.cursor = this.activeTool.getCursor(); return; }
+            const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseUp(w.x, w.y, e);
+        });
+        canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); }, { passive: false });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('resize', () => { this.renderer.resize(); this.preview.resize(); this.requestRender(); this._renderPreview(); });
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
+            const sc = { v: 'select', p: 'draw', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', r: 'garage', e: 'eraser', t: 'turn' };
+            if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
             if (e.key === '#' || (e.key === '3' && e.shiftKey)) { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); return; }
             this.activeTool.onKeyDown(e);
         });
