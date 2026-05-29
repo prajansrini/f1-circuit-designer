@@ -38,6 +38,14 @@ F1.Renderer = class Renderer {
     s2w(sx, sy) { return { x: (sx - this.canvas.width / 2) / this.scale - this.ox, y: (sy - this.canvas.height / 2) / this.scale - this.oy }; }
     zoom(d, sx, sy) { const b = this.s2w(sx, sy); this.scale *= d > 0 ? .92 : 1.08; this.scale = Math.max(.05, Math.min(20, this.scale)); const a = this.s2w(sx, sy); this.ox += a.x - b.x; this.oy += a.y - b.y; }
     pan(dx, dy) { this.ox += dx / this.scale; this.oy += dy / this.scale; }
+    fitToScreen(data) {
+        if (!data || data.controlPoints.length === 0) { this.ox = 0; this.oy = 0; this.scale = 1; return; }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of data.controlPoints) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+        const scaleX = (this.canvas.width - 200) / (maxX - minX || 1), scaleY = (this.canvas.height - 200) / (maxY - minY || 1);
+        this.scale = Math.min(Math.min(scaleX, scaleY), 5);
+        this.ox = -(minX + maxX) / 2; this.oy = -(minY + maxY) / 2;
+    }
 
     _getOutsideSgn(p, data) {
         if (!data || data.controlPoints.length === 0) return 1;

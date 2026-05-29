@@ -16,6 +16,7 @@ F1.App = class App {
         this.tools = {
             select: new F1.Tools.SelectTool(this),
             draw: new F1.Tools.DrawTrackTool(this),
+            node: new F1.Tools.NodeTool(this),
             width: new F1.Tools.WidthTool(this),
             surface: new F1.Tools.SurfacePainterTool(this),
             barrier: new F1.Tools.BarrierPainterTool(this),
@@ -24,6 +25,7 @@ F1.App = class App {
             pitlane: new F1.Tools.PitLaneTool(this),
             grandstand: new F1.Tools.GrandstandTool(this),
             zone: new F1.Tools.ZoneTool(this),
+            straightMode: new F1.Tools.StraightModeTool(this),
             garage: new F1.Tools.GarageTool(this),
             eraser: new F1.Tools.EraserTool(this)
         };
@@ -88,9 +90,10 @@ F1.App = class App {
         document.addEventListener('keydown', e => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-            const sc = { v: 'select', p: 'draw', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', r: 'garage', e: 'eraser', t: 'turn' };
+            const sc = { v: 'select', p: 'draw', n: 'node', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', m: 'straightMode', r: 'garage', e: 'eraser', t: 'turn' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
             if (e.key === '#' || (e.key === '3' && e.shiftKey)) { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); return; }
+            if (e.key.toLowerCase() === 'f') { this.renderer.fitToScreen(this.data, this.editor); this.preview.fitToScreen(this.data, this.editor); this.requestRender(); this._renderPreview(); return; }
             this.activeTool.onKeyDown(e);
         });
     }

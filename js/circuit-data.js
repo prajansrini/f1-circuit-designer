@@ -48,16 +48,38 @@ F1.CircuitData = class CircuitData {
     undo() { if (!this._undoStack.length) return; this._redoStack.push(JSON.stringify(this._serialize())); this._deserialize(JSON.parse(this._undoStack.pop())); }
     redo() { if (!this._redoStack.length) return; this._undoStack.push(JSON.stringify(this._serialize())); this._deserialize(JSON.parse(this._redoStack.pop())); }
 
-    addControlPoint(x, y) {
+    insertControlPoint(x, y, index) {
         const pt = {
             id: this._genId(), x, y, widthLeft: 12, widthRight: 12,
             surfaceLeft: 'grass', surfaceRight: 'grass', surfaceWidthLeft: 10, surfaceWidthRight: 10,
             barrierLeft: false, barrierRight: false, sector: 0
         };
-        this.controlPoints.push(pt);
+        if (index > 0 && index <= this.controlPoints.length) {
+            const prev = this.controlPoints[index - 1];
+            pt.widthLeft = prev.widthLeft; pt.widthRight = prev.widthRight;
+            pt.surfaceLeft = prev.surfaceLeft; pt.surfaceRight = prev.surfaceRight;
+            pt.surfaceWidthLeft = prev.surfaceWidthLeft; pt.surfaceWidthRight = prev.surfaceWidthRight;
+            pt.barrierLeft = prev.barrierLeft; pt.barrierRight = prev.barrierRight;
+        }
+        this.controlPoints.splice(index, 0, pt);
+        this._shiftIndices(index, 1);
         return pt;
     }
-    removeControlPoint(id) { this.controlPoints = this.controlPoints.filter(p => p.id !== id); if (this.controlPoints.length < 3) this.isClosed = false; }
+    addControlPoint(x, y) { return this.insertControlPoint(x, y, this.controlPoints.length); }
+    removeControlPoint(id) { 
+        const index = this.controlPoints.findIndex(p => p.id === id);
+        if (index === -1) return;
+        this.controlPoints.splice(index, 1);
+        if (this.controlPoints.length < 3) this.isClosed = false; 
+        this._shiftIndices(index, -1);
+    }
+    _shiftIndices(index, amount) {
+        this.turnMarkers.forEach(tm => { if (tm.segIndex >= index) tm.segIndex += amount; });
+        this.zones.forEach(z => { 
+            if (z.segIndex >= index) z.segIndex += amount; 
+            if (z.range && z.endSegIndex >= index) z.endSegIndex += amount;
+        });
+    }
     getPointById(id) { return this.controlPoints.find(p => p.id === id) || null; }
 
     closeTrack() {

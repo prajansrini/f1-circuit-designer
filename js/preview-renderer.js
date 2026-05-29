@@ -24,7 +24,11 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.arrowImg.src = 'resources/arrow.png';
         this.stripsImg = new Image();
         this.stripsImg.src = 'resources/strips.png';
+        this.userScale = 1; this.userOx = 0; this.userOy = 0;
     }
+    zoom(d, sx, sy) { this.userScale *= (d > 0 ? 0.92 : 1.08); this.userScale = Math.max(0.1, Math.min(10, this.userScale)); }
+    pan(dx, dy) { this.userOx += dx; this.userOy += dy; }
+    fitToScreen() { this.userScale = 1; this.userOx = 0; this.userOy = 0; }
     resize() { const c = this.canvas.parentElement; this.canvas.width = c.clientWidth; this.canvas.height = c.clientHeight; }
 
     _getOutsideSgn(p, data) {
@@ -42,7 +46,8 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); if (this.layers.direction) this._startFinish(ctx, track, data, tf); }
+        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); }
+        this._startFinish(ctx, track, data, tf);
         if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
         if (this.layers.garages) this._garages(ctx, data, tf);
@@ -66,11 +71,11 @@ F1.PreviewRenderer = class PreviewRenderer {
         for (const p of data.pitLane.points) { minX = Math.min(minX, p.x - 25); maxX = Math.max(maxX, p.x + 25); minY = Math.min(minY, p.y - 25); maxY = Math.max(maxY, p.y + 25); }
         const margin = 80, scaleX = (W - margin * 2) / (maxX - minX || 1), scaleY = (H - margin * 2) / (maxY - minY || 1), scale = Math.min(scaleX, scaleY);
         const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-        return { scale, toScreen: (wx, wy) => ({ x: wx * scale + W / 2 - cx * scale, y: wy * scale + H / 2 - cy * scale }) };
+        return { scale: scale * this.userScale, toScreen: (wx, wy) => ({ x: wx * scale * this.userScale + W / 2 - cx * scale * this.userScale + this.userOx, y: wy * scale * this.userScale + H / 2 - cy * scale * this.userScale + this.userOy }) };
     }
 
     _trackBase(ctx, track, tf) {
-        ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = Math.max(16, 20 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#111111'; ctx.lineWidth = Math.max(16, 20 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = tf.toScreen(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
 
@@ -139,47 +144,51 @@ F1.PreviewRenderer = class PreviewRenderer {
         const angle = Math.atan2(p2.y - p.y, p2.x - p.x);
 
         // Checkered flag spanning track width, aligned with direction
-        const l = tf.toScreen(p.x + p.nx * p.widthLeft, p.y + p.ny * p.widthLeft);
-        const r = tf.toScreen(p.x - p.nx * p.widthRight, p.y - p.ny * p.widthRight);
+        if (this.layers.chequeredFlag !== false) {
+            const l = tf.toScreen(p.x + p.nx * p.widthLeft, p.y + p.ny * p.widthLeft);
+            const r = tf.toScreen(p.x - p.nx * p.widthRight, p.y - p.ny * p.widthRight);
 
-        if (this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
-            ctx.save();
-            const s = tf.toScreen(p.x, p.y);
-            ctx.translate(s.x, s.y);
-            ctx.rotate(angle + Math.PI / 2);
-            const tw = (p.widthLeft + p.widthRight) * tf.scale;
-            const th = 8 * tf.scale;
-            ctx.drawImage(this.chequeredImg, -tw / 2, -th / 2, tw, th);
-            ctx.restore();
-        } else {
-            // Procedural checkered fallback
-            const dx = r.x - l.x, dy = r.y - l.y, len = Math.hypot(dx, dy);
-            if (len > 2) {
-                const ux = dx / len, uy = dy / len, px = -uy, py = ux;
-                const checks = Math.max(6, Math.round(len / 4)), cw = len / checks;
-                const ch = Math.max(3, 5 * tf.scale);
-                for (let row = 0; row < 2; row++)for (let col = 0; col < checks; col++) {
-                    ctx.fillStyle = (row + col) % 2 === 0 ? '#fff' : '#000';
-                    ctx.fillRect(l.x + ux * col * cw + px * row * ch, l.y + uy * col * cw + py * row * ch, cw + .5, ch + .5);
+            if (this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
+                ctx.save();
+                const s = tf.toScreen(p.x, p.y);
+                ctx.translate(s.x, s.y);
+                ctx.rotate(angle + Math.PI / 2);
+                const tw = (p.widthLeft + p.widthRight) * tf.scale;
+                const th = 8 * tf.scale;
+                ctx.drawImage(this.chequeredImg, -tw / 2, -th / 2, tw, th);
+                ctx.restore();
+            } else {
+                // Procedural checkered fallback
+                const dx = r.x - l.x, dy = r.y - l.y, len = Math.hypot(dx, dy);
+                if (len > 2) {
+                    const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+                    const checks = Math.max(6, Math.round(len / 4)), cw = len / checks;
+                    const ch = Math.max(3, 5 * tf.scale);
+                    for (let row = 0; row < 2; row++)for (let col = 0; col < checks; col++) {
+                        ctx.fillStyle = (row + col) % 2 === 0 ? '#fff' : '#000';
+                        ctx.fillRect(l.x + ux * col * cw + px * row * ch, l.y + uy * col * cw + py * row * ch, cw + .5, ch + .5);
+                    }
                 }
             }
         }
 
         // Direction arrow — half size, right next to checkered flag
-        const ai = Math.min(1, track.length - 2);
-        const ap = track[ai], anp = track[ai + 1];
-        const as = tf.toScreen(ap.x, ap.y);
-        const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
-        if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
-            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
-            const ar = Math.max(6, 7 * tf.scale);
-            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
-        } else {
-            const ar = Math.max(5, 6 * tf.scale);
-            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
-            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
+        if (this.layers.directionArrow !== false) {
+            const ai = Math.min(1, track.length - 2);
+            const ap = track[ai], anp = track[ai + 1];
+            const as = tf.toScreen(ap.x, ap.y);
+            const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
+            if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
+                ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
+                const ar = Math.max(6, 7 * tf.scale);
+                ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
+            } else {
+                const ar = Math.max(5, 6 * tf.scale);
+                ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
+                ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
+            }
         }
     }
 

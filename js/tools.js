@@ -454,6 +454,21 @@ class DrawTrackTool extends BaseTool {
     }
 }
 
+/* ---- Insert Node ---- */
+class NodeTool extends BaseTool {
+    getCursor() { return 'crosshair'; }
+    onMouseDown(wx, wy) {
+        if (!this.data.isClosed) return;
+        const n = this.editor.findNearestTrackPoint(wx, wy);
+        if (n.point && n.dist < 30 / this.renderer.scale) {
+            this.data.snapshot();
+            const pt = this.data.insertControlPoint(wx, wy, n.point.segIndex + 1);
+            this.app.setSelection({ type: 'cp', id: pt.id });
+            this.app.requestRender();
+        }
+    }
+}
+
 /* ---- Width (track + surface) ---- */
 class WidthTool extends BaseTool {
     constructor(app) { super(app); this.dragging = null; this.startY = 0; this.startW = 0; this.side = 'both'; this.mode = 'track'; }
@@ -707,6 +722,12 @@ class ZoneTool extends BaseTool {
     deactivate() { this._placingRange = null; this.dragging = null; }
 }
 
+/* ---- Straight Mode Zone ---- */
+class StraightModeTool extends ZoneTool {
+    constructor(app) { super(app); this.zoneType = 'straight_mode'; }
+    onMouseDown(wx, wy) { this.zoneType = 'straight_mode'; super.onMouseDown(wx, wy); }
+}
+
 /* ---- Garage ---- */
 class GarageTool extends BaseTool {
     constructor(app) { super(app); this.dragging = null; this.rotatingG = null; }
@@ -768,4 +789,4 @@ class EraserTool extends BaseTool {
     }
 }
 
-F1.Tools = { SelectTool, DrawTrackTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, GarageTool, EraserTool, TurnTool };
+F1.Tools = { SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };
