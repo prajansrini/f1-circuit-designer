@@ -85,66 +85,48 @@ F1.PreviewRenderer = class PreviewRenderer {
         }
     }
 
-    /* Straight mode: red dashes ONE side only (left/outside by default) using strips.png */
+    /* Straight mode: red dashes close to track edge using strips.png */
     _straightModeZones(ctx, data, editor, track, tf) {
+        const firstSMZ = data.zones.find(z => z.type === 'straight_mode');
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
             const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
             const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
             const lo = Math.min(si, ei), hi = Math.max(si, ei);
-
-            for (let i = lo; i <= Math.min(hi, track.length - 1); i += 2) {
+            const spacing = zone.stripSpacing || 2;
+            const sw = zone.stripWidth || 5;
+            for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
                 const p = track[i];
                 const sgn = this._getOutsideSgn(p, data) * (zone.side === 'inside' ? -1 : 1);
                 const w = sgn > 0 ? p.widthLeft : p.widthRight;
-                const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
-                const offset = w + sw + 4; // adjacent to barrier
-
-                const wx = p.x + p.nx * offset * sgn;
-                const wy = p.y + p.ny * offset * sgn;
-                const s = tf.toScreen(wx, wy);
-
-                ctx.save();
-                ctx.translate(s.x, s.y);
-                ctx.rotate(Math.atan2(p.ny, p.nx));
+                const offset = w + 4;
+                const s = tf.toScreen(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
+                ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
                 if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                    ctx.drawImage(this.stripsImg, -8 * tf.scale, -4 * tf.scale, 16 * tf.scale, 8 * tf.scale);
+                    ctx.drawImage(this.stripsImg, -sw * tf.scale, -sw * 0.5 * tf.scale, sw * 2 * tf.scale, sw * tf.scale);
                 } else {
                     ctx.fillStyle = '#ff1801';
-                    ctx.fillRect(-8 * tf.scale, -3 * tf.scale, 16 * tf.scale, 6 * tf.scale);
+                    ctx.fillRect(-sw * tf.scale, -sw * 0.3 * tf.scale, sw * 2 * tf.scale, sw * 0.6 * tf.scale);
                 }
                 ctx.restore();
             }
-
-            // Label ONCE — rotated along track at midpoint
-            const midIdx = Math.floor((lo + hi) / 2);
-            const pMid = track[midIdx];
-            if (pMid) {
-                const sgn = this._getOutsideSgn(pMid, data) * (zone.side === 'inside' ? -1 : 1);
-                const w = sgn > 0 ? pMid.widthLeft : pMid.widthRight;
-                const sw = sgn > 0 ? (pMid.surfaceWidthLeft || 10) : (pMid.surfaceWidthRight || 10);
-                const offset = w + sw + 28;
-
-                const wx = pMid.x + pMid.nx * offset * sgn;
-                const wy = pMid.y + pMid.ny * offset * sgn;
-                const s = tf.toScreen(wx, wy);
-
-                ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
-                const text = "STRAIGHT MODE ZONE";
-                const tw = ctx.measureText(text).width + 16, th = 20;
-
-                ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-                ctx.beginPath();
-                ctx.roundRect(s.x - tw / 2, s.y - th / 2, tw, th, 4);
-                ctx.fill();
-
-                ctx.strokeStyle = '#ff1801';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-
-                ctx.fillStyle = '#fff';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(text, s.x, s.y);
+            if (zone === firstSMZ) {
+                const midIdx = Math.floor((lo + hi) / 2);
+                const pMid = track[midIdx];
+                if (pMid) {
+                    const sMid = tf.toScreen(pMid.x, pMid.y);
+                    const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
+                    const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
+                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
+                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+                    ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
+                    const text = "STRAIGHT MODE ZONE";
+                    const tw = ctx.measureText(text).width + 16, th = 22;
+                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+                    ctx.restore();
+                }
             }
         });
     }
@@ -182,29 +164,21 @@ F1.PreviewRenderer = class PreviewRenderer {
             }
         }
 
-        // Direction arrow in circle, right next to checkered flag (a few points ahead)
-        const ai = Math.min(4, track.length - 2);
+        // Direction arrow — half size, right next to checkered flag
+        const ai = Math.min(1, track.length - 2);
         const ap = track[ai], anp = track[ai + 1];
         const as = tf.toScreen(ap.x, ap.y);
         const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
-
         if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
-            ctx.save();
-            ctx.translate(as.x, as.y);
-            ctx.rotate(aAngle);
-            const ar = Math.max(12, 14 * tf.scale);
-            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2);
-            ctx.restore();
-        } else {
-            const ar = Math.max(10, 12 * tf.scale);
-            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-            // White arrow triangle
             ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
-            ctx.fillStyle = '#fff'; ctx.beginPath();
-            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill();
-            ctx.restore();
+            const ar = Math.max(6, 7 * tf.scale);
+            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
+        } else {
+            const ar = Math.max(5, 6 * tf.scale);
+            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
+            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
         }
     }
 
@@ -248,19 +222,18 @@ F1.PreviewRenderer = class PreviewRenderer {
             const wx = p.x + p.nx * offset * sgn;
             const wy = p.y + p.ny * offset * sgn;
             const s = tf.toScreen(wx, wy);
-
-            ctx.beginPath(); ctx.arc(s.x, s.y, 11 * tf.scale, 0, Math.PI * 2);
+            ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
+            ctx.beginPath(); ctx.arc(0, 0, 11 * tf.scale, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff'; ctx.fill();
             ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5; ctx.stroke();
-
             ctx.fillStyle = '#000'; ctx.font = `bold ${Math.max(10, 11 * tf.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(tm.label, s.x, s.y);
-
+            ctx.fillText(tm.label, 0, 0);
             if (tm.name) {
                 ctx.fillStyle = '#fff'; ctx.font = `normal ${Math.max(8, 9 * tf.scale)}px Outfit`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(tm.name.toUpperCase(), s.x, s.y - 16 * tf.scale);
+                ctx.fillText(tm.name.toUpperCase(), 0, -16 * tf.scale);
             }
+            ctx.restore();
         });
     }
 
@@ -286,18 +259,12 @@ F1.PreviewRenderer = class PreviewRenderer {
             ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
             const tw = ctx.measureText(text).width + 16, th = 22;
 
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-            ctx.beginPath();
-            ctx.roundRect(lx - tw / 2, ly - th / 2, tw, th, 4);
-            ctx.fill();
-
+            ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
+            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(text, lx, ly);
+            ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.restore();
         });
     }
 
@@ -330,18 +297,11 @@ F1.PreviewRenderer = class PreviewRenderer {
             const text = zone.label.toUpperCase();
             const tw = ctx.measureText(text).width + 16, th = 22;
 
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-            ctx.beginPath();
-            ctx.roundRect(lx - tw / 2, ly - th / 2, tw, th, 4);
-            ctx.fill();
-
-            ctx.strokeStyle = zt.color;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(text, lx, ly);
+            ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.restore();
         });
     }
 

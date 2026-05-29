@@ -30,14 +30,80 @@ class SelectTool extends BaseTool {
 
     _hitRotationHandle(wx, wy) {
         const sel = this.app.selection; if (!sel) return null;
-        let obj = null;
-        if (sel.type === 'grandstand') obj = this.data.getGrandstandById(sel.id);
-        else if (sel.type === 'garage') obj = this.data.getGarageById(sel.id);
-        if (!obj) return null;
-        const rad = (obj.rotation || 0) * Math.PI / 180;
-        const hd = ((obj.height || 16) / 2) + 20 / this.renderer.scale;
-        const hx = obj.x + Math.sin(rad) * -hd, hy = obj.y + Math.cos(rad) * hd;
-        return Math.hypot(wx - hx, wy - hy) < 15 / this.renderer.scale ? obj : null;
+        const thr = 15 / this.renderer.scale;
+        // Grandstand / Garage
+        if (sel.type === 'grandstand' || sel.type === 'garage') {
+            const obj = sel.type === 'grandstand' ? this.data.getGrandstandById(sel.id) : this.data.getGarageById(sel.id);
+            if (!obj) return null;
+            const rad = (obj.rotation || 0) * Math.PI / 180;
+            const hd = ((obj.height || 16) / 2) + 20 / this.renderer.scale;
+            const hx = obj.x, hy = obj.y - Math.cos(rad) * hd / this.renderer.scale;
+            // Use screen space for handle hit
+            const sObj = this.renderer.w2s(obj.x, obj.y);
+            const sHx = sObj.x + Math.sin(rad) * 0, sHy = sObj.y - Math.cos(rad) * (((obj.height || 16) * this.renderer.scale / 2) + 20);
+            const sWx = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sWx.x - sHx, sWx.y - sHy) < 12) return obj;
+            return null;
+        }
+        // Zone label
+        if (sel.type === 'zone') {
+            const zone = this.data.getZoneById(sel.id);
+            if (!zone) return null;
+            const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
+            let anchorX, anchorY;
+            if (zt && zt.range) {
+                if (zone !== this.data.zones.find(z => z.type === 'straight_mode')) return null;
+                const track = this.editor.getInterpolatedTrack();
+                const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const pMid = track[midIdx]; if (!pMid) return null;
+                anchorX = pMid.x; anchorY = pMid.y;
+            } else {
+                const pos = this.editor.getZoneWorldPos(zone); if (!pos) return null;
+                anchorX = pos.x; anchorY = pos.y;
+            }
+            const sA = this.renderer.w2s(anchorX, anchorY);
+            const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
+            const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
+            const rad = (zone.rotation || 0) * Math.PI / 180;
+            const hx = lx, hy = ly - Math.cos(rad) * 22;
+            const sW = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sW.x - hx, sW.y - hy) < 12) return zone;
+            return null;
+        }
+        // Sector label
+        if (sel.type === 'sector_label') {
+            const sl = this.data.sectorLabels.find(s => s.sector === sel.sector); if (!sl) return null;
+            const track = this.editor.getInterpolatedTrack();
+            const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return null;
+            const mid = pts[Math.floor(pts.length / 2)];
+            const sMid = this.renderer.w2s(mid.x, mid.y);
+            const lx = sMid.x + sl.labelOffsetX * this.renderer.scale;
+            const ly = sMid.y + sl.labelOffsetY * this.renderer.scale;
+            const rad = (sl.rotation || 0) * Math.PI / 180;
+            const hy = ly - Math.cos(rad) * 22;
+            const sW = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sW.x - lx, sW.y - hy) < 12) return sl;
+            return null;
+        }
+        // Turn marker
+        if (sel.type === 'turn') {
+            const tm = this.data.getTurnMarkerById(sel.id); if (!tm) return null;
+            const track = this.editor.getInterpolatedTrack();
+            const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
+            const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const offset = w + sw + 18 / this.renderer.scale;
+            const s = this.renderer.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
+            const rad = (tm.rotation || 0) * Math.PI / 180;
+            const hy = s.y - Math.cos(rad) * 22;
+            const sW = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sW.x - s.x, sW.y - hy) < 12) return tm;
+            return null;
+        }
+        return null;
     }
 
     onMouseDown(wx, wy) {
@@ -73,7 +139,26 @@ class SelectTool extends BaseTool {
             }
         }
 
-        // 4. Telemetry Zone Circles (Overtake Detection, Overtake Activation, Speed Trap)
+        // 4a. Straight mode zone label (first one, draggable)
+        const firstSMZ = this.data.zones.find(z => z.type === 'straight_mode');
+        if (firstSMZ) {
+            const si = firstSMZ.segIndex * this.editor.resolution + Math.floor(firstSMZ.t * this.editor.resolution);
+            const ei = firstSMZ.endSegIndex * this.editor.resolution + Math.floor(firstSMZ.endT * this.editor.resolution);
+            const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+            const pMid = track[midIdx];
+            if (pMid) {
+                const lx = pMid.x + (firstSMZ.labelOffsetX || 0);
+                const ly = pMid.y + (firstSMZ.labelOffsetY || 0);
+                if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) {
+                    this.data.snapshot();
+                    this.app.setSelection({ type: 'zone', id: firstSMZ.id });
+                    this.dragging = { type: 'zone_label', obj: firstSMZ, anchor: pMid };
+                    return;
+                }
+            }
+        }
+
+        // 4b. Telemetry Zone Circles (Overtake Detection, Overtake Activation, Speed Trap)
         for (const zone of this.data.zones) {
             const pos = this.editor.getZoneWorldPos(zone);
             if (!pos) continue;
@@ -152,8 +237,19 @@ class SelectTool extends BaseTool {
 
     onMouseMove(wx, wy) {
         if (this.rotatingObj) {
-            const a = Math.atan2(wx - this.rotatingObj.x, this.rotatingObj.y - wy) * 180 / Math.PI;
-            this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+            // For objects with direct x/y
+            if (this.rotatingObj.x !== undefined && this.rotatingObj.y !== undefined) {
+                const a = Math.atan2(wx - this.rotatingObj.x, this.rotatingObj.y - wy) * 180 / Math.PI;
+                this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+            } else if (this.rotatingObj.labelOffsetX !== undefined) {
+                // For labels, use screen center of the label
+                const s = this.renderer.w2s(wx, wy);
+                const rc = this._getRotatingCenter();
+                if (rc) {
+                    const a = Math.atan2(s.x - rc.x, rc.y - s.y) * 180 / Math.PI;
+                    this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+                }
+            }
             this.app.uiManager.updateProperties(); this.app.requestRender(); return;
         }
 
@@ -198,8 +294,85 @@ class SelectTool extends BaseTool {
         const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
         this.app.hoverPoint = cp;
         const rotObj = this._hitRotationHandle(wx, wy);
-        this.app.canvas.style.cursor = rotObj ? 'grab' : (cp ? 'pointer' : 'default');
+        if (rotObj) {
+            this.app.canvas.style.cursor = 'grab';
+        } else if (cp) {
+            this.app.canvas.style.cursor = 'pointer';
+        } else {
+            // Check if hovering over any selectable element for move cursor
+            let overElement = false;
+            const track = this.editor.getInterpolatedTrack();
+            for (const zone of this.data.zones) {
+                const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
+                if (zt && zt.range) continue;
+                const pos = this.editor.getZoneWorldPos(zone);
+                if (pos && Math.hypot(wx - (pos.x + zone.labelOffsetX), wy - (pos.y + zone.labelOffsetY)) < 25 / this.renderer.scale) { overElement = true; break; }
+            }
+            if (!overElement) {
+                for (const sl of this.data.sectorLabels) {
+                    const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) continue;
+                    const mid = pts[Math.floor(pts.length / 2)];
+                    if (Math.hypot(wx - (mid.x + sl.labelOffsetX), wy - (mid.y + sl.labelOffsetY)) < 25 / this.renderer.scale) { overElement = true; break; }
+                }
+            }
+            if (!overElement) {
+                for (const tm of this.data.turnMarkers) {
+                    const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+                    const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
+                    const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+                    const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+                    const offset = w + sw + 18 / this.renderer.scale;
+                    const tmx = p.x + p.nx * offset * sgn, tmy = p.y + p.ny * offset * sgn;
+                    if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) { overElement = true; break; }
+                }
+            }
+            if (!overElement) {
+                for (const g of this.data.garages) { if (Math.hypot(g.x - wx, g.y - wy) < 30 / this.renderer.scale) { overElement = true; break; } }
+            }
+            if (!overElement) {
+                const gs = this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale);
+                if (gs) overElement = true;
+            }
+            this.app.canvas.style.cursor = overElement ? 'move' : 'default';
+        }
         this.app.requestRender();
+    }
+
+    _getRotatingCenter() {
+        const sel = this.app.selection; if (!sel) return null;
+        if (sel.type === 'sector_label') {
+            const sl = this.data.sectorLabels.find(s => s.sector === sel.sector); if (!sl) return null;
+            const track = this.editor.getInterpolatedTrack();
+            const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return null;
+            const mid = pts[Math.floor(pts.length / 2)]; const sMid = this.renderer.w2s(mid.x, mid.y);
+            return { x: sMid.x + sl.labelOffsetX * this.renderer.scale, y: sMid.y + sl.labelOffsetY * this.renderer.scale };
+        }
+        if (sel.type === 'zone') {
+            const zone = this.data.getZoneById(sel.id); if (!zone) return null;
+            const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
+            if (zt && zt.range) {
+                const track = this.editor.getInterpolatedTrack();
+                const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const pMid = track[midIdx]; if (!pMid) return null;
+                const sMid = this.renderer.w2s(pMid.x, pMid.y);
+                return { x: sMid.x + (zone.labelOffsetX || 0) * this.renderer.scale, y: sMid.y + (zone.labelOffsetY || 0) * this.renderer.scale };
+            }
+            const pos = this.editor.getZoneWorldPos(zone); if (!pos) return null;
+            const s = this.renderer.w2s(pos.x, pos.y);
+            return { x: s.x + zone.labelOffsetX * this.renderer.scale, y: s.y + zone.labelOffsetY * this.renderer.scale };
+        }
+        if (sel.type === 'turn') {
+            const tm = this.data.getTurnMarkerById(sel.id); if (!tm) return null;
+            const track = this.editor.getInterpolatedTrack();
+            const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
+            const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            return this.renderer.w2s(p.x + p.nx * (w + sw + 18 / this.renderer.scale) * sgn, p.y + p.ny * (w + sw + 18 / this.renderer.scale) * sgn);
+        }
+        return null;
     }
 
     onMouseUp() { this.dragging = null; this.rotatingObj = null; }

@@ -49,20 +49,21 @@ F1.Renderer = class Renderer {
     }
 
     render(data, editor, sel, hoverPt, activeTool) {
+        this._editor = editor;
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
         ctx.fillStyle = this.C.bg; ctx.fillRect(0, 0, W, H);
         if (this.showGrid) this._grid();
         const track = editor.getInterpolatedTrack();
         if (track.length > 1) {
             this._surfaces(track); this._trackSurface(track); this._sectorStripes(track);
-            this._barriers(track); this._straightModeZones(data, editor, track);
+            this._barriers(track); this._straightModeZones(data, editor, track, sel);
             this._startFinish(track, data);
         }
         this._pitLane(editor); this._garages(data, sel); this._grandstands(data, sel);
         this._zones(data, editor, sel); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
-        this._rotationHandles(data, sel);
+        this._rotationHandles(data, editor, sel);
     }
 
     _grid() {
@@ -130,67 +131,51 @@ F1.Renderer = class Renderer {
         ctx.stroke();
     }
 
-    /* Straight Mode - red dashes on configured side (outside by default) using strips.png */
-    _straightModeZones(data, editor, track) {
+    /* Straight Mode - red dashes close to track edge using strips.png */
+    _straightModeZones(data, editor, track, sel) {
         const ctx = this.ctx;
+        const firstSMZ = data.zones.find(z => z.type === 'straight_mode');
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
             const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
             const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
             const lo = Math.min(si, ei), hi = Math.max(si, ei);
-
-            for (let i = lo; i <= Math.min(hi, track.length - 1); i += 2) {
+            const spacing = zone.stripSpacing || 2;
+            const sw = zone.stripWidth || 5;
+            for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
                 const p = track[i];
                 const sgn = this._getOutsideSgn(p, data) * (zone.side === 'inside' ? -1 : 1);
                 const w = sgn > 0 ? p.widthLeft : p.widthRight;
-                const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
-                const offset = w + sw + 4; // adjacent to barrier
-
-                const wx = p.x + p.nx * offset * sgn;
-                const wy = p.y + p.ny * offset * sgn;
-                const s = this.w2s(wx, wy);
-
-                ctx.save();
-                ctx.translate(s.x, s.y);
-                ctx.rotate(Math.atan2(p.ny, p.nx));
+                const offset = w + 4;
+                const s = this.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
+                ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
                 if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                    ctx.drawImage(this.stripsImg, -8 * this.scale, -4 * this.scale, 16 * this.scale, 8 * this.scale);
+                    ctx.drawImage(this.stripsImg, -sw * this.scale, -sw * 0.5 * this.scale, sw * 2 * this.scale, sw * this.scale);
                 } else {
                     ctx.fillStyle = '#ff1801';
-                    ctx.fillRect(-8 * this.scale, -3 * this.scale, 16 * this.scale, 6 * this.scale);
+                    ctx.fillRect(-sw * this.scale, -sw * 0.3 * this.scale, sw * 2 * this.scale, sw * 0.6 * this.scale);
                 }
                 ctx.restore();
             }
-
-            // Draw single STRAIGHT MODE ZONE label centered along the zone
-            const midIdx = Math.floor((lo + hi) / 2);
-            const pMid = track[midIdx];
-            if (pMid) {
-                const sgn = this._getOutsideSgn(pMid, data) * (zone.side === 'inside' ? -1 : 1);
-                const w = sgn > 0 ? pMid.widthLeft : pMid.widthRight;
-                const sw = sgn > 0 ? (pMid.surfaceWidthLeft || 10) : (pMid.surfaceWidthRight || 10);
-                const offset = w + sw + 28;
-
-                const wx = pMid.x + pMid.nx * offset * sgn;
-                const wy = pMid.y + pMid.ny * offset * sgn;
-                const s = this.w2s(wx, wy);
-
-                ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
-                const text = "STRAIGHT MODE ZONE";
-                const tw = ctx.measureText(text).width + 16, th = 20;
-
-                ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-                ctx.beginPath();
-                ctx.roundRect(s.x - tw / 2, s.y - th / 2, tw, th, 4);
-                ctx.fill();
-
-                ctx.strokeStyle = '#ff1801';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-
-                ctx.fillStyle = '#fff';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(text, s.x, s.y);
+            // Single draggable/rotatable label on first straight mode zone only
+            if (zone === firstSMZ) {
+                const midIdx = Math.floor((lo + hi) / 2);
+                const pMid = track[midIdx];
+                if (pMid) {
+                    const sMid = this.w2s(pMid.x, pMid.y);
+                    const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
+                    const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
+                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
+                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+                    const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
+                    ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
+                    const text = "STRAIGHT MODE ZONE";
+                    const tw = ctx.measureText(text).width + 16, th = 22;
+                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+                    ctx.strokeStyle = isSel ? '#00ff88' : '#ff1801'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+                    ctx.restore();
+                }
             }
         });
     }
@@ -228,29 +213,21 @@ F1.Renderer = class Renderer {
             }
         }
 
-        // Direction arrow in circle, right next to checkered flag (a few points ahead)
-        const ai = Math.min(4, track.length - 2);
+        // Direction arrow — half size, right next to checkered flag
+        const ai = Math.min(1, track.length - 2);
         const ap = track[ai], anp = track[ai + 1];
         const as = this.w2s(ap.x, ap.y);
         const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
-
         if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
-            ctx.save();
-            ctx.translate(as.x, as.y);
-            ctx.rotate(aAngle);
-            const ar = Math.max(12, 14 * this.scale);
-            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2);
-            ctx.restore();
-        } else {
-            const ar = Math.max(10, 12 * this.scale);
-            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-            // White arrow triangle
             ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
-            ctx.fillStyle = '#fff'; ctx.beginPath();
-            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill();
-            ctx.restore();
+            const ar = Math.max(6, 7 * this.scale);
+            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
+        } else {
+            const ar = Math.max(5, 6 * this.scale);
+            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
+            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
         }
     }
 
@@ -296,17 +273,60 @@ F1.Renderer = class Renderer {
         });
     }
 
-    _rotationHandles(data, sel) {
-        if (!sel || (sel.type !== 'grandstand' && sel.type !== 'garage')) return;
-        const obj = sel.type === 'grandstand' ? data.getGrandstandById(sel.id) : data.getGarageById(sel.id);
-        if (!obj) return;
-        const ctx = this.ctx, s = this.w2s(obj.x, obj.y);
-        const rad = (obj.rotation || 0) * Math.PI / 180, hd = ((obj.height || 16) * this.scale / 2) + 20;
-        const hx = s.x + Math.sin(rad) * -hd, hy = s.y + Math.cos(rad) * hd;
+    _drawRotHandle(cx, cy, rad, dist) {
+        const ctx = this.ctx;
+        const hx = cx + Math.sin(rad) * 0, hy = cy - Math.cos(rad) * dist;
         ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(hx, hy); ctx.stroke(); ctx.setLineDash([]);
-        ctx.beginPath(); ctx.arc(hx, hy, 8, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,255,136,0.3)'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(hx, hy); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,255,136,0.3)'; ctx.fill();
         ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    _rotationHandles(data, editor, sel) {
+        if (!sel) return;
+        if (sel.type === 'grandstand' || sel.type === 'garage') {
+            const obj = sel.type === 'grandstand' ? data.getGrandstandById(sel.id) : data.getGarageById(sel.id);
+            if (!obj) return;
+            const s = this.w2s(obj.x, obj.y);
+            this._drawRotHandle(s.x, s.y, (obj.rotation || 0) * Math.PI / 180, ((obj.height || 16) * this.scale / 2) + 20);
+        } else if (sel.type === 'zone') {
+            const zone = data.getZoneById(sel.id);
+            if (!zone) return;
+            const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
+            if (zt && zt.range) {
+                if (zone !== data.zones.find(z => z.type === 'straight_mode')) return;
+                const track = editor.getInterpolatedTrack();
+                const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
+                const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
+                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const pMid = track[midIdx]; if (!pMid) return;
+                const sMid = this.w2s(pMid.x, pMid.y);
+                const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
+                const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
+                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, 22);
+            } else {
+                const pos = editor.getZoneWorldPos(zone); if (!pos) return;
+                const s = this.w2s(pos.x, pos.y);
+                const lx = s.x + zone.labelOffsetX * this.scale, ly = s.y + zone.labelOffsetY * this.scale;
+                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, 22);
+            }
+        } else if (sel.type === 'sector_label') {
+            const sl = data.sectorLabels.find(s => s.sector === sel.sector); if (!sl) return;
+            const track = editor.getInterpolatedTrack();
+            const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return;
+            const mid = pts[Math.floor(pts.length / 2)]; const sMid = this.w2s(mid.x, mid.y);
+            const lx = sMid.x + sl.labelOffsetX * this.scale, ly = sMid.y + sl.labelOffsetY * this.scale;
+            this._drawRotHandle(lx, ly, (sl.rotation || 0) * Math.PI / 180, 22);
+        } else if (sel.type === 'turn') {
+            const tm = data.getTurnMarkerById(sel.id); if (!tm) return;
+            const track = editor.getInterpolatedTrack();
+            const idx = tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)]; if (!p) return;
+            const sgn = this._getOutsideSgn(p, data); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+            const sw2 = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const s = this.w2s(p.x + p.nx * (w + sw2 + 18 / this.scale) * sgn, p.y + p.ny * (w + sw2 + 18 / this.scale) * sgn);
+            this._drawRotHandle(s.x, s.y, (tm.rotation || 0) * Math.PI / 180, 22);
+        }
     }
 
     _zones(data, editor, sel) {
@@ -358,24 +378,16 @@ F1.Renderer = class Renderer {
             ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(lx, ly); ctx.stroke();
 
-            // Label text and box
+            // Rotatable label
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
             ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
             const text = zone.label.toUpperCase();
             const tw = ctx.measureText(text).width + 16, th = 22;
-
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-            ctx.beginPath();
-            ctx.roundRect(lx - tw / 2, ly - th / 2, tw, th, 4);
-            ctx.fill();
-
-            ctx.strokeStyle = isSel ? '#00ff88' : zt.color;
-            ctx.lineWidth = isSel ? 2 : 1.5;
-            ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(text, lx, ly);
+            ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.strokeStyle = isSel ? '#00ff88' : zt.color; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.restore();
         });
     }
 
@@ -398,24 +410,17 @@ F1.Renderer = class Renderer {
             ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
             ctx.setLineDash([]);
 
-            // Label container
+            // Rotatable label container
             const text = `SECTOR ${sl.sector}`;
             ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
             const tw = ctx.measureText(text).width + 16, th = 22;
             const isSel = sel && sel.type === 'sector_label' && sel.sector === sl.sector;
-
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)';
-            ctx.beginPath();
-            ctx.roundRect(lx - tw / 2, ly - th / 2, tw, th, 4);
-            ctx.fill();
-
-            ctx.strokeStyle = isSel ? '#00ff88' : ctx.strokeStyle;
-            ctx.lineWidth = isSel ? 2 : 1.5;
-            ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(text, lx, ly);
+            const sColor = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
+            ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
+            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.strokeStyle = isSel ? '#00ff88' : sColor; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.restore();
         });
     }
 
@@ -436,18 +441,18 @@ F1.Renderer = class Renderer {
             const s = this.w2s(wx, wy);
 
             const isSel = sel && sel.type === 'turn' && sel.id === tm.id;
-            ctx.beginPath(); ctx.arc(s.x, s.y, 11 * this.scale, 0, Math.PI * 2);
+            ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
+            ctx.beginPath(); ctx.arc(0, 0, 11 * this.scale, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff'; ctx.fill();
             ctx.strokeStyle = isSel ? '#00ff88' : '#000000'; ctx.lineWidth = isSel ? 2.5 : 1.5; ctx.stroke();
-
             ctx.fillStyle = '#000'; ctx.font = `bold ${Math.max(10, 11 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(tm.label, s.x, s.y);
-
+            ctx.fillText(tm.label, 0, 0);
             if (tm.name) {
                 ctx.fillStyle = '#fff'; ctx.font = `normal ${Math.max(8, 9 * this.scale)}px Outfit`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(tm.name.toUpperCase(), s.x, s.y - 16 * this.scale);
+                ctx.fillText(tm.name.toUpperCase(), 0, -16 * this.scale);
             }
+            ctx.restore();
         });
     }
 
