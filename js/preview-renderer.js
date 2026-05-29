@@ -42,7 +42,8 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); this._straightModeZones(ctx, data, editor, track, tf); if (this.layers.direction) this._startFinish(ctx, track, data, tf); }
+        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); if (this.layers.direction) this._startFinish(ctx, track, data, tf); }
+        if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
         if (this.layers.garages) this._garages(ctx, data, tf);
         if (this.layers.grandstands) this._grandstands(ctx, data, tf);
@@ -76,7 +77,7 @@ F1.PreviewRenderer = class PreviewRenderer {
     _sectorEdges(ctx, track, tf) {
         const lw = Math.max(4, 5 * tf.scale);
         for (let i = 1; i < track.length; i++) {
-            const sec = track[i].sector;
+            const sec = track[i - 1].sector;
             if (sec === 0) continue;
             ctx.strokeStyle = this.sectorColors[sec] || '#555';
             ctx.lineWidth = lw; ctx.lineCap = 'round';

@@ -112,7 +112,7 @@ F1.Renderer = class Renderer {
     _sectorStripes(track) {
         const ctx = this.ctx, sw = Math.max(2, 3 * this.scale);
         for (let i = 1; i < track.length; i++) {
-            const sec = track[i].sector; if (sec === 0) continue;
+            const sec = track[i - 1].sector; if (sec === 0) continue;
             ctx.strokeStyle = sec === 1 ? this.C.s1 : sec === 2 ? this.C.s2 : this.C.s3;
             ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
             const a = this.w2s(track[i - 1].x + track[i - 1].nx * (track[i - 1].widthLeft + 2), track[i - 1].y + track[i - 1].ny * (track[i - 1].widthLeft + 2));

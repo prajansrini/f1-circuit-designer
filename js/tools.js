@@ -393,8 +393,26 @@ class SelectTool extends BaseTool {
 
 /* ---- Turn Placement Tool ---- */
 class TurnTool extends BaseTool {
+    constructor(app) { super(app); this.dragging = null; }
     getCursor() { return 'crosshair'; }
+
+    _hitExisting(wx, wy) {
+        const track = this.editor.getInterpolatedTrack();
+        for (const tm of this.data.turnMarkers) {
+            const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
+            const sgn = this.app.tools.select._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const offset = w + sw + 18 / this.renderer.scale;
+            const tmx = p.x + p.nx * offset * sgn, tmy = p.y + p.ny * offset * sgn;
+            if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) return tm;
+        }
+        return null;
+    }
+
     onMouseDown(wx, wy) {
+        const ex = this._hitExisting(wx, wy);
+        if (ex) { this.data.snapshot(); this.app.setSelection({ type: 'turn', id: ex.id }); this.dragging = ex; return; }
         const n = this.editor.findNearestTrackPoint(wx, wy);
         if (!n.point || n.dist > 60 / this.renderer.scale) return;
         this.data.snapshot();
@@ -403,6 +421,17 @@ class TurnTool extends BaseTool {
         this.app.setSelection({ type: 'turn', id: tm.id });
         this.app.requestRender();
     }
+
+    onMouseMove(wx, wy) {
+        if (this.dragging) {
+            const n = this.editor.findNearestTrackPoint(wx, wy);
+            if (n.point) { this.dragging.segIndex = n.point.segIndex; this.dragging.t = n.point.t; }
+            this.app.requestRender(); return;
+        }
+        const ex = this._hitExisting(wx, wy);
+        this.app.canvas.style.cursor = ex ? 'move' : 'crosshair';
+    }
+    onMouseUp() { this.dragging = null; }
 }
 
 /* ---- Draw Track ---- */
@@ -497,15 +526,47 @@ class BarrierPainterTool extends BaseTool {
 
 /* ---- Sector ---- */
 class SectorTool extends BaseTool {
-    constructor(app) { super(app); this.currentSector = 1; this.painting = false; }
+    constructor(app) { super(app); this.currentSector = 1; this.painting = false; this.dragging = null; }
     getCursor() { return 'pointer'; }
+
+    _hitExisting(wx, wy) {
+        const track = this.editor.getInterpolatedTrack();
+        for (const sl of this.data.sectorLabels) {
+            const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) continue;
+            const mid = pts[Math.floor(pts.length / 2)];
+            if (Math.hypot(wx - (mid.x + sl.labelOffsetX), wy - (mid.y + sl.labelOffsetY)) < 25 / this.renderer.scale) {
+                return { sl, anchor: mid };
+            }
+        }
+        return null;
+    }
+
     _apply(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
         if (cp) { cp.sector = this.currentSector; this.app.requestRender(); }
     }
-    onMouseDown(wx, wy) { this.data.snapshot(); this.painting = true; this._apply(wx, wy); }
-    onMouseMove(wx, wy) { if (this.painting) this._apply(wx, wy); }
-    onMouseUp() { this.painting = false; }
+    onMouseDown(wx, wy) {
+        const hit = this._hitExisting(wx, wy);
+        if (hit) {
+            this.data.snapshot();
+            this.app.setSelection({ type: 'sector_label', sector: hit.sl.sector });
+            this.dragging = hit; return;
+        }
+        this.data.snapshot(); this.painting = true; this._apply(wx, wy);
+    }
+    onMouseMove(wx, wy) {
+        if (this.dragging) {
+            this.dragging.sl.labelOffsetX = wx - this.dragging.anchor.x;
+            this.dragging.sl.labelOffsetY = wy - this.dragging.anchor.y;
+            this.app.requestRender(); return;
+        }
+        if (this.painting) this._apply(wx, wy);
+        else {
+            const ex = this._hitExisting(wx, wy);
+            this.app.canvas.style.cursor = ex ? 'move' : 'pointer';
+        }
+    }
+    onMouseUp() { this.painting = false; this.dragging = null; }
 }
 
 /* ---- Pit Lane ---- */
@@ -567,9 +628,42 @@ class GrandstandTool extends BaseTool {
 
 /* ---- Zone Placement ---- */
 class ZoneTool extends BaseTool {
-    constructor(app) { super(app); this.zoneType = 'straight_mode'; this._placingRange = null; }
+    constructor(app) { super(app); this.zoneType = 'straight_mode'; this._placingRange = null; this.dragging = null; }
     getCursor() { return 'crosshair'; }
+
+    _hitExisting(wx, wy) {
+        // SMZ Label
+        const firstSMZ = this.data.zones.find(z => z.type === 'straight_mode');
+        if (firstSMZ) {
+            const track = this.editor.getInterpolatedTrack();
+            const si = firstSMZ.segIndex * this.editor.resolution + Math.floor(firstSMZ.t * this.editor.resolution);
+            const ei = firstSMZ.endSegIndex * this.editor.resolution + Math.floor(firstSMZ.endT * this.editor.resolution);
+            const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+            const pMid = track[midIdx];
+            if (pMid) {
+                const lx = pMid.x + (firstSMZ.labelOffsetX || 0), ly = pMid.y + (firstSMZ.labelOffsetY || 0);
+                if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) return { type: 'zone_label', obj: firstSMZ, anchor: pMid };
+            }
+        }
+        // Telemetry zones
+        for (const zone of this.data.zones) {
+            const pos = this.editor.getZoneWorldPos(zone);
+            if (!pos) continue;
+            if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
+            const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
+            if (Math.hypot(wx - lx, wy - ly) < 25 / this.renderer.scale) return { type: 'zone_label', obj: zone, anchor: pos };
+        }
+        return null;
+    }
+
     onMouseDown(wx, wy) {
+        const hit = this._hitExisting(wx, wy);
+        if (hit) {
+            this.data.snapshot();
+            this.app.setSelection({ type: 'zone', id: hit.obj.id });
+            this.dragging = hit; return;
+        }
+
         const n = this.editor.findNearestTrackPoint(wx, wy);
         if (!n.point || n.dist > 60 / this.renderer.scale) return;
         const zt = F1.ZONE_TYPES.find(z => z.key === this.zoneType);
@@ -590,7 +684,27 @@ class ZoneTool extends BaseTool {
         }
         this.app.requestRender();
     }
-    deactivate() { this._placingRange = null; }
+
+    onMouseMove(wx, wy) {
+        if (this.dragging) {
+            const type = this.dragging.type;
+            const obj = this.dragging.obj;
+            if (type === 'zone_circle') {
+                const n = this.editor.findNearestTrackPoint(wx, wy);
+                if (n.point) { obj.segIndex = n.point.segIndex; obj.t = n.point.t; }
+            } else if (type === 'zone_label') {
+                const anchor = this.dragging.anchor;
+                obj.labelOffsetX = wx - anchor.x;
+                obj.labelOffsetY = wy - anchor.y;
+            }
+            this.app.requestRender(); return;
+        }
+        const hit = this._hitExisting(wx, wy);
+        this.app.canvas.style.cursor = hit ? 'move' : 'crosshair';
+    }
+
+    onMouseUp() { this.dragging = null; }
+    deactivate() { this._placingRange = null; this.dragging = null; }
 }
 
 /* ---- Garage ---- */
