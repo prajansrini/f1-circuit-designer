@@ -11,7 +11,7 @@
     --f1-red:#e10600;--f1-red-glow:rgba(225,6,0,0.4);
     --accent:#e10600;--accent-hover:#ff2020;
     --text:#eaeaea;--text-dim:#777;--text-muted:#555;--success:#00e87b;
-    --sector1:#ff1801;--sector2:#00a3e0;--sector3:#fff200;
+    --sector1:#E70E6C;--sector2:#FBCF02;--sector3:#369BE5;
     --radius:8px;--radius-sm:5px;
     --font:'Outfit',-apple-system,sans-serif;--mono:'JetBrains Mono',monospace;
     --top-h:48px;--status-h:28px;--toolbar-w:68px;--center-w:230px;
@@ -107,9 +107,9 @@ html,body{height:100%;width:100%;font-family:var(--font);background:var(--bg-dar
 .sector-btns,.side-btns,.surface-btns,.zone-btns{display:flex;gap:4px;flex-wrap:wrap;}
 .sector-btn,.side-btn,.surface-btn,.zone-btn{flex:1;padding:6px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(255,255,255,0.03);color:var(--text-dim);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer;transition:all var(--transition);text-align:center;min-width:calc(50% - 4px);}
 .sector-btn:hover,.side-btn:hover,.surface-btn:hover,.zone-btn:hover{background:var(--bg-hover);color:var(--text);}
-.sector-btn.s1.active{background:rgba(255,24,1,0.2);border-color:var(--sector1);color:var(--sector1);}
-.sector-btn.s2.active{background:rgba(0,163,224,0.2);border-color:var(--sector2);color:var(--sector2);}
-.sector-btn.s3.active{background:rgba(255,242,0,0.2);border-color:var(--sector3);color:var(--sector3);}
+.sector-btn.s1.active{background:color-mix(in srgb, var(--sector1) 20%, transparent);border-color:var(--sector1);color:var(--sector1);}
+.sector-btn.s2.active{background:color-mix(in srgb, var(--sector2) 20%, transparent);border-color:var(--sector2);color:var(--sector2);}
+.sector-btn.s3.active{background:color-mix(in srgb, var(--sector3) 20%, transparent);border-color:var(--sector3);color:var(--sector3);}
 .side-btn.active,.surface-btn.active{background:var(--bg-active);border-color:rgba(225,6,0,0.4);color:var(--f1-red);}
 .zone-btn{font-size:10px;padding:7px 4px;line-height:1.3;}
 .zone-btn.active{background:color-mix(in srgb,var(--zone-c) 15%,transparent);border-color:var(--zone-c);color:var(--zone-c);}

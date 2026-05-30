@@ -18,7 +18,7 @@ F1.Renderer = class Renderer {
             bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
             pitLane: '#383838', pitLine: '#ffff00',
-            s1: '#ff1801', s2: '#00a3e0', s3: '#fff200',
+            s1: '#E70E6C', s2: '#FBCF02', s3: '#369BE5',
             cp: '#00ff88', cpSel: '#ff8800', cpHover: '#66ffbb',
             grid: 'rgba(255,255,255,0.04)', gsRoof: ['#e10600', '#0050b0', '#e8a700', '#888']
         };
@@ -93,11 +93,11 @@ F1.Renderer = class Renderer {
             ctx.fillStyle = st === 'gravel' ? this.C.gravel : st === 'asphalt' ? this.C.asphaltRun : this.C.grass;
             ctx.beginPath();
             for (let k = i; k <= Math.min(j, track.length - 1); k++) {
-                const p = track[k], sw = isL ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10), w = (isL ? p.widthLeft : p.widthRight) + sw, sgn = isL ? 1 : -1;
+                const p = track[k], sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10), w = (isL ? p.widthLeft : p.widthRight) + sw, sgn = isL ? -1 : 1;
                 const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn); k === i ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
             }
             for (let k = Math.min(j, track.length - 1); k >= i; k--) {
-                const p = track[k], w = isL ? p.widthLeft : p.widthRight, sgn = isL ? 1 : -1;
+                const p = track[k], w = isL ? p.widthLeft : p.widthRight, sgn = isL ? -1 : 1;
                 const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn); ctx.lineTo(s.x, s.y);
             }
             ctx.closePath(); ctx.fill(); i = j;
@@ -107,12 +107,12 @@ F1.Renderer = class Renderer {
     _trackSurface(track) {
         const ctx = this.ctx;
         ctx.fillStyle = this.C.track; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthLeft, p.y + p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); }
-        for (let i = track.length - 1; i >= 0; i--) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthRight, p.y - p.ny * p.widthRight); ctx.lineTo(s.x, s.y); }
+        for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); }
+        for (let i = track.length - 1; i >= 0; i--) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); ctx.lineTo(s.x, s.y); }
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = this.C.trackEdge; ctx.lineWidth = Math.max(1, 1.5 * this.scale);
-        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthLeft, p.y + p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
-        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthRight, p.y - p.ny * p.widthRight); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = Math.max(.5, .8 * this.scale); ctx.setLineDash([8 * this.scale, 12 * this.scale]);
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = this.w2s(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
     }
@@ -123,8 +123,8 @@ F1.Renderer = class Renderer {
             const sec = track[i - 1].sector; if (sec === 0) continue;
             ctx.strokeStyle = sec === 1 ? this.C.s1 : sec === 2 ? this.C.s2 : this.C.s3;
             ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
-            const a = this.w2s(track[i - 1].x + track[i - 1].nx * (track[i - 1].widthLeft + 2), track[i - 1].y + track[i - 1].ny * (track[i - 1].widthLeft + 2));
-            const b = this.w2s(track[i].x + track[i].nx * (track[i].widthLeft + 2), track[i].y + track[i].ny * (track[i].widthLeft + 2));
+            const a = this.w2s(track[i - 1].x - track[i - 1].nx * (track[i - 1].widthLeft + 2), track[i - 1].y - track[i - 1].ny * (track[i - 1].widthLeft + 2));
+            const b = this.w2s(track[i].x - track[i].nx * (track[i].widthLeft + 2), track[i].y - track[i].ny * (track[i].widthLeft + 2));
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
         ctx.globalAlpha = 1;
@@ -133,9 +133,9 @@ F1.Renderer = class Renderer {
     _barriers(track) {
         const ctx = this.ctx; ctx.strokeStyle = this.C.barrier; ctx.lineWidth = Math.max(3, 4 * this.scale);
         let inB = false; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierLeft) { const w = p.widthLeft + (p.surfaceWidthLeft || 10); const s = this.w2s(p.x + p.nx * w, p.y + p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
+        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierLeft) { const w = p.widthLeft + (p.surfaceWidthLeft ?? 10); const s = this.w2s(p.x - p.nx * w, p.y - p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
         ctx.stroke(); inB = false; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierRight) { const w = p.widthRight + (p.surfaceWidthRight || 10); const s = this.w2s(p.x - p.nx * w, p.y - p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
+        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierRight) { const w = p.widthRight + (p.surfaceWidthRight ?? 10); const s = this.w2s(p.x + p.nx * w, p.y + p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
         ctx.stroke();
     }
 
@@ -151,8 +151,8 @@ F1.Renderer = class Renderer {
             const sw = zone.stripWidth || 5;
             for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
                 const p = track[i];
-                const sgn = this._getOutsideSgn(p, data) * (zone.side === 'inside' ? -1 : 1);
-                const w = sgn > 0 ? p.widthLeft : p.widthRight;
+                const sgn = zone.side === 'left' ? -1 : 1;
+                const w = sgn < 0 ? p.widthLeft : p.widthRight;
                 const offset = w + 4;
                 const s = this.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
                 ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
@@ -330,9 +330,12 @@ F1.Renderer = class Renderer {
             const track = editor.getInterpolatedTrack();
             const idx = tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return;
-            const sgn = this._getOutsideSgn(p, data); const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw2 = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
-            const s = this.w2s(p.x + p.nx * (w + sw2 + 18 / this.scale) * sgn, p.y + p.ny * (w + sw2 + 18 / this.scale) * sgn);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw2 = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+            const wx = p.x + p.nx * (w + sw2 + 18 / this.scale) * actualSgn;
+            const wy = p.y + p.ny * (w + sw2 + 18 / this.scale) * actualSgn;
+            const s = this.w2s(wx, wy);
             this._drawRotHandle(s.x, s.y, (tm.rotation || 0) * Math.PI / 180, 22);
         }
     }
@@ -390,11 +393,18 @@ F1.Renderer = class Renderer {
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
             ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
             const text = zone.label.toUpperCase();
-            const tw = ctx.measureText(text).width + 16, th = 22;
+            const lines = text.split('\n');
+            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16;
+            const th = lines.length * 16 + 6;
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = isSel ? '#00ff88' : zt.color; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if (lines.length === 1) {
+                ctx.fillText(text, 0, 0);
+            } else {
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14));
+            }
             ctx.restore();
         });
     }
@@ -411,19 +421,14 @@ F1.Renderer = class Renderer {
             const lx = sMid.x + sl.labelOffsetX * this.scale;
             const ly = sMid.y + sl.labelOffsetY * this.scale;
 
-            // Connected line
-            ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
-            ctx.setLineDash([]);
+            // Connected line removed as per user request
 
             // Rotatable label container
             const text = `SECTOR ${sl.sector}`;
             ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
             const tw = ctx.measureText(text).width + 16, th = 22;
             const isSel = sel && sel.type === 'sector_label' && sel.sector === sl.sector;
-            const sColor = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
+            const sColor = sl.sector === 1 ? this.C.s1 : sl.sector === 2 ? this.C.s2 : this.C.s3;
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = isSel ? '#00ff88' : sColor; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
@@ -440,12 +445,12 @@ F1.Renderer = class Renderer {
             const idx = tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution);
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) return;
-            const sgn = this._getOutsideSgn(p, data);
-            const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
             const offset = w + sw + 18 / this.scale;
-            const wx = p.x + p.nx * offset * sgn;
-            const wy = p.y + p.ny * offset * sgn;
+            const wx = p.x + p.nx * offset * actualSgn;
+            const wy = p.y + p.ny * offset * actualSgn;
             const s = this.w2s(wx, wy);
 
             const isSel = sel && sel.type === 'turn' && sel.id === tm.id;
@@ -473,7 +478,7 @@ F1.Renderer = class Renderer {
             const isHov = hoverPt && hoverPt.id === pt.id;
             if (isSel || isHov) {
                 ctx.strokeStyle = 'rgba(0,255,136,0.15)'; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.arc(s.x, s.y, (pt.widthLeft + (pt.surfaceWidthLeft || 10)) * this.scale, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(s.x, s.y, (pt.widthLeft + (pt.surfaceWidthLeft ?? 10)) * this.scale, 0, Math.PI * 2); ctx.stroke();
                 ctx.strokeStyle = 'rgba(0,255,136,0.25)';
                 ctx.beginPath(); ctx.arc(s.x, s.y, pt.widthLeft * this.scale, 0, Math.PI * 2); ctx.stroke();
             }
