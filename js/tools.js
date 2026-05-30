@@ -93,10 +93,14 @@ class SelectTool extends BaseTool {
             const track = this.editor.getInterpolatedTrack();
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
-            const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const sideSgn = tm.side === 'inside' ? -1 : 1;
+            const actualSgn = this._getOutsideSgn(p) * sideSgn;
+            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
             const offset = w + sw + 18 / this.renderer.scale;
-            const s = this.renderer.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
+            const tmx = p.x + p.nx * offset * actualSgn;
+            const tmy = p.y + p.ny * offset * actualSgn;
+            const s = this.renderer.w2s(tmx, tmy);
             const rad = (tm.rotation || 0) * Math.PI / 180;
             const hy = s.y - Math.cos(rad) * 22;
             const sW = this.renderer.w2s(wx, wy);
@@ -114,7 +118,7 @@ class SelectTool extends BaseTool {
         if (rotObj) { this.data.snapshot(); this.rotatingObj = rotObj; return; }
 
         // 2. Control points (nodes)
-        const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
+        const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
         if (cp) { this.data.snapshot(); this.app.setSelection({ type: 'cp', id: cp.id }); this.dragging = { type: 'cp', obj: cp }; return; }
 
         // 3. Straight Mode Range Handles (if a zone is selected and it is straight mode)
@@ -185,13 +189,14 @@ class SelectTool extends BaseTool {
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) continue;
-            const sgn = this._getOutsideSgn(p);
-            const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const sideSgn = tm.side === 'inside' ? -1 : 1;
+            const actualSgn = this._getOutsideSgn(p) * sideSgn;
+            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
             const offset = w + sw + 18 / this.renderer.scale;
-            const tmx = p.x + p.nx * offset * sgn;
-            const tmy = p.y + p.ny * offset * sgn;
-            if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) {
+            const tmx = p.x + p.nx * offset * actualSgn;
+            const tmy = p.y + p.ny * offset * actualSgn;
+            if (Math.hypot(wx - tmx, wy - tmy) < 20 / this.renderer.scale) {
                 this.data.snapshot();
                 this.app.setSelection({ type: 'turn', id: tm.id });
                 this.dragging = { type: 'turn', obj: tm };
@@ -291,7 +296,7 @@ class SelectTool extends BaseTool {
             return;
         }
 
-        const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
+        const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
         this.app.hoverPoint = cp;
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj) {
@@ -510,8 +515,8 @@ class SurfacePainterTool extends BaseTool {
         if (!n.point || n.dist > 60 / this.renderer.scale) return;
         const pt = this.data.controlPoints[n.point.segIndex]; if (!pt) return;
         const p = n.point;
-        const dL = Math.hypot(wx - (p.x + p.nx * p.widthLeft), wy - (p.y + p.ny * p.widthLeft));
-        const dR = Math.hypot(wx - (p.x - p.nx * p.widthRight), wy - (p.y - p.ny * p.widthRight));
+        const dL = Math.hypot(wx - (p.x - p.nx * p.widthLeft), wy - (p.y - p.ny * p.widthLeft));
+        const dR = Math.hypot(wx - (p.x + p.nx * p.widthRight), wy - (p.y + p.ny * p.widthRight));
         if (dL < dR) pt.surfaceLeft = this.surfaceType; else pt.surfaceRight = this.surfaceType;
         this.app.requestRender();
     }
@@ -529,8 +534,8 @@ class BarrierPainterTool extends BaseTool {
         if (!n.point || n.dist > 80 / this.renderer.scale) return;
         const pt = this.data.controlPoints[n.point.segIndex]; if (!pt) return;
         const p = n.point;
-        const dL = Math.hypot(wx - (p.x + p.nx * (p.widthLeft + (p.surfaceWidthLeft || 10))), wy - (p.y + p.ny * (p.widthLeft + (p.surfaceWidthLeft || 10))));
-        const dR = Math.hypot(wx - (p.x - p.nx * (p.widthRight + (p.surfaceWidthRight || 10))), wy - (p.y - p.ny * (p.widthRight + (p.surfaceWidthRight || 10))));
+        const dL = Math.hypot(wx - (p.x - p.nx * (p.widthLeft + (p.surfaceWidthLeft ?? 10))), wy - (p.y - p.ny * (p.widthLeft + (p.surfaceWidthLeft ?? 10))));
+        const dR = Math.hypot(wx - (p.x + p.nx * (p.widthRight + (p.surfaceWidthRight ?? 10))), wy - (p.y + p.ny * (p.widthRight + (p.surfaceWidthRight ?? 10))));
         if (dL < dR) pt.barrierLeft = this.barrierOn; else pt.barrierRight = this.barrierOn;
         this.app.requestRender();
     }
@@ -643,7 +648,7 @@ class GrandstandTool extends BaseTool {
 
 /* ---- Zone Placement ---- */
 class ZoneTool extends BaseTool {
-    constructor(app) { super(app); this.zoneType = 'straight_mode'; this._placingRange = null; this.dragging = null; }
+    constructor(app) { super(app); this.zoneType = 'speed_trap'; this._placingRange = null; this.dragging = null; }
     getCursor() { return 'crosshair'; }
 
     _hitExisting(wx, wy) {
@@ -722,12 +727,6 @@ class ZoneTool extends BaseTool {
     deactivate() { this._placingRange = null; this.dragging = null; }
 }
 
-/* ---- Straight Mode Zone ---- */
-class StraightModeTool extends ZoneTool {
-    constructor(app) { super(app); this.zoneType = 'straight_mode'; }
-    onMouseDown(wx, wy) { this.zoneType = 'straight_mode'; super.onMouseDown(wx, wy); }
-}
-
 /* ---- Garage ---- */
 class GarageTool extends BaseTool {
     constructor(app) { super(app); this.dragging = null; this.rotatingG = null; }
@@ -787,6 +786,10 @@ class EraserTool extends BaseTool {
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
         if (pp) { this.data.snapshot(); this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== pp.id); this.app.requestRender(); }
     }
+}
+
+class StraightModeTool extends ZoneTool {
+    constructor(app) { super(app); this.zoneType = 'straight_mode'; }
 }
 
 F1.Tools = { SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };

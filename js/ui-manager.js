@@ -33,10 +33,8 @@ F1.UIManager = class UIManager {
                     <div class="prop-row"><span class="prop-label">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><span class="prop-val" id="prop-wl-val">${pt.widthLeft.toFixed(1)}m</span></div>
                     <div class="prop-row"><span class="prop-label">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><span class="prop-val" id="prop-wr-val">${pt.widthRight.toFixed(1)}m</span></div></div>`;
                 h += `<div class="prop-group"><label>Surface Width (Run-off)</label>
-                    <div class="prop-row"><span class="prop-label">L</span><input type="range" min="2" max="50" step="1" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><span class="prop-val" id="prop-swl-val">${pt.surfaceWidthLeft}m</span></div>
-                    <div class="prop-row"><span class="prop-label">R</span><input type="range" min="2" max="50" step="1" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><span class="prop-val" id="prop-swr-val">${pt.surfaceWidthRight}m</span></div></div>`;
-                h += `<div class="prop-group"><label>Corner Name (optional)</label>
-                    <div class="prop-row"><input type="text" class="prop-input" id="prop-cname" value="${pt.cornerName || ''}" placeholder="e.g. Eau Rouge" style="flex:1"></div></div>`;
+                    <div class="prop-row"><span class="prop-label">L</span><input type="range" min="0" max="50" step="1" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><span class="prop-val" id="prop-swl-val">${pt.surfaceWidthLeft}m</span></div>
+                    <div class="prop-row"><span class="prop-label">R</span><input type="range" min="0" max="50" step="1" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><span class="prop-val" id="prop-swr-val">${pt.surfaceWidthRight}m</span></div></div>`;
                 h += `<div class="prop-group"><label>Sector</label><div class="sector-btns">
                     <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
                     <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
@@ -46,6 +44,9 @@ F1.UIManager = class UIManager {
             const tm = this.app.data.getTurnMarkerById(sel.id);
             if (tm) {
                 h += `<div class="prop-group"><label>Turn Marker</label>
+                    <div class="prop-group" style="margin-top:10px;"><label>Side</label><div class="side-btns">
+                        <button class="side-btn ${tm.side === 'left' ? 'active' : ''}" id="btn-tm-left">Left</button>
+                        <button class="side-btn ${tm.side !== 'left' ? 'active' : ''}" id="btn-tm-right">Right</button></div></div>
                     <p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate</p>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Label</span><input type="text" class="prop-input" id="prop-tmlabel" value="${tm.label}" style="width:60px;flex:none"></div>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Name</span><input type="text" class="prop-input" id="prop-tmname" value="${tm.name || ''}" placeholder="e.g. Eau Rouge" style="flex:1"></div>
@@ -77,14 +78,14 @@ F1.UIManager = class UIManager {
             const z = this.app.data.getZoneById(sel.id);
             if (z) {
                 const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
-                h += `<p class="prop-hint" style="color:${zt ? zt.color : '#fff'}">${z.label}</p>`;
+                h += `<p class="prop-hint" style="color:${zt ? zt.color : '#fff'}">${zt ? zt.label.replace('\\n', ' ') : 'Zone'}</p>`;
                 h += `<p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate label</p>`;
                 if (zt && zt.range) {
                     h += `<p class="prop-hint dim">Drag handles on track to adjust range.</p>`;
                     if (z.type === 'straight_mode') {
                         h += `<div class="prop-group"><label>Side</label><div class="side-btns">
-                            <button class="side-btn ${z.side === 'outside' ? 'active' : ''}" id="btn-side-outside">Outside</button>
-                            <button class="side-btn ${z.side === 'inside' ? 'active' : ''}" id="btn-side-inside">Inside</button></div></div>`;
+                            <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
+                            <button class="side-btn ${z.side !== 'left' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
                         h += `<div class="prop-group"><label>Strips</label>
                             <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Size</span>
                                 <input type="range" min="2" max="15" step="0.5" value="${z.stripWidth || 5}" id="prop-str-w" class="prop-slider">
@@ -215,7 +216,7 @@ F1.UIManager = class UIManager {
         let h = '<h3 class="prop-title">F1 Zones</h3><p class="prop-hint">Click near track to place.</p>';
         h += `<div class="prop-group"><label>Type</label><div class="zone-btns">`;
         F1.ZONE_TYPES.forEach(zt => {
-            h += `<button class="zone-btn ${t.zoneType === zt.key ? 'active' : ''}" data-zone="${zt.key}" style="--zone-c:${zt.color};--zone-bg:${zt.bg}">${zt.label}${zt.range ? ' ↔' : ''}</button>`;
+            h += `<button class="zone-btn ${t.zoneType === zt.key ? 'active' : ''}" data-zone="${zt.key}" style="--zone-c:${zt.color};--zone-bg:${zt.bg}">${zt.label.replace('\\n', ' ')}${zt.range ? ' ↔' : ''}</button>`;
         });
         h += '</div></div>';
         if (t.zoneType === 'straight_mode') h += '<p class="prop-hint dim">Click start point, then click end point to define the zone.</p>';
@@ -248,9 +249,6 @@ F1.UIManager = class UIManager {
         const swl = document.getElementById('prop-swl'), swr = document.getElementById('prop-swr');
         if (swl) { swl.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.surfaceWidthLeft = parseInt(swl.value); document.getElementById('prop-swl-val').textContent = pt.surfaceWidthLeft + 'm'; this.app.requestRender(); } } }
         if (swr) { swr.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.surfaceWidthRight = parseInt(swr.value); document.getElementById('prop-swr-val').textContent = pt.surfaceWidthRight + 'm'; this.app.requestRender(); } } }
-        // Corner name
-        const cname = document.getElementById('prop-cname');
-        if (cname && this.app.selection && this.app.selection.type === 'cp') { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { cname.onchange = () => { pt.cornerName = cname.value; this.app.requestRender(); }; } }
         // Sector btns
         document.querySelectorAll('.sector-btn[data-sec]').forEach(b => {
             b.onclick = () => {
@@ -281,15 +279,24 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             };
         }
+        const btnTmLeft = document.getElementById('btn-tm-left');
+        const btnTmRight = document.getElementById('btn-tm-right');
+        if (btnTmLeft && btnTmRight && this.app.selection && this.app.selection.type === 'turn') {
+            const tm = this.app.data.getTurnMarkerById(this.app.selection.id);
+            if (tm) {
+                btnTmLeft.onclick = () => { this.app.data.snapshot(); tm.side = 'left'; this.updateProperties(); this.app.requestRender(); };
+                btnTmRight.onclick = () => { this.app.data.snapshot(); tm.side = 'right'; this.updateProperties(); this.app.requestRender(); };
+            }
+        }
 
         // Straight mode side buttons & new controls
-        const btnOut = document.getElementById('btn-side-outside');
-        const btnIn = document.getElementById('btn-side-inside');
+        const btnLeft = document.getElementById('btn-side-left');
+        const btnRight = document.getElementById('btn-side-right');
         if (this.app.selection && this.app.selection.type === 'zone') {
             const z = this.app.data.getZoneById(this.app.selection.id);
             if (z) {
-                if (btnOut) btnOut.onclick = () => { this.app.data.snapshot(); z.side = 'outside'; this.updateProperties(); this.app.requestRender(); };
-                if (btnIn) btnIn.onclick = () => { this.app.data.snapshot(); z.side = 'inside'; this.updateProperties(); this.app.requestRender(); };
+                if (btnLeft) btnLeft.onclick = () => { this.app.data.snapshot(); z.side = 'left'; this.updateProperties(); this.app.requestRender(); };
+                if (btnRight) btnRight.onclick = () => { this.app.data.snapshot(); z.side = 'right'; this.updateProperties(); this.app.requestRender(); };
                 const strW = document.getElementById('prop-str-w');
                 if (strW) strW.oninput = () => { z.stripWidth = parseFloat(strW.value); document.getElementById('prop-str-w-val').textContent = z.stripWidth; this.app.requestRender(); };
                 const strS = document.getElementById('prop-str-s');

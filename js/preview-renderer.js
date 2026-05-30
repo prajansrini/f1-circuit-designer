@@ -13,7 +13,9 @@ F1.PreviewRenderer = class PreviewRenderer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.sectorColors = { 1: '#E91E8E', 2: '#FFB800', 3: '#0095FF' };
+        this.sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
+        this.bgColor = '#0f1a0f';
+        this.infoColor = '#ffffff';
         this.layers = {};
         F1.PREVIEW_LAYERS.forEach(l => this.layers[l.key] = l.default);
 
@@ -42,7 +44,7 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     render(data, editor) {
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
-        ctx.fillStyle = '#0f1a0f'; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = this.bgColor || '#0f1a0f'; ctx.fillRect(0, 0, W, H);
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
@@ -102,8 +104,8 @@ F1.PreviewRenderer = class PreviewRenderer {
             const sw = zone.stripWidth || 5;
             for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
                 const p = track[i];
-                const sgn = this._getOutsideSgn(p, data) * (zone.side === 'inside' ? -1 : 1);
-                const w = sgn > 0 ? p.widthLeft : p.widthRight;
+                const sgn = zone.side === 'left' ? -1 : 1;
+                const w = sgn < 0 ? p.widthLeft : p.widthRight;
                 const offset = w + 4;
                 const s = tf.toScreen(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
                 ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
@@ -145,8 +147,8 @@ F1.PreviewRenderer = class PreviewRenderer {
 
         // Checkered flag spanning track width, aligned with direction
         if (this.layers.chequeredFlag !== false) {
-            const l = tf.toScreen(p.x + p.nx * p.widthLeft, p.y + p.ny * p.widthLeft);
-            const r = tf.toScreen(p.x - p.nx * p.widthRight, p.y - p.ny * p.widthRight);
+            const l = tf.toScreen(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft);
+            const r = tf.toScreen(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight);
 
             if (this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
                 ctx.save();
@@ -173,7 +175,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         }
 
         // Direction arrow — half size, right next to checkered flag
-        if (this.layers.directionArrow !== false) {
+        if (this.layers.direction !== false) {
             const ai = Math.min(1, track.length - 2);
             const ap = track[ai], anp = track[ai + 1];
             const as = tf.toScreen(ap.x, ap.y);
@@ -225,12 +227,12 @@ F1.PreviewRenderer = class PreviewRenderer {
             const idx = tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution);
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) return;
-            const sgn = this._getOutsideSgn(p, data);
-            const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
             const offset = w + sw + 18 / tf.scale;
-            const wx = p.x + p.nx * offset * sgn;
-            const wy = p.y + p.ny * offset * sgn;
+            const wx = p.x + p.nx * offset * actualSgn;
+            const wy = p.y + p.ny * offset * actualSgn;
             const s = tf.toScreen(wx, wy);
             ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
             ctx.beginPath(); ctx.arc(0, 0, 11 * tf.scale, 0, Math.PI * 2);
@@ -257,12 +259,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             const lx = sMid.x + sl.labelOffsetX * tf.scale;
             const ly = sMid.y + sl.labelOffsetY * tf.scale;
 
-            // Connected line
-            ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
-            ctx.setLineDash([]);
+            // Connected line removed as per user request
 
             // Label container
             const text = `SECTOR ${sl.sector}`;
@@ -305,18 +302,25 @@ F1.PreviewRenderer = class PreviewRenderer {
             // Label container
             ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
             const text = zone.label.toUpperCase();
-            const tw = ctx.measureText(text).width + 16, th = 22;
+            const lines = text.split('\n');
+            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16;
+            const th = lines.length * 16 + 6;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if (lines.length === 1) {
+                ctx.fillText(text, 0, 0);
+            } else {
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14));
+            }
             ctx.restore();
         });
     }
 
     _info(ctx, data, editor, W, H) {
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillStyle = this.infoColor || '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         ctx.fillText(data.name || 'Circuit', 20, 16);
         const len = editor.getTrackLength();
         if (len > 0) { ctx.fillStyle = '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(2)} km)`, 20, 46); }

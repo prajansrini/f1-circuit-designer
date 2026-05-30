@@ -71,9 +71,25 @@ F1.App = class App {
 
     _initEvents() {
         const canvas = this.canvas;
+        let isSpaceDown = false;
+        let hoveredCanvas = 'editor';
+        canvas.addEventListener('mouseenter', () => hoveredCanvas = 'editor');
+        this.previewCanvas.addEventListener('mouseenter', () => hoveredCanvas = 'preview');
+
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space' && (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'))) { isSpaceDown = true; e.preventDefault(); }
+        });
+        document.addEventListener('keyup', e => { if (e.code === 'Space') isSpaceDown = false; });
+
         canvas.addEventListener('mousedown', e => {
-            if (e.button === 1 || (e.button === 0 && e.altKey)) { this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
-            if (e.button === 0) { const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseDown(w.x, w.y, e); }
+            if (e.button === 1 || (e.button === 0 && (e.detail === 2 || isSpaceDown))) { this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
+            if (e.button === 0) { 
+                const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); 
+                this.activeTool.onMouseDown(w.x, w.y, e); 
+                if (this.activeTool.constructor.name === 'SelectTool' && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection) {
+                    this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing';
+                }
+            }
         });
         canvas.addEventListener('mousemove', e => {
             const r = canvas.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
@@ -86,14 +102,40 @@ F1.App = class App {
         });
         canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); }, { passive: false });
         canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        const pCanvas = this.previewCanvas;
+        let isPreviewPanning = false, previewPanStart = null;
+        pCanvas.addEventListener('mousedown', e => {
+            if (e.button === 0 || e.button === 1 || isSpaceDown) { isPreviewPanning = true; previewPanStart = { x: e.clientX, y: e.clientY }; pCanvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
+        });
+        pCanvas.addEventListener('mousemove', e => {
+            if (isPreviewPanning) { this.preview.pan(e.clientX - previewPanStart.x, e.clientY - previewPanStart.y); previewPanStart = { x: e.clientX, y: e.clientY }; this._renderPreview(); return; }
+        });
+        pCanvas.addEventListener('mouseup', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
+        pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
+        pCanvas.addEventListener('wheel', e => { e.preventDefault(); const r = pCanvas.getBoundingClientRect(); this.preview.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this._renderPreview(); }, { passive: false });
+        pCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
         window.addEventListener('resize', () => { this.renderer.resize(); this.preview.resize(); this.requestRender(); this._renderPreview(); });
         document.addEventListener('keydown', e => {
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+            if (e.key === 'Escape') { this.setTool('select'); return; }
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this._renderPreview(); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             const sc = { v: 'select', p: 'draw', n: 'node', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', m: 'straightMode', r: 'garage', e: 'eraser', t: 'turn' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
             if (e.key === '#' || (e.key === '3' && e.shiftKey)) { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); return; }
-            if (e.key.toLowerCase() === 'f') { this.renderer.fitToScreen(this.data, this.editor); this.preview.fitToScreen(this.data, this.editor); this.requestRender(); this._renderPreview(); return; }
+            if (e.key.toLowerCase() === 'f') { 
+                if (hoveredCanvas === 'editor') {
+                    this.renderer.fitToScreen(this.data, this.editor); 
+                    this.requestRender(); 
+                } else {
+                    this.preview.fitToScreen(this.data, this.editor); 
+                    this._renderPreview(); 
+                }
+                return; 
+            }
             this.activeTool.onKeyDown(e);
         });
     }
@@ -101,11 +143,48 @@ F1.App = class App {
     _initToolbar() {
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => this.setTool(btn.dataset.tool)); });
         document.getElementById('btn-grid')?.addEventListener('click', () => { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); });
+        
+        const eBg = document.getElementById('editor-bg-color');
+        if (eBg) { 
+            eBg.addEventListener('change', (e) => { this.renderer.C.bg = e.target.value; this.requestRender(); }); 
+            eBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.renderer.C.bg = e.target.value; this.requestRender(); } });
+        }
+        
+        const pBg = document.getElementById('preview-bg-color');
+        if (pBg) { 
+            pBg.addEventListener('change', (e) => { this.preview.bgColor = e.target.value; }); 
+            pBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.bgColor = e.target.value; } });
+        }
+
+        const iBg = document.getElementById('info-text-color');
+        if (iBg) { 
+            iBg.addEventListener('change', (e) => { this.preview.infoColor = e.target.value; }); 
+            iBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.infoColor = e.target.value; } });
+        }
+
+        document.querySelectorAll('.swatch').forEach(sw => {
+            sw.addEventListener('click', (e) => {
+                const targetId = sw.parentElement.dataset.target;
+                const input = document.getElementById(targetId);
+                const color = sw.dataset.color;
+                if(input) {
+                    input.value = color;
+                    if(targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
+                    else if(targetId === 'preview-bg-color') { this.preview.bgColor = color; }
+                    else if(targetId === 'info-text-color') { this.preview.infoColor = color; }
+                }
+            });
+        });
     }
 
     _initTopBar() {
         document.getElementById('btn-undo').addEventListener('click', () => { this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); });
         document.getElementById('btn-redo').addEventListener('click', () => { this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); });
+        document.getElementById('btn-fit')?.addEventListener('click', () => {
+            this.renderer.fitToScreen(this.data, this.editor);
+            this.preview.fitToScreen(this.data, this.editor);
+            this.requestRender();
+        });
         document.getElementById('btn-save').addEventListener('click', () => {
             const name = document.getElementById('circuit-name').value || 'Untitled'; this.data.name = name;
             localStorage.setItem('f1circuit_' + name, this.data.toJSON()); this.setStatus(`Saved "${name}"`);
