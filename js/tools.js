@@ -40,9 +40,10 @@ class SelectTool extends BaseTool {
             const hx = obj.x, hy = obj.y - Math.cos(rad) * hd / this.renderer.scale;
             // Use screen space for handle hit
             const sObj = this.renderer.w2s(obj.x, obj.y);
-            const sHx = sObj.x + Math.sin(rad) * 0, sHy = sObj.y - Math.cos(rad) * (((obj.height || 16) * this.renderer.scale / 2) + 20);
+            const dist = ((obj.height || 16) * this.renderer.scale / 2) + 20;
+            const sHx = sObj.x + Math.sin(rad) * dist, sHy = sObj.y - Math.cos(rad) * dist;
             const sWx = this.renderer.w2s(wx, wy);
-            if (Math.hypot(sWx.x - sHx, sWx.y - sHy) < 12) return obj;
+            if (Math.hypot(sWx.x - sHx, sWx.y - sHy) < 20) return obj;
             return null;
         }
         // Zone label
@@ -67,9 +68,9 @@ class SelectTool extends BaseTool {
             const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
             const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
             const rad = (zone.rotation || 0) * Math.PI / 180;
-            const hx = lx, hy = ly - Math.cos(rad) * 22;
+            const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
             const sW = this.renderer.w2s(wx, wy);
-            if (Math.hypot(sW.x - hx, sW.y - hy) < 12) return zone;
+            if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return zone;
             return null;
         }
         // Sector label
@@ -82,9 +83,9 @@ class SelectTool extends BaseTool {
             const lx = sMid.x + sl.labelOffsetX * this.renderer.scale;
             const ly = sMid.y + sl.labelOffsetY * this.renderer.scale;
             const rad = (sl.rotation || 0) * Math.PI / 180;
-            const hy = ly - Math.cos(rad) * 22;
+            const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
             const sW = this.renderer.w2s(wx, wy);
-            if (Math.hypot(sW.x - lx, sW.y - hy) < 12) return sl;
+            if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return sl;
             return null;
         }
         // Turn marker
@@ -102,9 +103,9 @@ class SelectTool extends BaseTool {
             const tmy = p.y + p.ny * offset * actualSgn;
             const s = this.renderer.w2s(tmx, tmy);
             const rad = (tm.rotation || 0) * Math.PI / 180;
-            const hy = s.y - Math.cos(rad) * 22;
+            const hx = s.x + Math.sin(rad) * 22, hy = s.y - Math.cos(rad) * 22;
             const sW = this.renderer.w2s(wx, wy);
-            if (Math.hypot(sW.x - s.x, sW.y - hy) < 12) return tm;
+            if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return tm;
             return null;
         }
         return null;
@@ -246,8 +247,8 @@ class SelectTool extends BaseTool {
             if (this.rotatingObj.x !== undefined && this.rotatingObj.y !== undefined) {
                 const a = Math.atan2(wx - this.rotatingObj.x, this.rotatingObj.y - wy) * 180 / Math.PI;
                 this.rotatingObj.rotation = ((a % 360) + 360) % 360;
-            } else if (this.rotatingObj.labelOffsetX !== undefined) {
-                // For labels, use screen center of the label
+            } else if (this.rotatingObj.labelOffsetX !== undefined || this.rotatingObj.side !== undefined) {
+                // For labels and turn markers, use screen center
                 const s = this.renderer.w2s(wx, wy);
                 const rc = this._getRotatingCenter();
                 if (rc) {
@@ -373,9 +374,12 @@ class SelectTool extends BaseTool {
             const track = this.editor.getInterpolatedTrack();
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
-            const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
-            return this.renderer.w2s(p.x + p.nx * (w + sw + 18 / this.renderer.scale) * sgn, p.y + p.ny * (w + sw + 18 / this.renderer.scale) * sgn);
+            const sideSgn = tm.side === 'inside' ? -1 : 1;
+            const actualSgn = this._getOutsideSgn(p) * sideSgn;
+            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const offset = w + sw + 18 / this.renderer.scale;
+            return this.renderer.w2s(p.x + p.nx * offset * actualSgn, p.y + p.ny * offset * actualSgn);
         }
         return null;
     }
@@ -406,10 +410,11 @@ class TurnTool extends BaseTool {
         for (const tm of this.data.turnMarkers) {
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
-            const sgn = this.app.tools.select._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = sgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
             const offset = w + sw + 18 / this.renderer.scale;
-            const tmx = p.x + p.nx * offset * sgn, tmy = p.y + p.ny * offset * sgn;
+            const tmx = p.x + p.nx * offset * actualSgn, tmy = p.y + p.ny * offset * actualSgn;
             if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) return tm;
         }
         return null;
@@ -461,15 +466,56 @@ class DrawTrackTool extends BaseTool {
 
 /* ---- Insert Node ---- */
 class NodeTool extends BaseTool {
-    getCursor() { return 'crosshair'; }
+    constructor(app) {
+        super(app);
+        this.hoverNode = null;
+        this.draggingNode = null;
+    }
+    getCursor() { return (this.hoverNode || this.draggingNode) ? 'move' : 'crosshair'; }
+    onMouseMove(wx, wy) {
+        if (this.draggingNode) {
+            this.draggingNode.x = wx;
+            this.draggingNode.y = wy;
+            const px = document.getElementById('prop-x-val');
+            if (px) px.value = wx.toFixed(2);
+            const py = document.getElementById('prop-y-val');
+            if (py) py.value = wy.toFixed(2);
+            this.app.requestRender();
+            return;
+        }
+        this.hoverNode = null;
+        for (const pt of this.data.controlPoints) {
+            const sPt = this.renderer.w2s(pt.x, pt.y);
+            const sW = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sW.x - sPt.x, sW.y - sPt.y) < 12) {
+                this.hoverNode = pt;
+                break;
+            }
+        }
+        this.app.canvas.style.cursor = this.getCursor();
+        this.app.hoverPoint = this.hoverNode;
+        this.app.requestRender();
+    }
     onMouseDown(wx, wy) {
-        if (!this.data.isClosed) return;
+        if (this.hoverNode) {
+            this.app.setSelection({ type: 'cp', id: this.hoverNode.id });
+            this.data.snapshot();
+            this.draggingNode = this.hoverNode;
+            return;
+        }
+        this.app.setSelection(null);
         const n = this.editor.findNearestTrackPoint(wx, wy);
         if (n.point && n.dist < 30 / this.renderer.scale) {
             this.data.snapshot();
             const pt = this.data.insertControlPoint(wx, wy, n.point.segIndex + 1);
             this.app.setSelection({ type: 'cp', id: pt.id });
             this.app.requestRender();
+        }
+    }
+    onMouseUp(wx, wy) {
+        if (this.draggingNode) {
+            this.draggingNode = null;
+            this.app.uiManager.updateProperties();
         }
     }
 }
@@ -652,10 +698,25 @@ class ZoneTool extends BaseTool {
     getCursor() { return 'crosshair'; }
 
     _hitExisting(wx, wy) {
+        const track = this.editor.getInterpolatedTrack();
+        
+        // SMZ Range Handles (if selected)
+        const sel = this.app.selection;
+        if (sel && sel.type === 'zone') {
+            const zone = this.data.getZoneById(sel.id);
+            if (zone && zone.type === 'straight_mode') {
+                const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const eIdx = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                const pStart = track[Math.min(sIdx, track.length - 1)];
+                const pEnd = track[Math.min(eIdx, track.length - 1)];
+                if (pStart && Math.hypot(wx - pStart.x, wy - pStart.y) < 15 / this.renderer.scale) return { type: 'zone_start_handle', obj: zone };
+                if (pEnd && Math.hypot(wx - pEnd.x, wy - pEnd.y) < 15 / this.renderer.scale) return { type: 'zone_end_handle', obj: zone };
+            }
+        }
+
         // SMZ Label
         const firstSMZ = this.data.zones.find(z => z.type === 'straight_mode');
         if (firstSMZ) {
-            const track = this.editor.getInterpolatedTrack();
             const si = firstSMZ.segIndex * this.editor.resolution + Math.floor(firstSMZ.t * this.editor.resolution);
             const ei = firstSMZ.endSegIndex * this.editor.resolution + Math.floor(firstSMZ.endT * this.editor.resolution);
             const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
@@ -792,4 +853,4 @@ class StraightModeTool extends ZoneTool {
     constructor(app) { super(app); this.zoneType = 'straight_mode'; }
 }
 
-F1.Tools = { SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };
+F1.Tools = { BaseTool, SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };
