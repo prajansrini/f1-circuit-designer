@@ -26,16 +26,16 @@ F1.UIManager = class UIManager {
 
     _cpProps(pt) {
         let h = `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Position</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="width:100%;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="width:100%;padding:2px 4px;font-size:11px;"></div></div>`;
+            <div class="prop-row"><span class="prop-label" style="width:30px">X</span><div style="flex:1"></div><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">Y</span><div style="flex:1"></div><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
         h += `<div class="prop-group"><label>Track Width</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${pt.widthRight}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${pt.widthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
         h += `<div class="prop-group"><label>Surface Width (Run-off)</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${pt.surfaceWidthLeft}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${pt.surfaceWidthRight}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${pt.surfaceWidthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${pt.surfaceWidthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
         h += `<div class="prop-group"><label>Sector</label><div class="sector-btns">
             <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
             <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
@@ -132,9 +132,10 @@ F1.UIManager = class UIManager {
             if (sl) {
                 h += `<div class="prop-group"><label>Sector Label</label>
                     <p class="prop-hint success">Sector ${sel.sector}</p>
-                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
-                        <input type="range" min="0" max="360" value="${Math.round(sl.rotation || 0)}" id="prop-slr" class="prop-slider">
-                        <span class="prop-val" id="prop-slr-val">${Math.round(sl.rotation || 0)}°</span></div></div>`;
+                    <div class="prop-row"><span class="prop-label" style="width:40px;text-align:left">Rotate</span>
+                        <input type="range" min="0" max="360" value="${Math.round(sl.rotation || 0)}" id="prop-slr" class="prop-slider" style="width:100px; flex:none;">
+                        <div style="flex:1"></div>
+                        <input type="number" id="prop-slr-val" value="${Math.round(sl.rotation || 0)}" min="0" max="360" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
             }
         }
         return h;
@@ -155,15 +156,7 @@ F1.UIManager = class UIManager {
     }
 
     _widthProps(sel) {
-        const t = this.app.tools.width;
-        let h = '<h3 class="prop-title">Width Brush</h3><p class="prop-hint">Drag up/down on control points.</p>';
-        h += `<div class="prop-group"><label>Adjust</label><div class="side-btns">
-            <button class="side-btn ${t.mode === 'track' ? 'active' : ''}" data-wmode="track">Track</button>
-            <button class="side-btn ${t.mode === 'surface' ? 'active' : ''}" data-wmode="surface">Surface</button></div></div>`;
-        h += `<div class="prop-group"><label>Side</label><div class="side-btns">
-            <button class="side-btn ${t.side === 'both' ? 'active' : ''}" data-side="both">Both</button>
-            <button class="side-btn ${t.side === 'left' ? 'active' : ''}" data-side="left">Left</button>
-            <button class="side-btn ${t.side === 'right' ? 'active' : ''}" data-side="right">Right</button></div></div>`;
+        let h = '<h3 class="prop-title">Width Brush</h3><p class="prop-hint">Drag up/down on the nodes.</p>';
         if (sel && sel.type === 'cp') {
             const pt = this.app.data.getPointById(sel.id);
             if (pt) h += this._cpProps(pt);
@@ -173,7 +166,7 @@ F1.UIManager = class UIManager {
 
     _surfaceProps() {
         const t = this.app.tools.surface;
-        let h = '<h3 class="prop-title">Surface Painter</h3><p class="prop-hint">Click near track edges.</p>';
+        let h = '<h3 class="prop-title">Run-off Painter</h3><p class="prop-hint">Click near track edges.</p>';
         h += `<div class="prop-group"><label>Type</label><div class="surface-btns">
             <button class="surface-btn ${t.surfaceType === 'grass' ? 'active' : ''}" data-surf="grass">🟢 Grass</button>
             <button class="surface-btn ${t.surfaceType === 'gravel' ? 'active' : ''}" data-surf="gravel">🟤 Gravel</button>
@@ -191,21 +184,65 @@ F1.UIManager = class UIManager {
         return h;
     }
 
-    _sectorProps() {
+    _sectorProps(sel) {
         const t = this.app.tools.sector;
         let h = '<h3 class="prop-title">Sectors</h3><p class="prop-hint">Click control points. Flow: S1→S2→S3</p>';
-        h += `<div class="prop-group"><label>Active</label><div class="sector-btns">
-            <button class="sector-btn s1 ${t.currentSector === 1 ? 'active' : ''}" data-sec="1">S1</button>
-            <button class="sector-btn s2 ${t.currentSector === 2 ? 'active' : ''}" data-sec="2">S2</button>
-            <button class="sector-btn s3 ${t.currentSector === 3 ? 'active' : ''}" data-sec="3">S3</button></div></div>`;
+        
+        let details = [{nodes:0,turns:0,length:0}, {nodes:0,turns:0,length:0}, {nodes:0,turns:0,length:0}];
+        let unassigned = 0;
+        let secs = [];
+        
         if (this.app.data.controlPoints.length >= 3) {
-            const secs = this.app.data.controlPoints.map(p => p.sector);
-            const unassigned = secs.filter(s => s === 0).length;
-            if (unassigned > 0) h += `<p class="prop-hint" style="color:#ff6600">⚠ ${unassigned} turns unassigned</p>`;
+            secs = this.app.data.controlPoints.map(p => p.sector);
+            unassigned = secs.filter(s => s === 0).length;
+            
+            const track = this.app.editor.getInterpolatedTrack();
+            details = [1, 2, 3].map(s => {
+                const nodes = this.app.data.controlPoints.filter(p => p.sector === s).length;
+                let turns = 0, length = 0;
+                for (let i = 0; i < track.length; i++) {
+                    const p = track[i];
+                    if (p.sector === s) {
+                        const next = track[(i + 1) % track.length];
+                        if (next && next.sector === s) length += Math.hypot(next.x - p.x, next.y - p.y);
+                    }
+                }
+                this.app.data.turnMarkers.forEach(tm => {
+                    const idx = tm.segIndex * this.app.editor.resolution + Math.floor(tm.t * this.app.editor.resolution);
+                    if (track[Math.min(idx, track.length - 1)]?.sector === s) turns++;
+                });
+                return { nodes, turns, length };
+            });
+        }
+
+        h += `<div class="prop-group" style="margin-top:15px;">`;
+        [1, 2, 3].map(sec => {
+            const d = details[sec-1];
+            h += `<button class="sector-btn s${sec} ${t.currentSector === sec ? 'active' : ''}" data-sec="${sec}" style="width:100%; margin-bottom:5px;">Sector ${sec}</button>`;
+            h += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#aaa; margin-bottom:15px; padding:0 5px;">
+                <span>Nodes: <strong style="color:#eee">${d.nodes}</strong></span>
+                <span>Turns: <strong style="color:#eee">${d.turns}</strong></span>
+                <span>Length: <strong style="color:#eee">${(d.length / 1000).toFixed(2)} km</strong></span>
+            </div>`;
+        });
+        h += `</div>`;
+
+        if (sel && sel.type === 'sector_label') {
+            const sl = this.app.data.sectorLabels.find(s => s.sector === sel.sector);
+            if (sl) {
+                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Sector ${sel.sector} Label</label>
+                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
+                        <div style="flex:1"></div>
+                        <input type="number" id="prop-slr-val" value="${Math.round(sl.rotation || 0)}" min="0" max="360" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
+            }
+        }
+
+        if (this.app.data.controlPoints.length >= 3) {
+            if (unassigned > 0) h += `<p class="prop-hint" style="color:#ff6600; margin-top:10px;">⚠ ${unassigned} nodes unassigned</p>`;
             else {
                 let valid = true, last = secs[0];
                 for (let i = 1; i < secs.length; i++) { if (secs[i] !== last) { if (secs[i] !== (last % 3) + 1) { valid = false; break; } last = secs[i]; } }
-                h += valid ? '<p class="prop-hint success">✓ Valid flow</p>' : '<p class="prop-hint" style="color:#ff6600">⚠ Should flow S1→S2→S3</p>';
+                h += valid ? '<p class="prop-hint success" style="margin-top:10px;">✓ Valid flow</p>' : '<p class="prop-hint" style="color:#ff6600; margin-top:10px;">⚠ Should flow S1→S2→S3</p>';
             }
         }
         return h;
@@ -282,15 +319,23 @@ F1.UIManager = class UIManager {
         if (sel && sel.type === 'turn') {
             const tm = this.app.data.getTurnMarkerById(sel.id);
             if (tm) {
-                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Turn Marker</label>
+                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label class="chk-label prop-hint">Select a Turn</label>
+                    <select class="prop-input" id="prop-turn-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 15px;">
+                        <option value="">-- Select Turn --</option>`;
+                this.app.data.turnMarkers.forEach(t => {
+                    h += `<option value="${t.id}" ${sel.id === t.id ? 'selected' : ''}>Turn ${t.label} ${t.name ? `(${t.name})` : ''}</option>`;
+                });
+                h += `</select></div>`;
+                h += `<div class="prop-group"><label>Turn Marker</label>
                     <div class="prop-group" style="margin-top:10px;"><label>Side</label><div class="side-btns">
                         <button class="side-btn ${tm.side === 'left' ? 'active' : ''}" id="btn-tm-left">Left</button>
                         <button class="side-btn ${tm.side !== 'left' ? 'active' : ''}" id="btn-tm-right">Right</button></div></div>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Label</span><input type="text" class="prop-input" id="prop-tmlabel" value="${tm.label}" style="width:60px;flex:none"></div>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Name</span><input type="text" class="prop-input" id="prop-tmname" value="${tm.name || ''}" placeholder="e.g. Eau Rouge" style="flex:1"></div>
-                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
-                        <input type="range" min="0" max="360" value="${Math.round(tm.rotation || 0)}" id="prop-tmr" class="prop-slider">
-                        <span class="prop-val" id="prop-tmr-val">${Math.round(tm.rotation || 0)}°</span></div>
+                    <div class="prop-row"><span class="prop-label" style="width:40px;text-align:left">Rotate</span>
+                        <input type="range" min="0" max="360" value="${Math.round(tm.rotation || 0)}" id="prop-tmr" class="prop-slider" style="width:100px; flex:none;">
+                        <div style="flex:1"></div>
+                        <input type="number" id="prop-tmr-val" value="${Math.round(tm.rotation || 0)}" min="0" max="360" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
                     <button class="prop-btn danger" id="btn-del-turn" style="margin-top:10px">Delete Turn</button></div>`;
             }
         }
@@ -303,13 +348,16 @@ F1.UIManager = class UIManager {
         return `<h3 class="prop-title">Scale & Grid</h3>
                 <p class="prop-hint">Configure the background grid scale and appearance.</p>
                 <div class="prop-group" style="margin-top: 15px;">
-                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                    <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                         <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''}>
-                        <span style="margin-top: 2px;">Show grid</span>
+                        <span style="margin-top: 2px;">Show Grid</span>
                     </label>
                 </div>
                 <div class="prop-group"><label>Grid Scale</label>
-                    <div class="prop-row"><input type="range" min="10" max="200" step="10" value="${this.app.renderer.gridSize}" id="prop-grid-size" class="prop-slider"><span class="prop-val" id="prop-grid-size-val">${this.app.renderer.gridSize}m</span></div>
+                    <div class="prop-row">
+                        <input type="range" min="10" max="200" step="10" value="${this.app.renderer.gridSize}" id="prop-grid-size" class="prop-slider">
+                        <input type="number" id="prop-grid-size-val" value="${this.app.renderer.gridSize}" step="10" class="prop-input" style="width:50px;padding:2px 4px;font-size:11px;">
+                    </div>
                 </div>
                 <div class="prop-group"><label>Grid Color</label>
                     <div class="prop-row"><input type="color" id="prop-grid-color" value="${this.app.renderer.gridColor}" style="width:40px;height:24px;cursor:pointer;border:1px solid #333;border-radius:4px;padding:0;background:transparent;"></div>
@@ -317,7 +365,7 @@ F1.UIManager = class UIManager {
                 <div class="prop-group"><label>Grid Opacity</label>
                     <div class="prop-row">
                         <input type="range" min="1" max="100" value="${Math.round(this.app.renderer.gridOpacity * 100)}" id="prop-grid-opacity" class="prop-slider">
-                        <span class="prop-val" id="prop-grid-opacity-val">${Math.round(this.app.renderer.gridOpacity * 100)}%</span>
+                        <input type="number" id="prop-grid-opacity-val" value="${Math.round(this.app.renderer.gridOpacity * 100)}" class="prop-input" style="width:50px;padding:2px 4px;font-size:11px;">
                     </div>
                 </div>`;
     }
@@ -401,17 +449,52 @@ F1.UIManager = class UIManager {
                 if (zr) zr.oninput = () => { z.rotation = parseInt(zr.value); document.getElementById('prop-zr-val').textContent = z.rotation + '°'; this.app.requestRender(); };
             }
         }
+        const ts = document.getElementById('prop-turn-selector');
+        if (ts) {
+            ts.onchange = () => {
+                if (ts.value) {
+                    this.app.setSelection({ type: 'turn', id: parseInt(ts.value) });
+                } else {
+                    this.app.setSelection(null);
+                }
+            };
+        }
         // Turn marker rotation
-        const tmr = document.getElementById('prop-tmr');
-        if (tmr && this.app.selection && this.app.selection.type === 'turn') {
+        const tmr = document.getElementById('prop-tmr'), tmrv = document.getElementById('prop-tmr-val');
+        if (tmr && tmrv && this.app.selection && this.app.selection.type === 'turn') {
             const tm = this.app.data.getTurnMarkerById(this.app.selection.id);
-            if (tm) tmr.oninput = () => { tm.rotation = parseInt(tmr.value); document.getElementById('prop-tmr-val').textContent = tm.rotation + '°'; this.app.requestRender(); };
+            if (tm) {
+                tmr.oninput = () => { tm.rotation = parseInt(tmr.value); tmrv.value = tm.rotation; this.app.requestRender(); };
+                tmrv.onchange = () => {
+                    let v = parseInt(tmrv.value);
+                    if (isNaN(v)) v = 0;
+                    v = Math.max(0, Math.min(360, v));
+                    tm.rotation = v; tmr.value = v; tmrv.value = v;
+                    this.app.requestRender();
+                };
+            }
         }
         // Sector label rotation
         const slr = document.getElementById('prop-slr');
-        if (slr && this.app.selection && this.app.selection.type === 'sector_label') {
+        const slrv = document.getElementById('prop-slr-val');
+        if (this.app.selection && this.app.selection.type === 'sector_label') {
             const sl = this.app.data.sectorLabels.find(s => s.sector === this.app.selection.sector);
-            if (sl) slr.oninput = () => { sl.rotation = parseInt(slr.value); document.getElementById('prop-slr-val').textContent = sl.rotation + '°'; this.app.requestRender(); };
+            if (sl) {
+                if (slr) {
+                    slr.oninput = () => { sl.rotation = parseInt(slr.value); if (slrv) slrv.value = sl.rotation; this.app.requestRender(); };
+                }
+                if (slrv) {
+                    slrv.onchange = () => {
+                        let v = parseInt(slrv.value);
+                        if (isNaN(v)) v = 0;
+                        v = Math.max(0, Math.min(360, v));
+                        sl.rotation = v;
+                        slrv.value = v;
+                        if (slr) slr.value = v;
+                        this.app.requestRender();
+                    };
+                }
+            }
         }
 
         // Side/mode btns
@@ -507,12 +590,25 @@ F1.UIManager = class UIManager {
         // Scale controls
         const cg = document.getElementById('cb-grid-on');
         if (cg) cg.onchange = () => { this.app.renderer.showGrid = cg.checked; this.app.requestRender(); };
-        const gsz = document.getElementById('prop-grid-size');
-        if (gsz) gsz.oninput = () => { this.app.renderer.gridSize = parseInt(gsz.value); document.getElementById('prop-grid-size-val').textContent = gsz.value + 'm'; this.app.requestRender(); this.updateStatusBar(); };
+        const gsz = document.getElementById('prop-grid-size'), gszv = document.getElementById('prop-grid-size-val');
+        if (gsz && gszv) {
+            gsz.oninput = () => { this.app.renderer.gridSize = parseInt(gsz.value); gszv.value = gsz.value; this.app.requestRender(); this.updateStatusBar(); };
+            gszv.onchange = () => { this.app.renderer.gridSize = parseInt(gszv.value); gsz.value = gszv.value; this.app.requestRender(); this.updateStatusBar(); };
+        }
         const gcol = document.getElementById('prop-grid-color');
         if (gcol) gcol.oninput = () => { this.app.renderer.gridColor = gcol.value; this.app.requestRender(); };
-        const gop = document.getElementById('prop-grid-opacity');
-        if (gop) gop.oninput = () => { this.app.renderer.gridOpacity = parseInt(gop.value) / 100; document.getElementById('prop-grid-opacity-val').textContent = gop.value + '%'; this.app.requestRender(); };
+        const gop = document.getElementById('prop-grid-opacity'), gopv = document.getElementById('prop-grid-opacity-val');
+        if (gop && gopv) {
+            gop.oninput = () => { this.app.renderer.gridOpacity = parseInt(gop.value) / 100; gopv.value = gop.value; this.app.requestRender(); };
+            gopv.onchange = () => { 
+                let v = parseInt(gopv.value);
+                if (isNaN(v)) v = 0;
+                v = Math.max(0, Math.min(100, v));
+                this.app.renderer.gridOpacity = v / 100; 
+                gop.value = v; gopv.value = v; 
+                this.app.requestRender(); 
+            };
+        }
     }
 
     updateStatusBar(wx, wy) {
