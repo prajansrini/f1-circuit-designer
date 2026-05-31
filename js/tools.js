@@ -94,10 +94,9 @@ class SelectTool extends BaseTool {
             const track = this.editor.getInterpolatedTrack();
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
-            const sideSgn = tm.side === 'inside' ? -1 : 1;
-            const actualSgn = this._getOutsideSgn(p) * sideSgn;
-            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
             const offset = w + sw + 18 / this.renderer.scale;
             const tmx = p.x + p.nx * offset * actualSgn;
             const tmy = p.y + p.ny * offset * actualSgn;
@@ -190,10 +189,9 @@ class SelectTool extends BaseTool {
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) continue;
-            const sideSgn = tm.side === 'inside' ? -1 : 1;
-            const actualSgn = this._getOutsideSgn(p) * sideSgn;
-            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
             const offset = w + sw + 18 / this.renderer.scale;
             const tmx = p.x + p.nx * offset * actualSgn;
             const tmy = p.y + p.ny * offset * actualSgn;
@@ -374,10 +372,9 @@ class SelectTool extends BaseTool {
             const track = this.editor.getInterpolatedTrack();
             const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
-            const sideSgn = tm.side === 'inside' ? -1 : 1;
-            const actualSgn = this._getOutsideSgn(p) * sideSgn;
-            const w = actualSgn > 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn > 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
             const offset = w + sw + 18 / this.renderer.scale;
             return this.renderer.w2s(p.x + p.nx * offset * actualSgn, p.y + p.ny * offset * actualSgn);
         }
@@ -402,8 +399,43 @@ class SelectTool extends BaseTool {
 
 /* ---- Turn Placement Tool ---- */
 class TurnTool extends BaseTool {
-    constructor(app) { super(app); this.dragging = null; }
-    getCursor() { return 'crosshair'; }
+    constructor(app) { super(app); this.dragging = null; this.rotatingObj = null; }
+    getCursor() { return this.rotatingObj ? 'grabbing' : 'crosshair'; }
+
+    _hitRotationHandle(wx, wy) {
+        const sel = this.app.selection;
+        if (sel && sel.type === 'turn') {
+            const tm = this.data.getTurnMarkerById(sel.id); if (!tm) return null;
+            const track = this.editor.getInterpolatedTrack();
+            const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
+            const offset = w + sw + 18 / this.renderer.scale;
+            const tmx = p.x + p.nx * offset * actualSgn, tmy = p.y + p.ny * offset * actualSgn;
+            const s = this.renderer.w2s(tmx, tmy);
+            const rad = (tm.rotation || 0) * Math.PI / 180;
+            const hx = s.x + Math.sin(rad) * 22, hy = s.y - Math.cos(rad) * 22;
+            const sW = this.renderer.w2s(wx, wy);
+            if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return tm;
+        }
+        return null;
+    }
+
+    _getRotatingCenter() {
+        const sel = this.app.selection; if (!sel || sel.type !== 'turn') return null;
+        const tm = this.data.getTurnMarkerById(sel.id); if (!tm) return null;
+        const track = this.editor.getInterpolatedTrack();
+        const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+        const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
+        const actualSgn = tm.side === 'left' ? -1 : 1;
+        const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+        const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
+        const offset = w + sw + 18 / this.renderer.scale;
+        const tmx = p.x + p.nx * offset * actualSgn, tmy = p.y + p.ny * offset * actualSgn;
+        return this.renderer.w2s(tmx, tmy);
+    }
 
     _hitExisting(wx, wy) {
         const track = this.editor.getInterpolatedTrack();
@@ -412,7 +444,7 @@ class TurnTool extends BaseTool {
             const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? (p.surfaceWidthLeft || 10) : (p.surfaceWidthRight || 10);
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
             const offset = w + sw + 18 / this.renderer.scale;
             const tmx = p.x + p.nx * offset * actualSgn, tmy = p.y + p.ny * offset * actualSgn;
             if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) return tm;
@@ -421,6 +453,9 @@ class TurnTool extends BaseTool {
     }
 
     onMouseDown(wx, wy) {
+        const rotObj = this._hitRotationHandle(wx, wy);
+        if (rotObj) { this.data.snapshot(); this.rotatingObj = rotObj; return; }
+
         const ex = this._hitExisting(wx, wy);
         if (ex) { this.data.snapshot(); this.app.setSelection({ type: 'turn', id: ex.id }); this.dragging = ex; return; }
         const n = this.editor.findNearestTrackPoint(wx, wy);
@@ -433,15 +468,25 @@ class TurnTool extends BaseTool {
     }
 
     onMouseMove(wx, wy) {
+        if (this.rotatingObj) {
+            const s = this.renderer.w2s(wx, wy);
+            const rc = this._getRotatingCenter();
+            if (rc) {
+                const a = Math.atan2(s.x - rc.x, rc.y - s.y) * 180 / Math.PI;
+                this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+            }
+            this.app.uiManager.updateProperties(); this.app.requestRender(); return;
+        }
         if (this.dragging) {
             const n = this.editor.findNearestTrackPoint(wx, wy);
             if (n.point) { this.dragging.segIndex = n.point.segIndex; this.dragging.t = n.point.t; }
             this.app.requestRender(); return;
         }
+        const rotObj = this._hitRotationHandle(wx, wy);
         const ex = this._hitExisting(wx, wy);
-        this.app.canvas.style.cursor = ex ? 'move' : 'crosshair';
+        this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : 'crosshair');
     }
-    onMouseUp() { this.dragging = null; }
+    onMouseUp() { this.dragging = null; this.rotatingObj = null; }
 }
 
 /* ---- Draw Track ---- */
@@ -609,7 +654,7 @@ class SectorTool extends BaseTool {
 
     _apply(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
-        if (cp) { cp.sector = this.currentSector; this.app.requestRender(); }
+        if (cp && cp.sector !== this.currentSector) { cp.sector = this.currentSector; this.app.requestRender(); this.app.uiManager.updateProperties(); }
     }
     onMouseDown(wx, wy) {
         const hit = this._hitExisting(wx, wy);

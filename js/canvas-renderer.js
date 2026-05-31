@@ -333,7 +333,7 @@ F1.Renderer = class Renderer {
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw2 = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+            const sw2 = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
             const wx = p.x + p.nx * (w + sw2 + 18 / this.scale) * actualSgn;
             const wy = p.y + p.ny * (w + sw2 + 18 / this.scale) * actualSgn;
             const s = this.w2s(wx, wy);
@@ -450,7 +450,7 @@ F1.Renderer = class Renderer {
             if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
             const offset = w + sw + 18 / this.scale;
             const wx = p.x + p.nx * offset * actualSgn;
             const wy = p.y + p.ny * offset * actualSgn;
