@@ -22,6 +22,7 @@ F1.PREVIEW_LAYERS = [
     { key: 'grandstands', label: 'Grandstands', default: true },
     { key: 'direction', label: 'Direction Arrow', default: true },
     { key: 'chequeredFlag', label: 'Chequered Flag', default: true },
+    { key: 'name', label: 'Circuit Name', default: true },
     { key: 'info', label: 'Circuit Info', default: true },
 ];
 

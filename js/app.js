@@ -27,7 +27,8 @@ F1.App = class App {
             zone: new F1.Tools.ZoneTool(this),
             straightMode: new F1.Tools.StraightModeTool(this),
             garage: new F1.Tools.GarageTool(this),
-            eraser: new F1.Tools.EraserTool(this)
+            eraser: new F1.Tools.EraserTool(this),
+            scale: new F1.Tools.BaseTool(this)
         };
 
         this.activeToolName = 'draw';
@@ -100,7 +101,7 @@ F1.App = class App {
             if (this._isPanning) { this._isPanning = false; canvas.style.cursor = this.activeTool.getCursor(); return; }
             const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseUp(w.x, w.y, e);
         });
-        canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); }, { passive: false });
+        canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); this.uiManager.updateStatusBar(); }, { passive: false });
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
         const pCanvas = this.previewCanvas;
@@ -123,9 +124,8 @@ F1.App = class App {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this._renderPreview(); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-            const sc = { v: 'select', p: 'draw', n: 'node', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', m: 'straightMode', r: 'garage', e: 'eraser', t: 'turn' };
+            const sc = { v: 'select', p: 'draw', n: 'node', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', m: 'straightMode', r: 'garage', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
-            if (e.key === '#' || (e.key === '3' && e.shiftKey)) { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); return; }
             if (e.key.toLowerCase() === 'f') { 
                 if (hoveredCanvas === 'editor') {
                     this.renderer.fitToScreen(this.data, this.editor); 
@@ -142,7 +142,6 @@ F1.App = class App {
 
     _initToolbar() {
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => this.setTool(btn.dataset.tool)); });
-        document.getElementById('btn-grid')?.addEventListener('click', () => { this.renderer.showGrid = !this.renderer.showGrid; this.requestRender(); });
         
         const eBg = document.getElementById('editor-bg-color');
         if (eBg) { 
@@ -162,6 +161,12 @@ F1.App = class App {
             iBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.infoColor = e.target.value; } });
         }
 
+        const nBg = document.getElementById('name-text-color');
+        if (nBg) { 
+            nBg.addEventListener('change', (e) => { this.preview.nameColor = e.target.value; }); 
+            nBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.nameColor = e.target.value; } });
+        }
+
         document.querySelectorAll('.swatch').forEach(sw => {
             sw.addEventListener('click', (e) => {
                 const targetId = sw.parentElement.dataset.target;
@@ -172,6 +177,7 @@ F1.App = class App {
                     if(targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
                     else if(targetId === 'preview-bg-color') { this.preview.bgColor = color; }
                     else if(targetId === 'info-text-color') { this.preview.infoColor = color; }
+                    else if(targetId === 'name-text-color') { this.preview.nameColor = color; }
                 }
             });
         });

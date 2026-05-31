@@ -14,6 +14,7 @@ F1.Renderer = class Renderer {
         this.ctx = canvas.getContext('2d');
         this.ox = 0; this.oy = 0; this.scale = 1;
         this.showGrid = true; this.showCtrlPts = true;
+        this.gridSize = 50; this.gridColor = '#ffffff'; this.gridOpacity = 0.04;
         this.C = {
             bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
@@ -75,12 +76,12 @@ F1.Renderer = class Renderer {
     }
 
     _grid() {
-        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = 50;
+        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = this.gridSize;
         const tl = this.s2w(0, 0), br = this.s2w(W, H);
-        ctx.strokeStyle = this.C.grid; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.strokeStyle = this.gridColor; ctx.globalAlpha = this.gridOpacity; ctx.lineWidth = 1; ctx.beginPath();
         for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) { const s = this.w2s(x, 0); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, H); }
         for (let y = Math.floor(tl.y / step) * step; y <= br.y; y += step) { const s = this.w2s(0, y); ctx.moveTo(0, s.y); ctx.lineTo(W, s.y); }
-        ctx.stroke();
+        ctx.stroke(); ctx.globalAlpha = 1;
     }
 
     _surfaces(track) { this._surfSide(track, 'left'); this._surfSide(track, 'right'); }
@@ -283,7 +284,7 @@ F1.Renderer = class Renderer {
 
     _drawRotHandle(cx, cy, rad, dist) {
         const ctx = this.ctx;
-        const hx = cx + Math.sin(rad) * 0, hy = cy - Math.cos(rad) * dist;
+        const hx = cx + Math.sin(rad) * dist, hy = cy - Math.cos(rad) * dist;
         ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(hx, hy); ctx.stroke(); ctx.setLineDash([]);
         ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,255,136,0.3)'; ctx.fill();
@@ -386,8 +387,10 @@ F1.Renderer = class Renderer {
             // Draw line connecting track to label container
             const lx = s.x + zone.labelOffsetX * this.scale;
             const ly = s.y + zone.labelOffsetY * this.scale;
-            ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(lx, ly); ctx.stroke();
+            if (zone.type !== 'straight_mode') {
+                ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(lx, ly); ctx.stroke();
+            }
 
             // Rotatable label
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;

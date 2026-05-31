@@ -13,33 +13,63 @@ F1.UIManager = class UIManager {
         const tool = this.app.activeToolName, sel = this.app.selection;
         const map = {
             select: () => this._selectProps(sel), draw: () => this._drawProps(),
-            width: () => this._widthProps(sel), surface: () => this._surfaceProps(),
+            node: () => this._nodeProps(sel), width: () => this._widthProps(sel), surface: () => this._surfaceProps(),
             barrier: () => this._barrierProps(), sector: () => this._sectorProps(),
-            turn: () => this._turnProps(),
+            turn: () => this._turnProps(sel),
             pitlane: () => this._pitLaneProps(), grandstand: () => this._grandstandProps(),
             zone: () => this._zoneProps(sel), garage: () => this._garageProps(sel),
-            eraser: () => this._eraserProps()
+            eraser: () => this._eraserProps(), scale: () => this._scaleProps()
         };
         this.panelContent.innerHTML = (map[tool] || (() => '<p class="prop-hint">Select a tool</p>'))();
         this._bindEvents();
+    }
+
+    _cpProps(pt) {
+        let h = `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Position</label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="width:100%;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="width:100%;padding:2px 4px;font-size:11px;"></div></div>`;
+        h += `<div class="prop-group"><label>Track Width</label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${pt.widthRight}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
+        h += `<div class="prop-group"><label>Surface Width (Run-off)</label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${pt.surfaceWidthLeft}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${pt.surfaceWidthRight}" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="0.5" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
+        h += `<div class="prop-group"><label>Sector</label><div class="sector-btns">
+            <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
+            <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
+            <button class="sector-btn s3 ${pt.sector === 3 ? 'active' : ''}" data-sec="3">S3</button></div></div>`;
+        return h;
+    }
+
+    _nodeProps(sel) {
+        let h = `<h3 class="prop-title">Insert Nodes</h3>
+                <p class="prop-hint">Click on the track to insert a new control point.</p>
+                <div class="prop-group" style="margin-top: 15px;">
+                    <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="cb-show-nodes" ${this.app.renderer.showCtrlPts ? 'checked' : ''}>
+                        <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Nodes</span>
+                    </label>
+                </div>
+                <div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Select a Node</label>
+                    <select id="prop-node-selector" class="prop-input" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                        <option value="">-- Choose a node --</option>
+                        ${this.app.data.controlPoints.map((p, i) => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>Node ${i + 1}</option>`).join('')}
+                    </select>
+                </div>`;
+        if (sel && sel.type === 'cp') {
+            const pt = this.app.data.getPointById(sel.id);
+            if (pt) h += this._cpProps(pt);
+        }
+        return h;
     }
 
     _selectProps(sel) {
         let h = '<h3 class="prop-title">Select & Move</h3><p class="prop-hint">Click & drag to move. <kbd>Del</kbd> to remove.</p>';
         if (sel && sel.type === 'cp') {
             const pt = this.app.data.getPointById(sel.id);
-            if (pt) {
-                h += `<div class="prop-group"><label>Track Width</label>
-                    <div class="prop-row"><span class="prop-label">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><span class="prop-val" id="prop-wl-val">${pt.widthLeft.toFixed(1)}m</span></div>
-                    <div class="prop-row"><span class="prop-label">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><span class="prop-val" id="prop-wr-val">${pt.widthRight.toFixed(1)}m</span></div></div>`;
-                h += `<div class="prop-group"><label>Surface Width (Run-off)</label>
-                    <div class="prop-row"><span class="prop-label">L</span><input type="range" min="0" max="50" step="1" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><span class="prop-val" id="prop-swl-val">${pt.surfaceWidthLeft}m</span></div>
-                    <div class="prop-row"><span class="prop-label">R</span><input type="range" min="0" max="50" step="1" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><span class="prop-val" id="prop-swr-val">${pt.surfaceWidthRight}m</span></div></div>`;
-                h += `<div class="prop-group"><label>Sector</label><div class="sector-btns">
-                    <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
-                    <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
-                    <button class="sector-btn s3 ${pt.sector === 3 ? 'active' : ''}" data-sec="3">S3</button></div></div>`;
-            }
+            if (pt) h += this._cpProps(pt);
         } else if (sel && sel.type === 'turn') {
             const tm = this.app.data.getTurnMarkerById(sel.id);
             if (tm) {
@@ -47,7 +77,6 @@ F1.UIManager = class UIManager {
                     <div class="prop-group" style="margin-top:10px;"><label>Side</label><div class="side-btns">
                         <button class="side-btn ${tm.side === 'left' ? 'active' : ''}" id="btn-tm-left">Left</button>
                         <button class="side-btn ${tm.side !== 'left' ? 'active' : ''}" id="btn-tm-right">Right</button></div></div>
-                    <p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate</p>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Label</span><input type="text" class="prop-input" id="prop-tmlabel" value="${tm.label}" style="width:60px;flex:none"></div>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Name</span><input type="text" class="prop-input" id="prop-tmname" value="${tm.name || ''}" placeholder="e.g. Eau Rouge" style="flex:1"></div>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
@@ -59,7 +88,6 @@ F1.UIManager = class UIManager {
             const gs = this.app.data.getGrandstandById(sel.id);
             if (gs) {
                 h += `<div class="prop-group"><label>Grandstand</label>
-                    <p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate</p>
                     <div class="prop-row"><span class="prop-label">W</span><input type="range" min="40" max="200" value="${gs.width}" id="prop-gsw" class="prop-slider"><span class="prop-val" id="prop-gsw-val">${gs.width}</span></div>
                     <div class="prop-row"><span class="prop-label">H</span><input type="range" min="10" max="60" value="${gs.height}" id="prop-gsh" class="prop-slider"><span class="prop-val" id="prop-gsh-val">${gs.height}</span></div>
                     <div class="prop-row"><span class="prop-label">°</span><input type="range" min="0" max="360" value="${Math.round(gs.rotation)}" id="prop-gsr" class="prop-slider"><span class="prop-val" id="prop-gsr-val">${Math.round(gs.rotation)}°</span></div></div>`;
@@ -79,9 +107,7 @@ F1.UIManager = class UIManager {
             if (z) {
                 const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
                 h += `<p class="prop-hint" style="color:${zt ? zt.color : '#fff'}">${zt ? zt.label.replace('\\n', ' ') : 'Zone'}</p>`;
-                h += `<p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate label</p>`;
                 if (zt && zt.range) {
-                    h += `<p class="prop-hint dim">Drag handles on track to adjust range.</p>`;
                     if (z.type === 'straight_mode') {
                         h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                             <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
@@ -106,7 +132,6 @@ F1.UIManager = class UIManager {
             if (sl) {
                 h += `<div class="prop-group"><label>Sector Label</label>
                     <p class="prop-hint success">Sector ${sel.sector}</p>
-                    <p class="prop-hint dim">Drag <span style="color:#00ff88">green handle</span> to rotate</p>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
                         <input type="range" min="0" max="360" value="${Math.round(sl.rotation || 0)}" id="prop-slr" class="prop-slider">
                         <span class="prop-val" id="prop-slr-val">${Math.round(sl.rotation || 0)}°</span></div></div>`;
@@ -121,7 +146,7 @@ F1.UIManager = class UIManager {
         if (this.app.data.isClosed) h += '<p class="prop-hint success">✓ Circuit closed</p>';
         else {
             h += `<p class="prop-hint">Click to place points. Count: <strong>${n}</strong></p>`;
-            if (n >= 3) h += '<p class="prop-hint accent">Click near first point to close.</p>';
+            if (n >= 3) h += '<p class="prop-hint dim">Click near first point to close.</p>';
             else h += `<p class="prop-hint dim">Need ${3 - n} more to close.</p>`;
         }
         const len = this.app.editor.getTrackLength();
@@ -141,7 +166,7 @@ F1.UIManager = class UIManager {
             <button class="side-btn ${t.side === 'right' ? 'active' : ''}" data-side="right">Right</button></div></div>`;
         if (sel && sel.type === 'cp') {
             const pt = this.app.data.getPointById(sel.id);
-            if (pt) h += `<div class="prop-group"><label>Current</label><p class="prop-hint">Track: L ${pt.widthLeft.toFixed(1)}m · R ${pt.widthRight.toFixed(1)}m</p><p class="prop-hint">Surface: L ${pt.surfaceWidthLeft}m · R ${pt.surfaceWidthRight}m</p></div>`;
+            if (pt) h += this._cpProps(pt);
         }
         return h;
     }
@@ -221,15 +246,81 @@ F1.UIManager = class UIManager {
         h += '</div></div>';
         if (t.zoneType === 'straight_mode') h += '<p class="prop-hint dim">Click start point, then click end point to define the zone.</p>';
         const zt = F1.ZONE_TYPES.find(z => z.key === t.zoneType);
-        if (zt && !zt.multi) h += '<p class="prop-hint dim">Only one allowed — placing a new one replaces the old.</p>';
+
+        if (sel && sel.type === 'zone') {
+            const z = this.app.data.getZoneById(sel.id);
+            if (z) {
+                const sZt = F1.ZONE_TYPES.find(t => t.key === z.type);
+                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Selected Zone</label>
+                      <p class="prop-hint" style="color:${sZt ? sZt.color : '#fff'}">${sZt ? sZt.label.replace('\\n', ' ') : 'Zone'}</p>`;
+                if (sZt && sZt.range) {
+                    if (z.type === 'straight_mode') {
+                        h += `<div class="prop-group"><label>Side</label><div class="side-btns">
+                            <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
+                            <button class="side-btn ${z.side !== 'left' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
+                        h += `<div class="prop-group"><label>Strips</label>
+                            <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Size</span>
+                                <input type="range" min="2" max="15" step="0.5" value="${z.stripWidth || 5}" id="prop-str-w" class="prop-slider">
+                                <span class="prop-val" id="prop-str-w-val">${z.stripWidth || 5}</span></div>
+                            <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Gap</span>
+                                <input type="range" min="1" max="8" value="${z.stripSpacing || 2}" id="prop-str-s" class="prop-slider">
+                                <span class="prop-val" id="prop-str-s-val">${z.stripSpacing || 2}</span></div></div>`;
+                    }
+                }
+                h += `<div class="prop-group"><label>Label Rotation</label>
+                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
+                        <input type="range" min="0" max="360" value="${Math.round(z.rotation || 0)}" id="prop-zr" class="prop-slider">
+                        <span class="prop-val" id="prop-zr-val">${Math.round(z.rotation || 0)}°</span></div></div>`;
+                h += `<button class="prop-btn danger" id="btn-del-zone">Delete Zone</button></div>`;
+            }
+        }
         return h;
     }
 
-    _turnProps() {
-        return '<h3 class="prop-title">Turn Placer</h3><p class="prop-hint">Click on the track to manually place Turn Markers (e.g. Turn 1, Turn 2). Select a turn marker in Select mode to rename it or drag it along the track.</p>';
+    _turnProps(sel) {
+        let h = '<h3 class="prop-title">Turn Placer</h3><p class="prop-hint">Click on the track to manually place Turn Markers (e.g. Turn 1, Turn 2). Select a turn marker in Select mode to rename it or drag it along the track.</p>';
+        if (sel && sel.type === 'turn') {
+            const tm = this.app.data.getTurnMarkerById(sel.id);
+            if (tm) {
+                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Turn Marker</label>
+                    <div class="prop-group" style="margin-top:10px;"><label>Side</label><div class="side-btns">
+                        <button class="side-btn ${tm.side === 'left' ? 'active' : ''}" id="btn-tm-left">Left</button>
+                        <button class="side-btn ${tm.side !== 'left' ? 'active' : ''}" id="btn-tm-right">Right</button></div></div>
+                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Label</span><input type="text" class="prop-input" id="prop-tmlabel" value="${tm.label}" style="width:60px;flex:none"></div>
+                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Name</span><input type="text" class="prop-input" id="prop-tmname" value="${tm.name || ''}" placeholder="e.g. Eau Rouge" style="flex:1"></div>
+                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
+                        <input type="range" min="0" max="360" value="${Math.round(tm.rotation || 0)}" id="prop-tmr" class="prop-slider">
+                        <span class="prop-val" id="prop-tmr-val">${Math.round(tm.rotation || 0)}°</span></div>
+                    <button class="prop-btn danger" id="btn-del-turn" style="margin-top:10px">Delete Turn</button></div>`;
+            }
+        }
+        return h;
     }
 
     _eraserProps() { return '<h3 class="prop-title">Eraser</h3><p class="prop-hint">Click elements to remove.</p>'; }
+
+    _scaleProps() {
+        return `<h3 class="prop-title">Scale & Grid</h3>
+                <p class="prop-hint">Configure the background grid scale and appearance.</p>
+                <div class="prop-group" style="margin-top: 15px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                        <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''}>
+                        <span style="margin-top: 2px;">Show grid</span>
+                    </label>
+                </div>
+                <div class="prop-group"><label>Grid Scale</label>
+                    <div class="prop-row"><input type="range" min="10" max="200" step="10" value="${this.app.renderer.gridSize}" id="prop-grid-size" class="prop-slider"><span class="prop-val" id="prop-grid-size-val">${this.app.renderer.gridSize}m</span></div>
+                </div>
+                <div class="prop-group"><label>Grid Color</label>
+                    <div class="prop-row"><input type="color" id="prop-grid-color" value="${this.app.renderer.gridColor}" style="width:40px;height:24px;cursor:pointer;border:1px solid #333;border-radius:4px;padding:0;background:transparent;"></div>
+                </div>
+                <div class="prop-group"><label>Grid Opacity</label>
+                    <div class="prop-row">
+                        <input type="range" min="1" max="100" value="${Math.round(this.app.renderer.gridOpacity * 100)}" id="prop-grid-opacity" class="prop-slider">
+                        <span class="prop-val" id="prop-grid-opacity-val">${Math.round(this.app.renderer.gridOpacity * 100)}%</span>
+                    </div>
+                </div>`;
+    }
 
     _bindEvents() {
         // Show Nodes
@@ -240,15 +331,20 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             };
         }
+        
+        // Node Selector
+        const ns = document.getElementById('prop-node-selector');
+        if (ns) {
+            ns.onchange = () => {
+                if (ns.value) {
+                    this.app.setSelection({ type: 'cp', id: parseInt(ns.value) });
+                } else {
+                    this.app.setSelection(null);
+                }
+            };
+        }
 
-        // Track width sliders
-        const wl = document.getElementById('prop-wl'), wr = document.getElementById('prop-wr');
-        if (wl) { wl.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.widthLeft = parseFloat(wl.value); document.getElementById('prop-wl-val').textContent = pt.widthLeft.toFixed(1) + 'm'; this.app.requestRender(); } } }
-        if (wr) { wr.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.widthRight = parseFloat(wr.value); document.getElementById('prop-wr-val').textContent = pt.widthRight.toFixed(1) + 'm'; this.app.requestRender(); } } }
-        // Surface width sliders
-        const swl = document.getElementById('prop-swl'), swr = document.getElementById('prop-swr');
-        if (swl) { swl.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.surfaceWidthLeft = parseInt(swl.value); document.getElementById('prop-swl-val').textContent = pt.surfaceWidthLeft + 'm'; this.app.requestRender(); } } }
-        if (swr) { swr.oninput = () => { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { pt.surfaceWidthRight = parseInt(swr.value); document.getElementById('prop-swr-val').textContent = pt.surfaceWidthRight + 'm'; this.app.requestRender(); } } }
+
         // Sector btns
         document.querySelectorAll('.sector-btn[data-sec]').forEach(b => {
             b.onclick = () => {
@@ -319,6 +415,58 @@ F1.UIManager = class UIManager {
         }
 
         // Side/mode btns
+        const wl = document.getElementById('prop-wl'), wlv = document.getElementById('prop-wl-val');
+        const wr = document.getElementById('prop-wr'), wrv = document.getElementById('prop-wr-val');
+        const swl = document.getElementById('prop-swl'), swlv = document.getElementById('prop-swl-val');
+        const swr = document.getElementById('prop-swr'), swrv = document.getElementById('prop-swr-val');
+
+        if (this.app.selection && this.app.selection.type === 'cp') {
+            const pt = this.app.data.getPointById(this.app.selection.id);
+            if (pt) {
+                const px = document.getElementById('prop-x-val');
+                if (px) px.onchange = () => { pt.x = parseFloat(px.value); this.app.requestRender(); };
+                const py = document.getElementById('prop-y-val');
+                if (py) py.onchange = () => { pt.y = parseFloat(py.value); this.app.requestRender(); };
+                
+                const b = (sl, inp, key) => {
+                    if (sl && inp) {
+                        sl.oninput = () => { pt[key] = parseFloat(sl.value); inp.value = sl.value; this.app.requestRender(); };
+                        inp.onchange = () => { pt[key] = parseFloat(inp.value); sl.value = inp.value; this.app.requestRender(); };
+                    }
+                };
+                b(wl, wlv, 'widthLeft'); b(wr, wrv, 'widthRight'); b(swl, swlv, 'surfaceWidthLeft'); b(swr, swrv, 'surfaceWidthRight');
+                
+                const wb = document.getElementById('prop-wb'), wbv = document.getElementById('prop-wb-val');
+                if (wb && wbv) {
+                    let lastV = 0;
+                    const applyDelta = (v) => {
+                        const d = v - lastV; lastV = v;
+                        pt.widthLeft = Math.max(1, pt.widthLeft + d); pt.widthRight = Math.max(1, pt.widthRight + d);
+                        if (wl) wl.value = pt.widthLeft; if (wlv) wlv.value = pt.widthLeft;
+                        if (wr) wr.value = pt.widthRight; if (wrv) wrv.value = pt.widthRight;
+                        this.app.requestRender();
+                    };
+                    wb.oninput = () => { wbv.value = wb.value; applyDelta(parseFloat(wb.value)); };
+                    wb.onchange = () => { wb.value = 0; wbv.value = 0; lastV = 0; };
+                    wbv.onchange = () => { wb.value = wbv.value; applyDelta(parseFloat(wbv.value)); wb.value = 0; wbv.value = 0; lastV = 0; };
+                }
+                const swb = document.getElementById('prop-swb'), swbv = document.getElementById('prop-swb-val');
+                if (swb && swbv) {
+                    let lastV = 0;
+                    const applyDelta = (v) => {
+                        const d = v - lastV; lastV = v;
+                        pt.surfaceWidthLeft = Math.max(0, pt.surfaceWidthLeft + d); pt.surfaceWidthRight = Math.max(0, pt.surfaceWidthRight + d);
+                        if (swl) swl.value = pt.surfaceWidthLeft; if (swlv) swlv.value = pt.surfaceWidthLeft;
+                        if (swr) swr.value = pt.surfaceWidthRight; if (swrv) swrv.value = pt.surfaceWidthRight;
+                        this.app.requestRender();
+                    };
+                    swb.oninput = () => { swbv.value = swb.value; applyDelta(parseFloat(swb.value)); };
+                    swb.onchange = () => { swb.value = 0; swbv.value = 0; lastV = 0; };
+                    swbv.onchange = () => { swb.value = swbv.value; applyDelta(parseFloat(swbv.value)); swb.value = 0; swbv.value = 0; lastV = 0; };
+                }
+            }
+        }
+
         document.querySelectorAll('.side-btn[data-side]').forEach(b => { b.onclick = () => { this.app.tools.width.setSide(b.dataset.side); this.updateProperties(); } });
         document.querySelectorAll('.side-btn[data-wmode]').forEach(b => { b.onclick = () => { this.app.tools.width.setMode(b.dataset.wmode); this.updateProperties(); } });
         // Surface btns
@@ -355,15 +503,31 @@ F1.UIManager = class UIManager {
         if (dz) dz.onclick = () => { if (this.app.selection && this.app.selection.type === 'zone') { this.app.data.snapshot(); this.app.data.removeZone(this.app.selection.id); this.app.setSelection(null); this.app.requestRender(); } };
         // Layer checkboxes
         document.querySelectorAll('.layer-cb').forEach(cb => { cb.onchange = () => { this.app.preview.layers[cb.dataset.layer] = cb.checked; } });
+
+        // Scale controls
+        const cg = document.getElementById('cb-grid-on');
+        if (cg) cg.onchange = () => { this.app.renderer.showGrid = cg.checked; this.app.requestRender(); };
+        const gsz = document.getElementById('prop-grid-size');
+        if (gsz) gsz.oninput = () => { this.app.renderer.gridSize = parseInt(gsz.value); document.getElementById('prop-grid-size-val').textContent = gsz.value + 'm'; this.app.requestRender(); this.updateStatusBar(); };
+        const gcol = document.getElementById('prop-grid-color');
+        if (gcol) gcol.oninput = () => { this.app.renderer.gridColor = gcol.value; this.app.requestRender(); };
+        const gop = document.getElementById('prop-grid-opacity');
+        if (gop) gop.oninput = () => { this.app.renderer.gridOpacity = parseInt(gop.value) / 100; document.getElementById('prop-grid-opacity-val').textContent = gop.value + '%'; this.app.requestRender(); };
     }
 
     updateStatusBar(wx, wy) {
-        document.getElementById('status-coords').textContent = `X: ${Math.round(wx)}  Y: ${Math.round(wy)}`;
+        if (wx !== undefined) this.lastWx = wx;
+        if (wy !== undefined) this.lastWy = wy;
+        const lx = this.lastWx || 0, ly = this.lastWy || 0;
+        document.getElementById('status-coords').textContent = `X: ${Math.round(lx)}  Y: ${Math.round(ly)}`;
         document.getElementById('status-zoom').textContent = `${Math.round(this.app.renderer.scale * 100)}%`;
         document.getElementById('status-tool').textContent = this._tn(this.app.activeToolName);
         const len = this.app.editor.getTrackLength();
-        document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(2)} km · ${this.app.data.controlPoints.length} turns` : 'Ready';
+        const nodes = this.app.data.controlPoints.length;
+        const turns = this.app.data.turnMarkers.length;
+        const scaleStr = `Scale: 1 Grid = ${this.app.renderer.gridSize}m`;
+        document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(2)} km · ${nodes} nodes · ${turns} turns · ${scaleStr}` : scaleStr;
     }
 
-    _tn(n) { return { select: 'Select', draw: 'Draw Track', width: 'Width', surface: 'Surface', barrier: 'Barrier', sector: 'Sectors', turn: 'Turns', pitlane: 'Pit Lane', grandstand: 'Grandstand', zone: 'Zones', garage: 'Garages', eraser: 'Eraser' }[n] || n; }
+    _tn(n) { return { select: 'Select', draw: 'Draw Track', node: 'Node', width: 'Width', surface: 'Surface', barrier: 'Barrier', sector: 'Sectors', turn: 'Turns', pitlane: 'Pit Lane', grandstand: 'Grandstand', zone: 'Zones', straightMode: 'Straight Mode', garage: 'Garages', eraser: 'Eraser', scale: 'Scale' }[n] || n; }
 };

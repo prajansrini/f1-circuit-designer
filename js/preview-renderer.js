@@ -16,6 +16,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
         this.bgColor = '#0f1a0f';
         this.infoColor = '#ffffff';
+        this.nameColor = '#ffffff';
         this.layers = {};
         F1.PREVIEW_LAYERS.forEach(l => this.layers[l.key] = l.default);
 
@@ -57,6 +58,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
         if (this.layers.sectors) this._sectorLabels(ctx, track, data, tf);
         if (this.layers.zones) this._zones(ctx, data, editor, tf);
+        if (this.layers.name !== false) this._name(ctx, data, W, H);
         if (this.layers.info) this._info(ctx, data, editor, W, H);
     }
 
@@ -124,8 +126,6 @@ F1.PreviewRenderer = class PreviewRenderer {
                     const sMid = tf.toScreen(pMid.x, pMid.y);
                     const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
                     const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
-                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
                     ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
                     ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
                     const text = "STRAIGHT MODE ZONE";
@@ -319,15 +319,19 @@ F1.PreviewRenderer = class PreviewRenderer {
         });
     }
 
-    _info(ctx, data, editor, W, H) {
-        ctx.fillStyle = this.infoColor || '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    _name(ctx, data, W, H) {
+        ctx.fillStyle = this.nameColor || '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         ctx.fillText(data.name || 'Circuit', 20, 16);
+    }
+
+    _info(ctx, data, editor, W, H) {
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         const len = editor.getTrackLength();
-        if (len > 0) { ctx.fillStyle = '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(2)} km)`, 20, 46); }
-        ctx.fillStyle = '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 20, 68);
+        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(2)} km)`, 20, 46); }
+        ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 20, 68);
         const ly = H - 30; ctx.font = 'bold 10px Outfit'; let lx = 20;
         [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
-            ctx.fillStyle = item.c; ctx.fillRect(lx, ly, 12, 12); ctx.fillStyle = '#ccc'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(item.l, lx + 16, ly + 6); lx += ctx.measureText(item.l).width + 32;
+            ctx.fillStyle = item.c; ctx.fillRect(lx, ly, 12, 12); ctx.fillStyle = this.infoColor || '#ccc'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(item.l, lx + 16, ly + 6); lx += ctx.measureText(item.l).width + 32;
         });
     }
 };
