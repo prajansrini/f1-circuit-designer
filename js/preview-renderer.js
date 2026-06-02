@@ -29,7 +29,14 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.stripsImg.src = 'resources/strips.png';
         this.userScale = 1; this.userOx = 0; this.userOy = 0;
     }
-    zoom(d, sx, sy) { this.userScale *= (d > 0 ? 0.92 : 1.08); this.userScale = Math.max(0.1, Math.min(10, this.userScale)); }
+    zoom(d, sx, sy) { 
+        const oldScale = this.userScale;
+        this.userScale *= (d > 0 ? 0.92 : 1.08); 
+        this.userScale = Math.max(0.1, Math.min(10, this.userScale)); 
+        const ratio = this.userScale / oldScale;
+        this.userOx = sx - this.canvas.width/2 - (sx - this.canvas.width/2 - this.userOx) * ratio;
+        this.userOy = sy - this.canvas.height/2 - (sy - this.canvas.height/2 - this.userOy) * ratio;
+    }
     pan(dx, dy) { this.userOx += dx; this.userOy += dy; }
     fitToScreen() { this.userScale = 1; this.userOx = 0; this.userOy = 0; }
     resize() { const c = this.canvas.parentElement; this.canvas.width = c.clientWidth; this.canvas.height = c.clientHeight; }
@@ -127,9 +134,10 @@ F1.PreviewRenderer = class PreviewRenderer {
                     const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
                     const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
                     ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-                    ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
+                    const sf = Math.max(0.9, tf.scale);
+                    ctx.font = `bold ${10 * sf}px Outfit`;
                     const text = "STRAIGHT MODE ZONE";
-                    const tw = ctx.measureText(text).width + 16, th = 22;
+                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
                     ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
                     ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5; ctx.stroke();
                     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
@@ -228,22 +236,23 @@ F1.PreviewRenderer = class PreviewRenderer {
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
-            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
-            const offset = w + sw + 18 / tf.scale;
-            const wx = p.x + p.nx * offset * actualSgn;
-            const wy = p.y + p.ny * offset * actualSgn;
-            const s = tf.toScreen(wx, wy);
+            const sf = Math.max(0.9, tf.scale);
+            const sCenter = tf.toScreen(p.x, p.y);
+            const trackRadiusPx = Math.max(8, 10 * tf.scale);
+            const circleRadiusPx = 11 * sf;
+            const distPx = trackRadiusPx + circleRadiusPx + 6;
+            const s = { x: sCenter.x + p.nx * distPx * actualSgn, y: sCenter.y + p.ny * distPx * actualSgn };
+
             ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
-            ctx.beginPath(); ctx.arc(0, 0, 11 * tf.scale, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(0, 0, circleRadiusPx, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff'; ctx.fill();
             ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = '#000'; ctx.font = `bold ${Math.max(10, 11 * tf.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#000'; ctx.font = `bold ${10 * sf}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(tm.label, 0, 0);
             if (tm.name) {
-                ctx.fillStyle = '#fff'; ctx.font = `normal ${Math.max(8, 9 * tf.scale)}px Outfit`;
+                ctx.fillStyle = '#333'; ctx.font = `normal ${8 * sf}px Outfit`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(tm.name.toUpperCase(), 0, -16 * tf.scale);
+                ctx.fillText(tm.name.toUpperCase(), 0, -16 * sf);
             }
             ctx.restore();
         });
@@ -263,14 +272,15 @@ F1.PreviewRenderer = class PreviewRenderer {
 
             // Label container
             const text = `SECTOR ${sl.sector}`;
-            ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
-            const tw = ctx.measureText(text).width + 16, th = 22;
+            const sf = Math.max(0.9, tf.scale);
+            ctx.font = `bold ${10 * sf}px Outfit`;
+            const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
             ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
             ctx.restore();
         });
     }
@@ -300,11 +310,12 @@ F1.PreviewRenderer = class PreviewRenderer {
             ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(lx, ly); ctx.stroke();
 
             // Label container
-            ctx.font = `bold ${Math.max(9, 10 * tf.scale)}px Outfit`;
+            const sf = Math.max(0.9, tf.scale);
+            ctx.font = `bold ${10 * sf}px Outfit`;
             const text = zone.label.toUpperCase();
             const lines = text.split('\n');
-            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16;
-            const th = lines.length * 16 + 6;
+            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
+            const th = lines.length * 16 * sf + 6 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
@@ -313,7 +324,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             if (lines.length === 1) {
                 ctx.fillText(text, 0, 0);
             } else {
-                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14));
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14 * sf));
             }
             ctx.restore();
         });

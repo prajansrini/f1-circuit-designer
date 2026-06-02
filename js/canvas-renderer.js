@@ -177,9 +177,10 @@ F1.Renderer = class Renderer {
                     ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
                     ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
                     const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
-                    ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
+                    const sf = Math.max(0.9, this.scale);
+                    ctx.font = `bold ${10 * sf}px Outfit`;
                     const text = "STRAIGHT MODE ZONE";
-                    const tw = ctx.measureText(text).width + 16, th = 22;
+                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
                     ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
                     ctx.strokeStyle = isSel ? '#00ff88' : '#ff1801'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
                     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
@@ -334,8 +335,8 @@ F1.Renderer = class Renderer {
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
             const sw2 = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
-            const wx = p.x + p.nx * (w + sw2 + 18 / this.scale) * actualSgn;
-            const wy = p.y + p.ny * (w + sw2 + 18 / this.scale) * actualSgn;
+            const wx = p.x + p.nx * (w + sw2 + 13) * actualSgn;
+            const wy = p.y + p.ny * (w + sw2 + 13) * actualSgn;
             const s = this.w2s(wx, wy);
             this._drawRotHandle(s.x, s.y, (tm.rotation || 0) * Math.PI / 180, 22);
         }
@@ -394,11 +395,12 @@ F1.Renderer = class Renderer {
 
             // Rotatable label
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
-            ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
+            const sf = Math.max(0.9, this.scale);
+            ctx.font = `bold ${10 * sf}px Outfit`;
             const text = zone.label.toUpperCase();
             const lines = text.split('\n');
-            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16;
-            const th = lines.length * 16 + 6;
+            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
+            const th = lines.length * 16 * sf + 6 * sf;
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = isSel ? '#00ff88' : zt.color; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
@@ -406,7 +408,7 @@ F1.Renderer = class Renderer {
             if (lines.length === 1) {
                 ctx.fillText(text, 0, 0);
             } else {
-                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14));
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14 * sf));
             }
             ctx.restore();
         });
@@ -428,14 +430,15 @@ F1.Renderer = class Renderer {
 
             // Rotatable label container
             const text = `SECTOR ${sl.sector}`;
-            ctx.font = `bold ${Math.max(9, 10 * this.scale)}px Outfit`;
-            const tw = ctx.measureText(text).width + 16, th = 22;
+            const sf = Math.max(0.9, this.scale);
+            ctx.font = `bold ${10 * sf}px Outfit`;
+            const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
             const isSel = sel && sel.type === 'sector_label' && sel.sector === sl.sector;
             const sColor = sl.sector === 1 ? this.C.s1 : sl.sector === 2 ? this.C.s2 : this.C.s3;
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = isSel ? '#00ff88' : sColor; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
             ctx.restore();
         });
     }
@@ -451,7 +454,7 @@ F1.Renderer = class Renderer {
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
             const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
-            const offset = w + sw + 18 / this.scale;
+            const offset = w + sw + 13;
             const wx = p.x + p.nx * offset * actualSgn;
             const wy = p.y + p.ny * offset * actualSgn;
             const s = this.w2s(wx, wy);

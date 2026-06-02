@@ -26,8 +26,10 @@ F1.UIManager = class UIManager {
 
     _cpProps(pt) {
         let h = `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Position</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">X</span><div style="flex:1"></div><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">Y</span><div style="flex:1"></div><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
+            <div class="prop-row" style="gap:10px;">
+                <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+            </div></div>`;
         h += `<div class="prop-group"><label>Track Width</label>
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${pt.widthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
@@ -316,16 +318,17 @@ F1.UIManager = class UIManager {
 
     _turnProps(sel) {
         let h = '<h3 class="prop-title">Turn Placer</h3><p class="prop-hint">Click on the track to manually place Turn Markers (e.g. Turn 1, Turn 2). Select a turn marker in Select mode to rename it or drag it along the track.</p>';
+        h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label class="chk-label prop-hint">Select a Turn</label>
+            <select class="prop-input" id="prop-turn-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 15px;">
+                <option value="">-- Choose a turn --</option>`;
+        this.app.data.turnMarkers.forEach(t => {
+            h += `<option value="${t.id}" ${sel && sel.id === t.id ? 'selected' : ''}>Turn ${t.label} ${t.name ? `(${t.name})` : ''}</option>`;
+        });
+        h += `</select></div>`;
+
         if (sel && sel.type === 'turn') {
             const tm = this.app.data.getTurnMarkerById(sel.id);
             if (tm) {
-                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label class="chk-label prop-hint">Select a Turn</label>
-                    <select class="prop-input" id="prop-turn-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 15px;">
-                        <option value="">-- Select Turn --</option>`;
-                this.app.data.turnMarkers.forEach(t => {
-                    h += `<option value="${t.id}" ${sel.id === t.id ? 'selected' : ''}>Turn ${t.label} ${t.name ? `(${t.name})` : ''}</option>`;
-                });
-                h += `</select></div>`;
                 h += `<div class="prop-group"><label>Turn Marker</label>
                     <div class="prop-group" style="margin-top:10px;"><label>Side</label><div class="side-btns">
                         <button class="side-btn ${tm.side === 'left' ? 'active' : ''}" id="btn-tm-left">Left</button>
