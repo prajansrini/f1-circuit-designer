@@ -151,20 +151,20 @@ F1.App = class App {
         
         const pBg = document.getElementById('preview-bg-color');
         if (pBg) { 
-            pBg.addEventListener('change', (e) => { this.preview.bgColor = e.target.value; }); 
-            pBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.bgColor = e.target.value; } });
+            pBg.addEventListener('change', (e) => { this.preview.bgColor = e.target.value; this._renderPreview(); }); 
+            pBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.bgColor = e.target.value; this._renderPreview(); } });
         }
 
         const iBg = document.getElementById('info-text-color');
         if (iBg) { 
-            iBg.addEventListener('change', (e) => { this.preview.infoColor = e.target.value; }); 
-            iBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.infoColor = e.target.value; } });
+            iBg.addEventListener('change', (e) => { this.preview.infoColor = e.target.value; this._renderPreview(); }); 
+            iBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.infoColor = e.target.value; this._renderPreview(); } });
         }
 
         const nBg = document.getElementById('name-text-color');
         if (nBg) { 
-            nBg.addEventListener('change', (e) => { this.preview.nameColor = e.target.value; }); 
-            nBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.nameColor = e.target.value; } });
+            nBg.addEventListener('change', (e) => { this.preview.nameColor = e.target.value; this._renderPreview(); }); 
+            nBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.nameColor = e.target.value; this._renderPreview(); } });
         }
 
         document.querySelectorAll('.swatch').forEach(sw => {
@@ -175,9 +175,9 @@ F1.App = class App {
                 if(input) {
                     input.value = color;
                     if(targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
-                    else if(targetId === 'preview-bg-color') { this.preview.bgColor = color; }
-                    else if(targetId === 'info-text-color') { this.preview.infoColor = color; }
-                    else if(targetId === 'name-text-color') { this.preview.nameColor = color; }
+                    else if(targetId === 'preview-bg-color') { this.preview.bgColor = color; this._renderPreview(); }
+                    else if(targetId === 'info-text-color') { this.preview.infoColor = color; this._renderPreview(); }
+                    else if(targetId === 'name-text-color') { this.preview.nameColor = color; this._renderPreview(); }
                 }
             });
         });

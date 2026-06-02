@@ -173,8 +173,6 @@ F1.Renderer = class Renderer {
                     const sMid = this.w2s(pMid.x, pMid.y);
                     const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
                     const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
-                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.moveTo(sMid.x, sMid.y); ctx.lineTo(lx, ly); ctx.stroke();
                     ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
                     const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
                     const sf = Math.max(0.9, this.scale);
@@ -375,22 +373,17 @@ F1.Renderer = class Renderer {
             const s = this.w2s(pos.x, pos.y);
 
             // Draw anchor circle on track
-            if (zone.type === 'overtake_activation') {
-                ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
-                ctx.fillStyle = '#000'; ctx.fill();
-                ctx.strokeStyle = '#00ff66'; ctx.lineWidth = 2 * this.scale; ctx.stroke();
-            } else {
-                ctx.beginPath(); ctx.arc(s.x, s.y, 5 * this.scale, 0, Math.PI * 2);
-                ctx.fillStyle = zt.color; ctx.fill();
-                ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 * this.scale; ctx.stroke();
-            }
+            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * this.scale, 0, Math.PI * 2);
+            ctx.fillStyle = zt.color; ctx.fill();
+            ctx.beginPath(); ctx.arc(s.x, s.y, 2 * this.scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#181818'; ctx.fill();
 
             // Draw line connecting track to label container
             const lx = s.x + zone.labelOffsetX * this.scale;
             const ly = s.y + zone.labelOffsetY * this.scale;
             if (zone.type !== 'straight_mode') {
-                ctx.strokeStyle = zt.color; ctx.lineWidth = 1.5;
-                ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(lx, ly); ctx.stroke();
+                ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, ly); ctx.lineTo(lx, ly); ctx.stroke();
             }
 
             // Rotatable label
@@ -402,9 +395,9 @@ F1.Renderer = class Renderer {
             const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
             const th = lines.length * 16 * sf + 6 * sf;
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-            ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
-            ctx.strokeStyle = isSel ? '#00ff88' : zt.color; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = zt.color; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            if (isSel) { ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2; ctx.stroke(); }
+            ctx.fillStyle = zt.textColor || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             if (lines.length === 1) {
                 ctx.fillText(text, 0, 0);
             } else {
@@ -453,7 +446,7 @@ F1.Renderer = class Renderer {
             if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
             const offset = w + sw + 13;
             const wx = p.x + p.nx * offset * actualSgn;
             const wy = p.y + p.ny * offset * actualSgn;

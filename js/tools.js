@@ -11,9 +11,15 @@ class BaseTool {
     activate() { } deactivate() { }
     onMouseDown(wx, wy, e) { } onMouseMove(wx, wy, e) { } onMouseUp(wx, wy, e) { } onKeyDown(e) { }
     getCursor() { return 'default'; }
+
+    _hitRotatedRect(wx, wy, cx, cy, rot, hw, hh) {
+        const dx = wx - cx, dy = wy - cy, angle = -(rot || 0) * Math.PI / 180;
+        const rwx = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const rwy = dx * Math.sin(angle) + dy * Math.cos(angle);
+        return Math.abs(rwx) < hw && Math.abs(rwy) < hh;
+    }
 }
 
-/* ---- Select / Move ---- */
 /* ---- Select / Move ---- */
 class SelectTool extends BaseTool {
     constructor(app) { super(app); this.dragging = null; this.rotatingObj = null; }
@@ -96,8 +102,7 @@ class SelectTool extends BaseTool {
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return null;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
-            const offset = w + sw + 13;
+            const offset = w + 17 / this.renderer.scale;
             const tmx = p.x + p.nx * offset * actualSgn;
             const tmy = p.y + p.ny * offset * actualSgn;
             const s = this.renderer.w2s(tmx, tmy);
@@ -156,7 +161,10 @@ class SelectTool extends BaseTool {
                 if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) {
                     this.data.snapshot();
                     this.app.setSelection({ type: 'zone', id: firstSMZ.id });
-                    this.dragging = { type: 'zone_label', obj: firstSMZ, anchor: pMid };
+                    this.dragging = { 
+                        type: 'zone_label', obj: firstSMZ, anchor: pMid,
+                        dragOffsetX: wx - lx, dragOffsetY: wy - ly 
+                    };
                     return;
                 }
             }
@@ -176,10 +184,13 @@ class SelectTool extends BaseTool {
             // Drag the label container offset
             const lx = pos.x + zone.labelOffsetX;
             const ly = pos.y + zone.labelOffsetY;
-            if (Math.hypot(wx - lx, wy - ly) < 25 / this.renderer.scale) {
+            if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) {
                 this.data.snapshot();
                 this.app.setSelection({ type: 'zone', id: zone.id });
-                this.dragging = { type: 'zone_label', obj: zone, anchor: pos };
+                this.dragging = { 
+                    type: 'zone_label', obj: zone, anchor: pos,
+                    dragOffsetX: wx - lx, dragOffsetY: wy - ly
+                };
                 return;
             }
         }
@@ -208,12 +219,15 @@ class SelectTool extends BaseTool {
             const pts = track.filter(pt => pt.sector === sl.sector);
             if (pts.length) {
                 const mid = pts[Math.floor(pts.length / 2)];
-                const slx = mid.x + sl.labelOffsetX;
-                const sly = mid.y + sl.labelOffsetY;
-                if (Math.hypot(wx - slx, wy - sly) < 25 / this.renderer.scale) {
+                const slx = mid.x + (sl.labelOffsetX || 0);
+                const sly = mid.y + (sl.labelOffsetY || 0);
+                if (this._hitRotatedRect(wx, wy, slx, sly, sl.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) {
                     this.data.snapshot();
                     this.app.setSelection({ type: 'sector_label', sector: sl.sector });
-                    this.dragging = { type: 'sector_label', obj: sl, anchor: mid };
+                    this.dragging = { 
+                        type: 'sector_label', obj: sl, anchor: mid,
+                        dragOffsetX: wx - slx, dragOffsetY: wy - sly
+                    };
                     return;
                 }
             }
@@ -274,13 +288,13 @@ class SelectTool extends BaseTool {
             }
             else if (type === 'zone_label') {
                 const anchor = this.dragging.anchor;
-                obj.labelOffsetX = wx - anchor.x;
-                obj.labelOffsetY = wy - anchor.y;
+                obj.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
+                obj.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
             }
             else if (type === 'sector_label') {
                 const anchor = this.dragging.anchor;
-                obj.labelOffsetX = wx - anchor.x;
-                obj.labelOffsetY = wy - anchor.y;
+                obj.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
+                obj.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
             }
             else if (type === 'zone_start_handle') {
                 const n = this.editor.findNearestTrackPoint(wx, wy);
@@ -310,20 +324,25 @@ class SelectTool extends BaseTool {
                 const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
                 if (zt && zt.range) continue;
                 const pos = this.editor.getZoneWorldPos(zone);
-                if (pos && Math.hypot(wx - (pos.x + zone.labelOffsetX), wy - (pos.y + zone.labelOffsetY)) < 25 / this.renderer.scale) { overElement = true; break; }
+                const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
+                if (pos && this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) { overElement = true; break; }
             }
             if (!overElement) {
                 for (const sl of this.data.sectorLabels) {
-                    const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) continue;
-                    const mid = pts[Math.floor(pts.length / 2)];
-                    if (Math.hypot(wx - (mid.x + sl.labelOffsetX), wy - (mid.y + sl.labelOffsetY)) < 25 / this.renderer.scale) { overElement = true; break; }
+                    const pts = track.filter(pt => pt.sector === sl.sector);
+                    if (pts.length) {
+                        const mid = pts[Math.floor(pts.length / 2)];
+                        const lx = mid.x + (sl.labelOffsetX || 0), ly = mid.y + (sl.labelOffsetY || 0);
+                        if (this._hitRotatedRect(wx, wy, lx, ly, sl.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) { overElement = true; break; }
+                    }
                 }
             }
             if (!overElement) {
                 for (const tm of this.data.turnMarkers) {
                     const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
                     const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
-                    const sgn = this._getOutsideSgn(p); const w = sgn > 0 ? p.widthLeft : p.widthRight;
+                    const sgn = this._getOutsideSgn(p);
+                    const w = sgn > 0 ? p.widthLeft : p.widthRight;
                     const sw = sgn > 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
                     const offset = w + sw + 13;
                     const tmx = p.x + p.nx * offset * sgn, tmy = p.y + p.ny * offset * sgn;
@@ -647,7 +666,7 @@ class SectorTool extends BaseTool {
             const track = this.editor.getInterpolatedTrack();
             const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return null;
             const mid = pts[Math.floor(pts.length / 2)];
-            const s = this.renderer.w2s(mid.x + sl.labelOffsetX, mid.y + sl.labelOffsetY);
+            const s = this.renderer.w2s(mid.x + (sl.labelOffsetX || 0), mid.y + (sl.labelOffsetY || 0));
             const rad = (sl.rotation || 0) * Math.PI / 180;
             const hx = s.x + Math.sin(rad) * 22, hy = s.y - Math.cos(rad) * 22;
             const sW = this.renderer.w2s(wx, wy);
@@ -662,16 +681,18 @@ class SectorTool extends BaseTool {
         const track = this.editor.getInterpolatedTrack();
         const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return null;
         const mid = pts[Math.floor(pts.length / 2)];
-        return this.renderer.w2s(mid.x + sl.labelOffsetX, mid.y + sl.labelOffsetY);
+        return this.renderer.w2s(mid.x + (sl.labelOffsetX || 0), mid.y + (sl.labelOffsetY || 0));
     }
 
     _hitExisting(wx, wy) {
         const track = this.editor.getInterpolatedTrack();
         for (const sl of this.data.sectorLabels) {
-            const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) continue;
-            const mid = pts[Math.floor(pts.length / 2)];
-            if (Math.hypot(wx - (mid.x + sl.labelOffsetX), wy - (mid.y + sl.labelOffsetY)) < 25 / this.renderer.scale) {
-                return { sl, anchor: mid };
+            const pts = track.filter(pt => pt.sector === sl.sector);
+            if (pts.length) {
+                const mid = pts[Math.floor(pts.length / 2)];
+                if (this._hitRotatedRect(wx, wy, mid.x + (sl.labelOffsetX || 0), mid.y + (sl.labelOffsetY || 0), sl.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) {
+                    return { sl, anchor: mid };
+                }
             }
         }
         return null;
@@ -679,19 +700,41 @@ class SectorTool extends BaseTool {
 
     _apply(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
-        if (cp && cp.sector !== this.currentSector) { cp.sector = this.currentSector; this.app.requestRender(); this.app.uiManager.updateProperties(); }
+        if (cp && cp.sector !== this.currentSector) { 
+            cp.sector = this.currentSector; 
+            this.editor._needsUpdate = true;
+            this.app.requestRender(); 
+            this.app.uiManager.updateProperties(); 
+        }
     }
     
     onMouseDown(wx, wy) {
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj) { this.data.snapshot(); this.rotatingObj = rotObj; return; }
 
+        // 1. TIGHT check for painting exactly on a node
+        const cpTight = this.editor.findNearestControlPoint(wx, wy, 8 / this.renderer.scale);
+        if (cpTight) {
+            this.data.snapshot(); this.painting = true; this._apply(wx, wy); return;
+        }
+
+        // 2. Otherwise, allow selecting/dragging the label
         const hit = this._hitExisting(wx, wy);
         if (hit) {
             this.data.snapshot();
             this.app.setSelection({ type: 'sector_label', sector: hit.sl.sector });
-            this.dragging = hit; return;
+            this.dragging = hit; 
+            this.dragging.dragOffsetX = wx - (hit.anchor.x + (hit.sl.labelOffsetX || 0));
+            this.dragging.dragOffsetY = wy - (hit.anchor.y + (hit.sl.labelOffsetY || 0));
+            return;
         }
+
+        // 3. Fallback: if we missed the exact node but still want to paint (e.g. clicking near a node)
+        const cpLoose = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+        if (cpLoose) {
+            this.data.snapshot(); this.painting = true; this._apply(wx, wy); return;
+        }
+
         this.data.snapshot(); this.painting = true; this._apply(wx, wy);
     }
     
@@ -706,8 +749,8 @@ class SectorTool extends BaseTool {
             this.app.uiManager.updateProperties(); this.app.requestRender(); return;
         }
         if (this.dragging) {
-            this.dragging.sl.labelOffsetX = wx - this.dragging.anchor.x;
-            this.dragging.sl.labelOffsetY = wy - this.dragging.anchor.y;
+            this.dragging.sl.labelOffsetX = (wx - this.dragging.dragOffsetX) - this.dragging.anchor.x;
+            this.dragging.sl.labelOffsetY = (wy - this.dragging.dragOffsetY) - this.dragging.anchor.y;
             this.app.requestRender(); return;
         }
         if (this.painting) this._apply(wx, wy);
@@ -779,10 +822,40 @@ class GrandstandTool extends BaseTool {
 
 /* ---- Zone Placement ---- */
 class ZoneTool extends BaseTool {
-    constructor(app) { super(app); this.zoneType = 'speed_trap'; this._placingRange = null; this.dragging = null; }
-    getCursor() { return 'crosshair'; }
+    constructor(app) { super(app); this.zoneType = 'speed_trap'; this._placingRange = null; this.dragging = null; this.rotatingZ = null; }
+    getCursor() { return this.rotatingZ ? 'grabbing' : 'crosshair'; }
+
+    _hitRotationHandle(wx, wy) {
+        const sel = this.app.selection;
+        if (!sel || sel.type !== 'zone') return null;
+        const zone = this.data.getZoneById(sel.id);
+        if (!zone) return null;
+        const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
+        let anchorX, anchorY;
+        if (zt && zt.range) {
+            const track = this.editor.getInterpolatedTrack();
+            const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+            const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+            const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+            const pMid = track[midIdx]; if (!pMid) return null;
+            anchorX = pMid.x; anchorY = pMid.y;
+        } else {
+            const pos = this.editor.getZoneWorldPos(zone); if (!pos) return null;
+            anchorX = pos.x; anchorY = pos.y;
+        }
+        const sA = this.renderer.w2s(anchorX, anchorY);
+        const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
+        const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
+        const rad = (zone.rotation || 0) * Math.PI / 180;
+        const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
+        const sW = this.renderer.w2s(wx, wy);
+        if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return zone;
+        return null;
+    }
 
     _hitExisting(wx, wy) {
+        const rotObj = this._hitRotationHandle(wx, wy);
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) return { type: 'zone_rotation', obj: rotObj };
         const track = this.editor.getInterpolatedTrack();
         
         // SMZ Range Handles (if selected)
@@ -817,41 +890,101 @@ class ZoneTool extends BaseTool {
             if (!pos) continue;
             if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
             const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
-            if (Math.hypot(wx - lx, wy - ly) < 25 / this.renderer.scale) return { type: 'zone_label', obj: zone, anchor: pos };
+            if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) return { type: 'zone_label', obj: zone, anchor: pos };
         }
         return null;
     }
 
     onMouseDown(wx, wy) {
+        // 1. Always prioritize rotation handles
+        const rotObj = this._hitRotationHandle(wx, wy);
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) {
+            this.data.snapshot();
+            this.app.setSelection({ type: 'zone', id: rotObj.id });
+            this.rotatingZ = rotObj;
+            return;
+        }
+
+
+        if (this._placingRange) {
+            const n = this.editor.findNearestTrackPoint(wx, wy);
+            if (n.point && n.dist <= Math.max(100, 60 / this.renderer.scale)) {
+                this._placingRange.endSegIndex = n.point.segIndex;
+                this._placingRange.endT = n.point.t;
+                this._placingRange = null; this.app.setStatus('Zone placed');
+                this.app.requestRender();
+                return;
+            }
+        }
+
+        // 4. Place new zone (prioritize track placement over large labels)
+        const n = this.editor.findNearestTrackPoint(wx, wy);
+        if (n.point) {
+            const trackRadius = (n.point.widthLeft + n.point.widthRight) / 2;
+            const placeThreshold = Math.max(trackRadius, 20 / this.renderer.scale);
+            if (n.dist <= placeThreshold) {
+                const zt = F1.ZONE_TYPES.find(z => z.key === this.zoneType);
+                if (zt && zt.range) {
+                    this.data.snapshot(); const p = n.point;
+                    const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
+                    this._placingRange = zone; this.app.setSelection({ type: 'zone', id: zone.id });
+                    this.app.setStatus('Click again to set zone end');
+                } else {
+                    this.data.snapshot(); const p = n.point;
+                    const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
+                    this.app.setSelection({ type: 'zone', id: zone.id });
+                    this.app.setStatus('Zone placed');
+                }
+                this.app.requestRender();
+                return;
+            }
+        }
+
         const hit = this._hitExisting(wx, wy);
         if (hit) {
             this.data.snapshot();
             this.app.setSelection({ type: 'zone', id: hit.obj.id });
-            this.dragging = hit; return;
-        }
-
-        const n = this.editor.findNearestTrackPoint(wx, wy);
-        if (!n.point || n.dist > 60 / this.renderer.scale) return;
-        const zt = F1.ZONE_TYPES.find(z => z.key === this.zoneType);
-        if (zt && zt.range) {
-            if (!this._placingRange) {
-                this.data.snapshot(); const p = n.point;
-                const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
-                this._placingRange = zone; this.app.setSelection({ type: 'zone', id: zone.id });
-                this.app.setStatus('Click again to set zone end');
+            if (hit.type === 'zone_rotation') {
+                this.rotatingZ = hit.obj;
+                this.dragging = null;
             } else {
-                this._placingRange.endSegIndex = n.point.segIndex;
-                this._placingRange.endT = n.point.t;
-                this._placingRange = null; this.app.setStatus('Zone placed');
+                this.dragging = hit;
+                if (hit.type === 'zone_label') {
+                    const lx = hit.anchor.x + (hit.obj.labelOffsetX || 0);
+                    const ly = hit.anchor.y + (hit.obj.labelOffsetY || 0);
+                    this.dragging.dragOffsetX = wx - lx;
+                    this.dragging.dragOffsetY = wy - ly;
+                }
             }
-        } else {
-            this.data.snapshot(); const p = n.point;
-            this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
+            return;
         }
-        this.app.requestRender();
     }
 
     onMouseMove(wx, wy) {
+        if (this.rotatingZ) {
+            const z = this.rotatingZ;
+            const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
+            let cx, cy;
+            if (zt && zt.range) {
+                const track = this.editor.getInterpolatedTrack();
+                const si = z.segIndex * this.editor.resolution + Math.floor(z.t * this.editor.resolution);
+                const ei = z.endSegIndex * this.editor.resolution + Math.floor(z.endT * this.editor.resolution);
+                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const pMid = track[midIdx];
+                if (!pMid) return;
+                cx = pMid.x + (z.labelOffsetX || 0); cy = pMid.y + (z.labelOffsetY || 0);
+            } else {
+                const pos = this.editor.getZoneWorldPos(z);
+                if (!pos) return;
+                cx = pos.x + (z.labelOffsetX || 0); cy = pos.y + (z.labelOffsetY || 0);
+            }
+            let angle = Math.atan2(wy - cy, wx - cx) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            z.rotation = angle;
+            this.app.uiManager.updateProperties();
+            this.app.requestRender();
+            return;
+        }
         if (this.dragging) {
             const type = this.dragging.type;
             const obj = this.dragging.obj;
@@ -860,17 +993,29 @@ class ZoneTool extends BaseTool {
                 if (n.point) { obj.segIndex = n.point.segIndex; obj.t = n.point.t; }
             } else if (type === 'zone_label') {
                 const anchor = this.dragging.anchor;
-                obj.labelOffsetX = wx - anchor.x;
-                obj.labelOffsetY = wy - anchor.y;
+                obj.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
+                obj.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
             }
             this.app.requestRender(); return;
         }
+
+        const rotObj = this._hitRotationHandle(wx, wy);
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) {
+            this.app.canvas.style.cursor = 'grab';
+            return;
+        }
+
         const hit = this._hitExisting(wx, wy);
-        this.app.canvas.style.cursor = hit ? 'move' : 'crosshair';
+        if (hit && (hit.type === 'zone_label' || hit.type === 'zone_circle')) {
+            this.app.canvas.style.cursor = 'move';
+            return;
+        }
+
+        this.app.canvas.style.cursor = 'crosshair';
     }
 
-    onMouseUp() { this.dragging = null; }
-    deactivate() { this._placingRange = null; this.dragging = null; }
+    onMouseUp() { this.dragging = null; this.rotatingZ = null; }
+    deactivate() { this._placingRange = null; this.dragging = null; this.rotatingZ = null; }
 }
 
 /* ---- Garage ---- */

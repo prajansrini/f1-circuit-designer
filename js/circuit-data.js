@@ -6,9 +6,9 @@ window.F1 = window.F1 || {};
 
 F1.ZONE_TYPES = [
     { key: 'straight_mode', label: 'Straight Mode\nZone', color: '#e10600', bg: '#440200', range: true, multi: true },
-    { key: 'overtake_detection', label: 'Overtake\nDetection', color: '#8bc34a', bg: '#2d4a10', range: false, multi: false },
-    { key: 'overtake_activation', label: 'Overtake\nActivation', color: '#00bcd4', bg: '#004d56', range: false, multi: false },
-    { key: 'speed_trap', label: 'Speed Trap', color: '#cddc39', bg: '#3e4410', range: false, multi: false },
+    { key: 'overtake_detection', label: 'Overtake\nDetection', color: '#6be097', textColor: '#110b42', bg: '#2d4a10', range: false, multi: false },
+    { key: 'overtake_activation', label: 'Overtake\nActivation', color: '#6be097', textColor: '#110b42', bg: '#004d56', range: false, multi: false },
+    { key: 'speed_trap', label: 'Speed Trap', color: '#e6ff40', textColor: '#111111', bg: '#3e4410', range: false, multi: false },
 ];
 
 F1.PREVIEW_LAYERS = [
