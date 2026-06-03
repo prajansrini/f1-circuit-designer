@@ -310,13 +310,22 @@ F1.Renderer = class Renderer {
                 const pMid = track[midIdx]; if (!pMid) return;
                 const sMid = this.w2s(pMid.x, pMid.y);
                 const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
-                const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
-                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, 22);
+                const sf = Math.max(0.9, this.scale);
+                const text = zone.label ? zone.label.toUpperCase() : '';
+                const lines = text.split('\n');
+                const th = lines.length * 16 * sf + 6 * sf;
+                const hd = th / 2 + 20;
+                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, hd);
             } else {
                 const pos = editor.getZoneWorldPos(zone); if (!pos) return;
                 const s = this.w2s(pos.x, pos.y);
                 const lx = s.x + zone.labelOffsetX * this.scale, ly = s.y + zone.labelOffsetY * this.scale;
-                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, 22);
+                const sf = Math.max(0.9, this.scale);
+                const text = zone.label ? zone.label.toUpperCase() : '';
+                const lines = text.split('\n');
+                const th = lines.length * 16 * sf + 6 * sf;
+                const hd = th / 2 + 20;
+                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, hd);
             }
         } else if (sel.type === 'sector_label') {
             const sl = data.sectorLabels.find(s => s.sector === sel.sector); if (!sl) return;
@@ -324,7 +333,10 @@ F1.Renderer = class Renderer {
             const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return;
             const mid = pts[Math.floor(pts.length / 2)]; const sMid = this.w2s(mid.x, mid.y);
             const lx = sMid.x + sl.labelOffsetX * this.scale, ly = sMid.y + sl.labelOffsetY * this.scale;
-            this._drawRotHandle(lx, ly, (sl.rotation || 0) * Math.PI / 180, 22);
+            const sf = Math.max(0.9, this.scale);
+            const th = 22 * sf;
+            const hd = th / 2 + 20;
+            this._drawRotHandle(lx, ly, (sl.rotation || 0) * Math.PI / 180, hd);
         } else if (sel.type === 'turn') {
             const tm = data.getTurnMarkerById(sel.id); if (!tm) return;
             const track = editor.getInterpolatedTrack();
@@ -372,18 +384,22 @@ F1.Renderer = class Renderer {
             const pos = editor.getZoneWorldPos(zone); if (!pos) return;
             const s = this.w2s(pos.x, pos.y);
 
-            // Draw anchor circle on track
-            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * this.scale, 0, Math.PI * 2);
-            ctx.fillStyle = zt.color; ctx.fill();
-            ctx.beginPath(); ctx.arc(s.x, s.y, 2 * this.scale, 0, Math.PI * 2);
-            ctx.fillStyle = '#181818'; ctx.fill();
-
-            // Draw line connecting track to label container
+            // Draw line connecting track to label container FIRST
             const lx = s.x + zone.labelOffsetX * this.scale;
             const ly = s.y + zone.labelOffsetY * this.scale;
             if (zone.type !== 'straight_mode') {
                 ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
                 ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, ly); ctx.lineTo(lx, ly); ctx.stroke();
+            }
+
+            // Draw anchor circle on track ON TOP of the line
+            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * this.scale, 0, Math.PI * 2);
+            ctx.fillStyle = zt.color; ctx.fill();
+            if (zone.type === 'overtake_activation') {
+                ctx.beginPath(); ctx.arc(s.x, s.y, 2 * this.scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#181818'; ctx.fill();
+            } else {
+                ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
             }
 
             // Rotatable label

@@ -122,10 +122,16 @@ F1.App = class App {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (e.key === 'Escape') { this.setTool('select'); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this._renderPreview(); return; }
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') { 
+                e.preventDefault(); 
+                const cn = document.getElementById('circuit-name'); 
+                if (cn) { cn.focus(); cn.select(); } 
+                return; 
+            }
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-            const sc = { v: 'select', p: 'draw', n: 'node', w: 'width', s: 'surface', b: 'barrier', '1': 'sector', l: 'pitlane', g: 'grandstand', z: 'zone', m: 'straightMode', r: 'garage', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
-            if (!e.ctrlKey && !e.metaKey && sc[e.key]) { this.setTool(sc[e.key]); return; }
+            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', g: 'garage', l: 'grandstand', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
+            if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'f') { 
                 if (hoveredCanvas === 'editor') {
                     this.renderer.fitToScreen(this.data, this.editor); 

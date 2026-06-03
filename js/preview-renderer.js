@@ -293,17 +293,21 @@ F1.PreviewRenderer = class PreviewRenderer {
             const pos = editor.getZoneWorldPos(zone); if (!pos) return;
             const s = tf.toScreen(pos.x, pos.y);
 
-            // Draw anchor circle on track
-            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * tf.scale, 0, Math.PI * 2);
-            ctx.fillStyle = zt.color; ctx.fill();
-            ctx.beginPath(); ctx.arc(s.x, s.y, 2 * tf.scale, 0, Math.PI * 2);
-            ctx.fillStyle = '#181818'; ctx.fill();
-
-            // Draw line connecting track to label container
+            // Draw line connecting track to label container FIRST
             const lx = s.x + zone.labelOffsetX * tf.scale;
             const ly = s.y + zone.labelOffsetY * tf.scale;
             ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, ly); ctx.lineTo(lx, ly); ctx.stroke();
+
+            // Draw anchor circle on track ON TOP of the line
+            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * tf.scale, 0, Math.PI * 2);
+            ctx.fillStyle = zt.color; ctx.fill();
+            if (zone.type === 'overtake_activation') {
+                ctx.beginPath(); ctx.arc(s.x, s.y, 2 * tf.scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#181818'; ctx.fill();
+            } else {
+                ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+            }
 
             // Label container
             const sf = Math.max(0.9, tf.scale);
@@ -333,7 +337,7 @@ F1.PreviewRenderer = class PreviewRenderer {
     _info(ctx, data, editor, W, H) {
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         const len = editor.getTrackLength();
-        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(2)} km)`, 20, 46); }
+        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 20, 46); }
         ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 20, 68);
         const ly = H - 30; ctx.font = 'bold 10px Outfit'; let lx = 20;
         [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {

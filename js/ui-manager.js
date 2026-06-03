@@ -28,8 +28,8 @@ F1.UIManager = class UIManager {
     _cpProps(pt) {
         let h = `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Position</label>
             <div class="prop-row" style="gap:10px;">
-                <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(2)}" step="0.5" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
-                <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(2)}" step="0.5" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
             </div></div>`;
         h += `<div class="prop-group"><label>Track Width</label>
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
@@ -39,7 +39,7 @@ F1.UIManager = class UIManager {
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${pt.surfaceWidthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${pt.surfaceWidthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
-        h += `<div class="prop-group"><label>Sector</label><div class="sector-btns">
+        h += `<div class="prop-group"><label>Sector</label><div class="sector-btns" style="display:flex; flex-wrap:nowrap;">
             <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
             <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
             <button class="sector-btn s3 ${pt.sector === 3 ? 'active' : ''}" data-sec="3">S3</button></div></div>`;
@@ -176,7 +176,7 @@ F1.UIManager = class UIManager {
             else h += `<p class="prop-hint dim">Need ${3 - n} more to close.</p>`;
         }
         const len = this.app.editor.getTrackLength();
-        if (len > 0) h += `<div class="prop-group"><label>Track Length</label><p class="prop-hint">${len.toFixed(0)}m · ${(len / 1000).toFixed(2)} km</p></div>`;
+        if (len > 0) h += `<div class="prop-group"><label>Track Length</label><p class="prop-hint">${len.toFixed(0)}m · ${(len / 1000).toFixed(3)} km</p></div>`;
         return h;
     }
 
@@ -247,7 +247,7 @@ F1.UIManager = class UIManager {
             h += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#aaa; margin-bottom:15px; padding:0 5px;">
                 <span>Nodes: <strong style="color:#eee">${d.nodes}</strong></span>
                 <span>Turns: <strong style="color:#eee">${d.turns}</strong></span>
-                <span>Length: <strong style="color:#eee">${(d.length / 1000).toFixed(2)} km</strong></span>
+                <span>Length: <strong style="color:#eee">${(d.length / 1000).toFixed(3)} km</strong></span>
             </div>`;
         });
         h += `</div>`;
@@ -330,6 +330,11 @@ F1.UIManager = class UIManager {
                                 <span class="prop-val" id="prop-str-s-val">${z.stripSpacing || 2}</span></div></div>`;
                     }
                 }
+                h += `<div class="prop-group"><label>Label Offset</label>
+                    <div class="prop-row" style="gap:10px;">
+                        <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-zx" value="${Math.round(z.labelOffsetX || 0)}" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                        <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-zy" value="${Math.round(z.labelOffsetY || 0)}" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                    </div></div>`;
                 h += `<div class="prop-group"><label>Label Rotation</label>
                     <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
                         <input type="range" min="0" max="360" value="${Math.round(z.rotation || 0)}" id="prop-zr" class="prop-slider" style="width:100px; flex:none;">
@@ -484,6 +489,9 @@ F1.UIManager = class UIManager {
                         this.app.requestRender();
                     };
                 }
+                const zx = document.getElementById('prop-zx'), zy = document.getElementById('prop-zy');
+                if (zx) zx.onchange = () => { z.labelOffsetX = parseInt(zx.value) || 0; this.app.requestRender(); };
+                if (zy) zy.onchange = () => { z.labelOffsetY = parseInt(zy.value) || 0; this.app.requestRender(); };
             }
         }
         const ts = document.getElementById('prop-turn-selector');
@@ -593,7 +601,7 @@ F1.UIManager = class UIManager {
         document.querySelectorAll('.surface-btn[data-surf]').forEach(b => { b.onclick = () => { this.app.tools.surface.surfaceType = b.dataset.surf; this.updateProperties(); } });
         document.querySelectorAll('.surface-btn[data-bar]').forEach(b => { b.onclick = () => { this.app.tools.barrier.barrierOn = b.dataset.bar === 'on'; this.updateProperties(); } });
         // Zone btns
-        document.querySelectorAll('.zone-btn[data-zone]').forEach(b => { b.onclick = () => { this.app.tools.zone.zoneType = b.dataset.zone; this.updateProperties(); } });
+        document.querySelectorAll('.zone-btn[data-zone]').forEach(b => { b.onclick = () => { this.app.setSelection(null); this.app.tools.zone.zoneType = b.dataset.zone; this.updateProperties(); } });
         // Grandstand sliders
         const gsw = document.getElementById('prop-gsw'), gsh = document.getElementById('prop-gsh'), gsr = document.getElementById('prop-gsr');
         if (gsw && this.app.selection) {
@@ -659,7 +667,7 @@ F1.UIManager = class UIManager {
         const nodes = this.app.data.controlPoints.length;
         const turns = this.app.data.turnMarkers.length;
         const scaleStr = `Scale: 1 Grid = ${this.app.renderer.gridSize}m`;
-        document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(2)} km · ${nodes} nodes · ${turns} turns · ${scaleStr}` : scaleStr;
+        document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(3)} km · ${nodes} nodes · ${turns} turns · ${scaleStr}` : scaleStr;
     }
 
     _tn(n) { return { select: 'Select', draw: 'Draw Track', node: 'Node', width: 'Width', surface: 'Surface', barrier: 'Barrier', sector: 'Sectors', turn: 'Turns', pitlane: 'Pit Lane', grandstand: 'Grandstand', zone: 'Zones', straightMode: 'Straight Mode', garage: 'Garages', eraser: 'Eraser', scale: 'Scale' }[n] || n; }
