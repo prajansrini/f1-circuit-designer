@@ -74,7 +74,12 @@ class SelectTool extends BaseTool {
             const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
             const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
             const rad = (zone.rotation || 0) * Math.PI / 180;
-            const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
+            const sf = Math.max(0.9, this.renderer.scale);
+            const text = zone.label ? zone.label.toUpperCase() : '';
+            const lines = text.split('\n');
+            const th = lines.length * 16 * sf + 6 * sf;
+            const hd = th / 2 + 20;
+            const hx = lx + Math.sin(rad) * hd, hy = ly - Math.cos(rad) * hd;
             const sW = this.renderer.w2s(wx, wy);
             if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return zone;
             return null;
@@ -89,7 +94,10 @@ class SelectTool extends BaseTool {
             const lx = sMid.x + sl.labelOffsetX * this.renderer.scale;
             const ly = sMid.y + sl.labelOffsetY * this.renderer.scale;
             const rad = (sl.rotation || 0) * Math.PI / 180;
-            const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
+            const sf = Math.max(0.9, this.renderer.scale);
+            const th = 22 * sf;
+            const hd = th / 2 + 20;
+            const hx = lx + Math.sin(rad) * hd, hy = ly - Math.cos(rad) * hd;
             const sW = this.renderer.w2s(wx, wy);
             if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return sl;
             return null;
@@ -822,7 +830,8 @@ class GrandstandTool extends BaseTool {
 
 /* ---- Zone Placement ---- */
 class ZoneTool extends BaseTool {
-    constructor(app) { super(app); this.zoneType = 'speed_trap'; this._placingRange = null; this.dragging = null; this.rotatingZ = null; }
+    constructor(app) { super(app); this.zoneType = null; this._placingRange = null; this.dragging = null; this.rotatingZ = null; }
+    activate() { this.zoneType = null; this._placingRange = null; }
     getCursor() { return this.rotatingZ ? 'grabbing' : 'crosshair'; }
 
     _hitRotationHandle(wx, wy) {
@@ -847,7 +856,14 @@ class ZoneTool extends BaseTool {
         const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
         const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
         const rad = (zone.rotation || 0) * Math.PI / 180;
-        const hx = lx + Math.sin(rad) * 22, hy = ly - Math.cos(rad) * 22;
+        
+        const sf = Math.max(0.9, this.renderer.scale);
+        const text = zone.label ? zone.label.toUpperCase() : '';
+        const lines = text.split('\n');
+        const th = lines.length * 16 * sf + 6 * sf;
+        const hd = th / 2 + 20;
+
+        const hx = lx + Math.sin(rad) * hd, hy = ly - Math.cos(rad) * hd;
         const sW = this.renderer.w2s(wx, wy);
         if (Math.hypot(sW.x - hx, sW.y - hy) < 20) return zone;
         return null;
@@ -857,40 +873,45 @@ class ZoneTool extends BaseTool {
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) return { type: 'zone_rotation', obj: rotObj };
         const track = this.editor.getInterpolatedTrack();
+        const isSMZ = this.zoneType === 'straight_mode';
         
-        // SMZ Range Handles (if selected)
-        const sel = this.app.selection;
-        if (sel && sel.type === 'zone') {
-            const zone = this.data.getZoneById(sel.id);
-            if (zone && zone.type === 'straight_mode') {
-                const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
-                const eIdx = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-                const pStart = track[Math.min(sIdx, track.length - 1)];
-                const pEnd = track[Math.min(eIdx, track.length - 1)];
-                if (pStart && Math.hypot(wx - pStart.x, wy - pStart.y) < 15 / this.renderer.scale) return { type: 'zone_start_handle', obj: zone };
-                if (pEnd && Math.hypot(wx - pEnd.x, wy - pEnd.y) < 15 / this.renderer.scale) return { type: 'zone_end_handle', obj: zone };
+        if (isSMZ) {
+            // SMZ Range Handles (if selected)
+            const sel = this.app.selection;
+            if (sel && sel.type === 'zone') {
+                const zone = this.data.getZoneById(sel.id);
+                if (zone && zone.type === 'straight_mode') {
+                    const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                    const eIdx = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                    const pStart = track[Math.min(sIdx, track.length - 1)];
+                    const pEnd = track[Math.min(eIdx, track.length - 1)];
+                    if (pStart && Math.hypot(wx - pStart.x, wy - pStart.y) < 15 / this.renderer.scale) return { type: 'zone_start_handle', obj: zone };
+                    if (pEnd && Math.hypot(wx - pEnd.x, wy - pEnd.y) < 15 / this.renderer.scale) return { type: 'zone_end_handle', obj: zone };
+                }
             }
-        }
 
-        // SMZ Label
-        const firstSMZ = this.data.zones.find(z => z.type === 'straight_mode');
-        if (firstSMZ) {
-            const si = firstSMZ.segIndex * this.editor.resolution + Math.floor(firstSMZ.t * this.editor.resolution);
-            const ei = firstSMZ.endSegIndex * this.editor.resolution + Math.floor(firstSMZ.endT * this.editor.resolution);
-            const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
-            const pMid = track[midIdx];
-            if (pMid) {
-                const lx = pMid.x + (firstSMZ.labelOffsetX || 0), ly = pMid.y + (firstSMZ.labelOffsetY || 0);
-                if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) return { type: 'zone_label', obj: firstSMZ, anchor: pMid };
+            // SMZ Labels
+            for (const zone of this.data.zones) {
+                if (zone.type !== 'straight_mode') continue;
+                const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const pMid = track[midIdx];
+                if (pMid) {
+                    const lx = pMid.x + (zone.labelOffsetX || 0), ly = pMid.y + (zone.labelOffsetY || 0);
+                    if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) return { type: 'zone_label', obj: zone, anchor: pMid };
+                }
             }
-        }
-        // Telemetry zones
-        for (const zone of this.data.zones) {
-            const pos = this.editor.getZoneWorldPos(zone);
-            if (!pos) continue;
-            if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
-            const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
-            if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) return { type: 'zone_label', obj: zone, anchor: pos };
+        } else {
+            // Telemetry zones
+            for (const zone of this.data.zones) {
+                if (zone.type === 'straight_mode') continue;
+                const pos = this.editor.getZoneWorldPos(zone);
+                if (!pos) continue;
+                if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
+                const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
+                if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) return { type: 'zone_label', obj: zone, anchor: pos };
+            }
         }
         return null;
     }
@@ -918,25 +939,27 @@ class ZoneTool extends BaseTool {
         }
 
         // 4. Place new zone (prioritize track placement over large labels)
-        const n = this.editor.findNearestTrackPoint(wx, wy);
-        if (n.point) {
-            const trackRadius = (n.point.widthLeft + n.point.widthRight) / 2;
-            const placeThreshold = Math.max(trackRadius, 20 / this.renderer.scale);
-            if (n.dist <= placeThreshold) {
-                const zt = F1.ZONE_TYPES.find(z => z.key === this.zoneType);
-                if (zt && zt.range) {
-                    this.data.snapshot(); const p = n.point;
-                    const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
-                    this._placingRange = zone; this.app.setSelection({ type: 'zone', id: zone.id });
-                    this.app.setStatus('Click again to set zone end');
-                } else {
-                    this.data.snapshot(); const p = n.point;
-                    const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
-                    this.app.setSelection({ type: 'zone', id: zone.id });
-                    this.app.setStatus('Zone placed');
+        if (this.zoneType) {
+            const n = this.editor.findNearestTrackPoint(wx, wy);
+            if (n.point) {
+                const trackRadius = (n.point.widthLeft + n.point.widthRight) / 2;
+                const placeThreshold = Math.max(trackRadius, 20 / this.renderer.scale);
+                if (n.dist <= placeThreshold) {
+                    const zt = F1.ZONE_TYPES.find(z => z.key === this.zoneType);
+                    if (zt && zt.range) {
+                        this.data.snapshot(); const p = n.point;
+                        const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
+                        this._placingRange = zone; this.app.setSelection({ type: 'zone', id: zone.id });
+                        this.app.setStatus('Click again to set zone end');
+                    } else {
+                        this.data.snapshot(); const p = n.point;
+                        const zone = this.data.addZone(this.zoneType, p.segIndex, p.t, p.nx * 60, p.ny * 60 - 40);
+                        this.app.setSelection({ type: 'zone', id: zone.id });
+                        this.app.setStatus('Zone placed');
+                    }
+                    this.app.requestRender();
+                    return;
                 }
-                this.app.requestRender();
-                return;
             }
         }
 
@@ -958,6 +981,7 @@ class ZoneTool extends BaseTool {
             }
             return;
         }
+        this.app.setSelection(null);
     }
 
     onMouseMove(wx, wy) {
