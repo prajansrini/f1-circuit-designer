@@ -146,20 +146,52 @@ F1.UIManager = class UIManager {
 
     _straightModeProps(sel) {
         let h = '<h3 class="prop-title">Straight Mode Zone</h3><p class="prop-hint">Click near track to place start, then click again for end.</p>';
+        
+        const smZones = this.app.data.zones.filter(z => z.type === 'straight_mode');
+        if (smZones.length > 0) {
+            h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label class="chk-label prop-hint">Select a Straight Mode Zone</label>
+                <select class="prop-input" id="prop-smz-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 15px;">
+                    <option value="">-- Choose a zone --</option>`;
+            smZones.forEach((z, i) => {
+                h += `<option value="${z.id}" ${sel && sel.id === z.id ? 'selected' : ''}>Straight Mode Zone ${i + 1}</option>`;
+            });
+            h += `</select></div>`;
+        }
+
         if (sel && sel.type === 'zone') {
             const z = this.app.data.getZoneById(sel.id);
             if (z && z.type === 'straight_mode') {
+                const track = this.app.editor.getInterpolatedTrack();
+                const sIdx = z.segIndex * this.app.editor.resolution + Math.floor(z.t * this.app.editor.resolution);
+                const eIdx = z.endSegIndex * this.app.editor.resolution + Math.floor(z.endT * this.app.editor.resolution);
+                const si = Math.min(sIdx, eIdx);
+                const ei = Math.max(sIdx, eIdx);
+                
+                let startDist = 0, endDist = 0, dist = 0;
+                for (let i = 1; i < track.length; i++) {
+                    dist += Math.hypot(track[i].x - track[i-1].x, track[i].y - track[i-1].y);
+                    if (i === si) startDist = dist;
+                    if (i === ei) endDist = dist;
+                }
+                const zoneDist = endDist - startDist;
+
+                h += `<div class="prop-group"><label>Distance Info</label>
+                    <div style="font-size:11px; color:#aaa; margin-bottom:10px; padding:0 5px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;"><span>Start Distance:</span> 
+                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-start" value="${(startDist).toFixed(1)}" step="0.1" class="prop-input" style="width:60px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px;">m</span></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;"><span>End Distance:</span> 
+                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-end" value="${(endDist).toFixed(1)}" step="0.1" class="prop-input" style="width:60px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px;">m</span></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px solid #444;"><span>Zone Length:</span> <strong style="color:#eee">${(zoneDist).toFixed(1)}m</strong></div>
+                    </div></div>`;
+
                 h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                     <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
                     <button class="side-btn ${z.side === 'right' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
                 h += `<div class="prop-group"><label>Strip Settings</label>
                     <div class="prop-row"><span class="prop-label" style="width:30px">Width</span><input type="range" min="1" max="15" step="0.5" value="${z.stripWidth || 5}" id="prop-str-w" class="prop-slider"><span class="prop-val" id="prop-str-w-val">${z.stripWidth || 5}</span></div>
                     <div class="prop-row"><span class="prop-label" style="width:30px">Gap</span><input type="range" min="1" max="10" step="1" value="${z.stripSpacing || 2}" id="prop-str-s" class="prop-slider"><span class="prop-val" id="prop-str-s-val">${z.stripSpacing || 2}</span></div></div>`;
-                h += `<div class="prop-group"><label>Label Rotation</label>
-                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
-                        <input type="range" min="0" max="360" value="${Math.round(z.rotation || 0)}" id="prop-zr" class="prop-slider" style="width:100px; flex:none;">
-                        <div style="flex:1"></div>
-                        <input type="number" id="prop-zr-val" value="${Math.round(z.rotation || 0)}" min="0" max="360" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
                 h += `<button class="prop-btn danger" id="btn-del-zone" style="margin-top:10px">Delete Zone</button>`;
             }
         }
@@ -314,8 +346,8 @@ F1.UIManager = class UIManager {
             const z = this.app.data.getZoneById(sel.id);
             if (z) {
                 const sZt = F1.ZONE_TYPES.find(t => t.key === z.type);
-                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Selected Zone</label>
-                      <p class="prop-hint" style="color:${sZt ? sZt.color : '#fff'}">${sZt ? sZt.label.replace('\\n', ' ') : 'Zone'}</p>`;
+                h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+                      <label style="margin-bottom: 10px;">SELECTED ZONE <span style="font-weight:normal; color:#666;">&mdash;</span> <span style="color:#eee;">LABEL</span></label>`;
                 if (sZt && sZt.range) {
                     if (z.type === 'straight_mode') {
                         h += `<div class="prop-group"><label>Side</label><div class="side-btns">
@@ -330,17 +362,15 @@ F1.UIManager = class UIManager {
                                 <span class="prop-val" id="prop-str-s-val">${z.stripSpacing || 2}</span></div></div>`;
                     }
                 }
-                h += `<div class="prop-group"><label>Label Offset</label>
-                    <div class="prop-row" style="gap:10px;">
+                h += `<div class="prop-row" style="gap:10px; margin-bottom: 10px;">
                         <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-zx" value="${Math.round(z.labelOffsetX || 0)}" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
                         <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-zy" value="${Math.round(z.labelOffsetY || 0)}" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
-                    </div></div>`;
-                h += `<div class="prop-group"><label>Label Rotation</label>
-                    <div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
+                    </div>`;
+                h += `<div class="prop-row"><span class="prop-label" style="width:50px;text-align:left">Rotate</span>
                         <input type="range" min="0" max="360" value="${Math.round(z.rotation || 0)}" id="prop-zr" class="prop-slider" style="width:100px; flex:none;">
                         <div style="flex:1"></div>
                         <input type="number" id="prop-zr-val" value="${Math.round(z.rotation || 0)}" min="0" max="360" class="prop-input" style="width:45px;padding:2px 4px;font-size:11px;"></div></div>`;
-                h += `<button class="prop-btn danger" id="btn-del-zone">Delete Zone</button></div>`;
+                h += `<button class="prop-btn danger" id="btn-del-zone" style="margin-top: 10px;">Delete Zone</button>`;
             }
         }
         return h;
@@ -478,6 +508,19 @@ F1.UIManager = class UIManager {
                 if (strW) strW.oninput = () => { z.stripWidth = parseFloat(strW.value); document.getElementById('prop-str-w-val').textContent = z.stripWidth; this.app.requestRender(); };
                 const strS = document.getElementById('prop-str-s');
                 if (strS) strS.oninput = () => { z.stripSpacing = parseInt(strS.value); document.getElementById('prop-str-s-val').textContent = z.stripSpacing; this.app.requestRender(); };
+                
+                const smzStart = document.getElementById('prop-smz-start');
+                if (smzStart) smzStart.onchange = () => {
+                    this.app.data.snapshot();
+                    const pt = this.app.editor.getPointAtDistance(parseFloat(smzStart.value) || 0);
+                    if (pt) { z.segIndex = pt.segIndex; z.t = pt.t; this.updateProperties(); this.app.requestRender(); }
+                };
+                const smzEnd = document.getElementById('prop-smz-end');
+                if (smzEnd) smzEnd.onchange = () => {
+                    this.app.data.snapshot();
+                    const pt = this.app.editor.getPointAtDistance(parseFloat(smzEnd.value) || 0);
+                    if (pt) { z.endSegIndex = pt.segIndex; z.endT = pt.t; this.updateProperties(); this.app.requestRender(); }
+                };
                 const zr = document.getElementById('prop-zr');
                 const zrVal = document.getElementById('prop-zr-val');
                 if (zr && zrVal) {
@@ -499,6 +542,17 @@ F1.UIManager = class UIManager {
             ts.onchange = () => {
                 if (ts.value) {
                     this.app.setSelection({ type: 'turn', id: parseInt(ts.value) });
+                } else {
+                    this.app.setSelection(null);
+                }
+            };
+        }
+        const smzs = document.getElementById('prop-smz-selector');
+        if (smzs) {
+            smzs.onchange = () => {
+                if (smzs.value) {
+                    this.app.setSelection({ type: 'zone', id: parseInt(smzs.value) });
+                    this.app.tools.straightMode.zoneType = 'straight_mode';
                 } else {
                     this.app.setSelection(null);
                 }
@@ -601,7 +655,18 @@ F1.UIManager = class UIManager {
         document.querySelectorAll('.surface-btn[data-surf]').forEach(b => { b.onclick = () => { this.app.tools.surface.surfaceType = b.dataset.surf; this.updateProperties(); } });
         document.querySelectorAll('.surface-btn[data-bar]').forEach(b => { b.onclick = () => { this.app.tools.barrier.barrierOn = b.dataset.bar === 'on'; this.updateProperties(); } });
         // Zone btns
-        document.querySelectorAll('.zone-btn[data-zone]').forEach(b => { b.onclick = () => { this.app.setSelection(null); this.app.tools.zone.zoneType = b.dataset.zone; this.updateProperties(); } });
+        document.querySelectorAll('.zone-btn[data-zone]').forEach(b => { 
+            b.onclick = () => { 
+                const existing = this.app.data.zones.find(z => z.type === b.dataset.zone);
+                if (existing) {
+                    this.app.setSelection({ type: 'zone', id: existing.id });
+                } else {
+                    this.app.setSelection(null); 
+                }
+                this.app.tools.zone.zoneType = b.dataset.zone; 
+                this.updateProperties(); 
+            } 
+        });
         // Grandstand sliders
         const gsw = document.getElementById('prop-gsw'), gsh = document.getElementById('prop-gsh'), gsr = document.getElementById('prop-gsr');
         if (gsw && this.app.selection) {
