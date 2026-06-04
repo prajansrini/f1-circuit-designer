@@ -165,24 +165,20 @@ F1.Renderer = class Renderer {
                 }
                 ctx.restore();
             }
-            // Single draggable/rotatable label on first straight mode zone only
-            if (zone === firstSMZ) {
-                const midIdx = Math.floor((lo + hi) / 2);
-                const pMid = track[midIdx];
-                if (pMid) {
-                    const sMid = this.w2s(pMid.x, pMid.y);
-                    const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
-                    const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
-                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-                    const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
-                    const sf = Math.max(0.9, this.scale);
-                    ctx.font = `bold ${10 * sf}px Outfit`;
-                    const text = "STRAIGHT MODE ZONE";
-                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
-                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
-                    ctx.strokeStyle = isSel ? '#00ff88' : '#ff1801'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
-                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
-                    ctx.restore();
+            // Visual handles for resizing if selected
+            const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
+            if (isSel) {
+                const pStart = track[lo];
+                const pEnd = track[hi];
+                if (pStart) {
+                    const s = this.w2s(pStart.x, pStart.y);
+                    ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#e10600'; ctx.lineWidth = 2; ctx.stroke();
+                }
+                if (pEnd) {
+                    const s = this.w2s(pEnd.x, pEnd.y);
+                    ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
+                    ctx.fillStyle = '#111'; ctx.fill(); ctx.strokeStyle = '#e10600'; ctx.lineWidth = 2; ctx.stroke();
                 }
             }
         });
@@ -301,22 +297,7 @@ F1.Renderer = class Renderer {
             const zone = data.getZoneById(sel.id);
             if (!zone) return;
             const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
-            if (zt && zt.range) {
-                if (zone !== data.zones.find(z => z.type === 'straight_mode')) return;
-                const track = editor.getInterpolatedTrack();
-                const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
-                const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
-                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
-                const pMid = track[midIdx]; if (!pMid) return;
-                const sMid = this.w2s(pMid.x, pMid.y);
-                const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
-                const sf = Math.max(0.9, this.scale);
-                const text = zone.label ? zone.label.toUpperCase() : '';
-                const lines = text.split('\n');
-                const th = lines.length * 16 * sf + 6 * sf;
-                const hd = th / 2 + 20;
-                this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, hd);
-            } else {
+            if (zt && !zt.range) {
                 const pos = editor.getZoneWorldPos(zone); if (!pos) return;
                 const s = this.w2s(pos.x, pos.y);
                 const lx = s.x + zone.labelOffsetX * this.scale, ly = s.y + zone.labelOffsetY * this.scale;
@@ -327,6 +308,7 @@ F1.Renderer = class Renderer {
                 const hd = th / 2 + 20;
                 this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, hd);
             }
+
         } else if (sel.type === 'sector_label') {
             const sl = data.sectorLabels.find(s => s.sector === sel.sector); if (!sl) return;
             const track = editor.getInterpolatedTrack();

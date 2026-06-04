@@ -830,9 +830,13 @@ class GrandstandTool extends BaseTool {
 
 /* ---- Zone Placement ---- */
 class ZoneTool extends BaseTool {
-    constructor(app) { super(app); this.zoneType = null; this._placingRange = null; this.dragging = null; this.rotatingZ = null; }
-    activate() { this.zoneType = null; this._placingRange = null; }
-    getCursor() { return this.rotatingZ ? 'grabbing' : 'crosshair'; }
+    constructor(app) { super(app); this.zoneType = null; this._placingRange = null; this.dragging = null; this.rotatingZ = null; this._lastHit = null; }
+    activate() { this.zoneType = null; this._placingRange = null; this._lastHit = null; }
+    getCursor() { 
+        if (this.rotatingZ || this.dragging) return 'grabbing';
+        if (this._lastHit) return 'pointer';
+        return 'crosshair'; 
+    }
 
     _hitRotationHandle(wx, wy) {
         const sel = this.app.selection;
@@ -873,39 +877,49 @@ class ZoneTool extends BaseTool {
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) return { type: 'zone_rotation', obj: rotObj };
         const track = this.editor.getInterpolatedTrack();
-        const isSMZ = this.zoneType === 'straight_mode';
         
-        if (isSMZ) {
-            // SMZ Range Handles (if selected)
-            const sel = this.app.selection;
-            if (sel && sel.type === 'zone') {
-                const zone = this.data.getZoneById(sel.id);
-                if (zone && zone.type === 'straight_mode') {
-                    const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
-                    const eIdx = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-                    const pStart = track[Math.min(sIdx, track.length - 1)];
-                    const pEnd = track[Math.min(eIdx, track.length - 1)];
-                    if (pStart && Math.hypot(wx - pStart.x, wy - pStart.y) < 15 / this.renderer.scale) return { type: 'zone_start_handle', obj: zone };
-                    if (pEnd && Math.hypot(wx - pEnd.x, wy - pEnd.y) < 15 / this.renderer.scale) return { type: 'zone_end_handle', obj: zone };
-                }
+        // 1. Check SMZ Range Handles (if selected)
+        const sel = this.app.selection;
+        if (sel && sel.type === 'zone') {
+            const zone = this.data.getZoneById(sel.id);
+            if (zone && zone.type === 'straight_mode') {
+                const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const eIdx = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                const pStart = track[Math.min(sIdx, track.length - 1)];
+                const pEnd = track[Math.min(eIdx, track.length - 1)];
+                if (pStart && Math.hypot(wx - pStart.x, wy - pStart.y) < 15 / this.renderer.scale) return { type: 'zone_start_handle', obj: zone };
+                if (pEnd && Math.hypot(wx - pEnd.x, wy - pEnd.y) < 15 / this.renderer.scale) return { type: 'zone_end_handle', obj: zone };
             }
+        }
 
-            // SMZ Labels
-            for (const zone of this.data.zones) {
-                if (zone.type !== 'straight_mode') continue;
+        // 2. Check all Zones
+        for (const zone of this.data.zones) {
+            if (zone.type === 'straight_mode') {
                 const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
                 const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-                const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+                const lo = Math.min(si, ei), hi = Math.max(si, ei);
+                
+                // Labels
+                const midIdx = Math.floor((lo + hi) / 2);
                 const pMid = track[midIdx];
                 if (pMid) {
                     const lx = pMid.x + (zone.labelOffsetX || 0), ly = pMid.y + (zone.labelOffsetY || 0);
                     if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) return { type: 'zone_label', obj: zone, anchor: pMid };
                 }
-            }
-        } else {
-            // Telemetry zones
-            for (const zone of this.data.zones) {
-                if (zone.type === 'straight_mode') continue;
+                
+                // Path Hit Detection
+                const sgn = zone.side === 'left' ? -1 : 1;
+                const hitThresh = 15 / this.renderer.scale;
+                for (let i = lo; i <= Math.min(hi, track.length - 1); i += 2) {
+                    const p = track[i];
+                    if (!p) continue;
+                    const w = sgn < 0 ? p.widthLeft : p.widthRight;
+                    const offset = w + 4;
+                    const zx = p.x + p.nx * offset * sgn;
+                    const zy = p.y + p.ny * offset * sgn;
+                    if (Math.hypot(wx - zx, wy - zy) < hitThresh) return { type: 'zone_path', obj: zone };
+                }
+            } else {
                 const pos = this.editor.getZoneWorldPos(zone);
                 if (!pos) continue;
                 if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
@@ -938,6 +952,26 @@ class ZoneTool extends BaseTool {
             }
         }
 
+        const hit = this._hitExisting(wx, wy);
+        if (hit) {
+            this.data.snapshot();
+            this.app.setSelection({ type: 'zone', id: hit.obj.id });
+            this.zoneType = hit.obj.type; // Sync active zoneType button in Properties
+            if (hit.type === 'zone_rotation') {
+                this.rotatingZ = hit.obj;
+                this.dragging = null;
+            } else {
+                this.dragging = hit;
+                if (hit.type === 'zone_label') {
+                    const lx = hit.anchor.x + (hit.obj.labelOffsetX || 0);
+                    const ly = hit.anchor.y + (hit.obj.labelOffsetY || 0);
+                    this.dragging.dragOffsetX = wx - lx;
+                    this.dragging.dragOffsetY = wy - ly;
+                }
+            }
+            return;
+        }
+
         // 4. Place new zone (prioritize track placement over large labels)
         if (this.zoneType) {
             const n = this.editor.findNearestTrackPoint(wx, wy);
@@ -963,24 +997,6 @@ class ZoneTool extends BaseTool {
             }
         }
 
-        const hit = this._hitExisting(wx, wy);
-        if (hit) {
-            this.data.snapshot();
-            this.app.setSelection({ type: 'zone', id: hit.obj.id });
-            if (hit.type === 'zone_rotation') {
-                this.rotatingZ = hit.obj;
-                this.dragging = null;
-            } else {
-                this.dragging = hit;
-                if (hit.type === 'zone_label') {
-                    const lx = hit.anchor.x + (hit.obj.labelOffsetX || 0);
-                    const ly = hit.anchor.y + (hit.obj.labelOffsetY || 0);
-                    this.dragging.dragOffsetX = wx - lx;
-                    this.dragging.dragOffsetY = wy - ly;
-                }
-            }
-            return;
-        }
         this.app.setSelection(null);
     }
 
@@ -1002,10 +1018,14 @@ class ZoneTool extends BaseTool {
                 if (!pos) return;
                 cx = pos.x + (z.labelOffsetX || 0); cy = pos.y + (z.labelOffsetY || 0);
             }
-            let angle = Math.atan2(wy - cy, wx - cx) * 180 / Math.PI;
-            if (angle < 0) angle += 360;
-            z.rotation = angle;
-            this.app.uiManager.updateProperties();
+            let angle = Math.atan2(wy - cy, wx - cx);
+            let deg = angle * 180 / Math.PI;
+            if (deg < 0) deg += 360;
+            z.rotation = (deg + 360) % 360;
+            const zr = document.getElementById('prop-zr');
+            const zrVal = document.getElementById('prop-zr-val');
+            if (zr) zr.value = Math.round(z.rotation);
+            if (zrVal) zrVal.value = Math.round(z.rotation);
             this.app.requestRender();
             return;
         }
@@ -1015,10 +1035,21 @@ class ZoneTool extends BaseTool {
             if (type === 'zone_circle') {
                 const n = this.editor.findNearestTrackPoint(wx, wy);
                 if (n.point) { obj.segIndex = n.point.segIndex; obj.t = n.point.t; }
+            } else if (type === 'zone_start_handle') {
+                const n = this.editor.findNearestTrackPoint(wx, wy);
+                if (n.point) { obj.segIndex = n.point.segIndex; obj.t = n.point.t; this.app.uiManager.updateProperties(); }
+            } else if (type === 'zone_end_handle') {
+                const n = this.editor.findNearestTrackPoint(wx, wy);
+                if (n.point) { obj.endSegIndex = n.point.segIndex; obj.endT = n.point.t; this.app.uiManager.updateProperties(); }
             } else if (type === 'zone_label') {
+                const z = obj;
                 const anchor = this.dragging.anchor;
-                obj.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
-                obj.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
+                z.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
+                z.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
+                const zxInput = document.getElementById('prop-zx');
+                const zyInput = document.getElementById('prop-zy');
+                if (zxInput) zxInput.value = Math.round(z.labelOffsetX);
+                if (zyInput) zyInput.value = Math.round(z.labelOffsetY);
             }
             this.app.requestRender(); return;
         }
@@ -1030,8 +1061,11 @@ class ZoneTool extends BaseTool {
         }
 
         const hit = this._hitExisting(wx, wy);
-        if (hit && (hit.type === 'zone_label' || hit.type === 'zone_circle')) {
+        if (hit && (hit.type === 'zone_label' || hit.type === 'zone_circle' || hit.type === 'zone_start_handle' || hit.type === 'zone_end_handle')) {
             this.app.canvas.style.cursor = 'move';
+            return;
+        } else if (hit && hit.type === 'zone_path') {
+            this.app.canvas.style.cursor = 'pointer';
             return;
         }
 
@@ -1105,6 +1139,7 @@ class EraserTool extends BaseTool {
 
 class StraightModeTool extends ZoneTool {
     constructor(app) { super(app); this.zoneType = 'straight_mode'; }
+    activate() { super.activate(); this.zoneType = 'straight_mode'; }
 }
 
 F1.Tools = { BaseTool, SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };

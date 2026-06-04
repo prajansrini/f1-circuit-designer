@@ -137,6 +137,17 @@ F1.TrackEditor = class TrackEditor {
         const f = this.data.controlPoints[0];
         return Math.hypot(f.x - wx, f.y - wy) < threshold;
     }
+    getPointAtDistance(targetDist) {
+        const t = this.getInterpolatedTrack();
+        if (targetDist <= 0) return t[0];
+        let len = 0;
+        for (let i = 1; i < t.length; i++) {
+            const d = Math.hypot(t[i].x - t[i - 1].x, t[i].y - t[i - 1].y);
+            if (len + d >= targetDist) return t[i];
+            len += d;
+        }
+        return t[t.length - 1];
+    }
     getTrackLength() {
         const t = this.getInterpolatedTrack();
         let len = 0;
