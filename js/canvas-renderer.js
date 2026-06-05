@@ -147,14 +147,25 @@ F1.Renderer = class Renderer {
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
             const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
             const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
-            const lo = Math.min(si, ei), hi = Math.max(si, ei);
             const spacing = zone.stripSpacing || 2;
             const sw = zone.stripWidth || 5;
-            for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
+
+            let indices = [];
+            if (si <= ei) {
+                for (let i = si; i <= ei; i += spacing) indices.push(i);
+            } else if (data.isClosed) {
+                for (let i = si; i < track.length; i += spacing) indices.push(i);
+                for (let i = 0; i <= ei; i += spacing) indices.push(i);
+            } else {
+                for (let i = ei; i <= si; i += spacing) indices.push(i);
+            }
+
+            for (let i of indices) {
+                if (i >= track.length) continue;
                 const p = track[i];
                 const sgn = zone.side === 'left' ? -1 : 1;
                 const w = sgn < 0 ? p.widthLeft : p.widthRight;
-                const offset = w + 4;
+                const offset = w + 6 + sw;
                 const s = this.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
                 ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
                 if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
@@ -168,8 +179,8 @@ F1.Renderer = class Renderer {
             // Visual handles for resizing if selected
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
             if (isSel) {
-                const pStart = track[lo];
-                const pEnd = track[hi];
+                const pStart = track[si];
+                const pEnd = track[ei];
                 if (pStart) {
                     const s = this.w2s(pStart.x, pStart.y);
                     ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
@@ -179,6 +190,26 @@ F1.Renderer = class Renderer {
                     const s = this.w2s(pEnd.x, pEnd.y);
                     ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
                     ctx.fillStyle = '#111'; ctx.fill(); ctx.strokeStyle = '#e10600'; ctx.lineWidth = 2; ctx.stroke();
+                }
+            }
+
+            // Render label (only for the first zone)
+            if (zone === firstSMZ) {
+                const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
+                const pMid = track[midIdx];
+                if (pMid) {
+                    const sMid = this.w2s(pMid.x, pMid.y);
+                    const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
+                    const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
+                    ctx.save(); ctx.translate(lx, ly);
+                    const sf = Math.max(0.9, this.scale);
+                    ctx.font = `bold ${10 * sf}px Outfit`;
+                    const text = zone.label || "STRAIGHT MODE ZONE";
+                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
+                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+                    ctx.strokeStyle = isSel ? '#00ff88' : '#ff1801'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+                    ctx.restore();
                 }
             }
         });
