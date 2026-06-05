@@ -108,14 +108,24 @@ F1.PreviewRenderer = class PreviewRenderer {
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
             const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
             const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
-            const lo = Math.min(si, ei), hi = Math.max(si, ei);
             const spacing = zone.stripSpacing || 2;
             const sw = zone.stripWidth || 5;
-            for (let i = lo; i <= Math.min(hi, track.length - 1); i += spacing) {
+
+            let indices = [];
+            if (si <= ei) {
+                for (let i = si; i <= ei; i += spacing) indices.push(i);
+            } else if (data.isClosed) {
+                for (let i = si; i < track.length; i += spacing) indices.push(i);
+                for (let i = 0; i <= ei; i += spacing) indices.push(i);
+            } else {
+                for (let i = ei; i <= si; i += spacing) indices.push(i);
+            }
+
+            for (let i of indices) {
+                if (i >= track.length) continue;
                 const p = track[i];
                 const sgn = zone.side === 'left' ? -1 : 1;
-                const w = sgn < 0 ? p.widthLeft : p.widthRight;
-                const offset = w + 4;
+                const offset = 16 + sw; // Fixed offset to match fixed preview track width with gap
                 const s = tf.toScreen(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
                 ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
                 if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
@@ -125,24 +135,6 @@ F1.PreviewRenderer = class PreviewRenderer {
                     ctx.fillRect(-sw * tf.scale, -sw * 0.3 * tf.scale, sw * 2 * tf.scale, sw * 0.6 * tf.scale);
                 }
                 ctx.restore();
-            }
-            if (zone === firstSMZ) {
-                const midIdx = Math.floor((lo + hi) / 2);
-                const pMid = track[midIdx];
-                if (pMid) {
-                    const sMid = tf.toScreen(pMid.x, pMid.y);
-                    const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
-                    const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
-                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-                    const sf = Math.max(0.9, tf.scale);
-                    ctx.font = `bold ${10 * sf}px Outfit`;
-                    const text = "STRAIGHT MODE ZONE";
-                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
-                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
-                    ctx.strokeStyle = '#ff1801'; ctx.lineWidth = 1.5; ctx.stroke();
-                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
-                    ctx.restore();
-                }
             }
         });
     }

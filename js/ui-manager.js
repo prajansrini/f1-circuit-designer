@@ -162,36 +162,46 @@ F1.UIManager = class UIManager {
             const z = this.app.data.getZoneById(sel.id);
             if (z && z.type === 'straight_mode') {
                 const track = this.app.editor.getInterpolatedTrack();
-                const sIdx = z.segIndex * this.app.editor.resolution + Math.floor(z.t * this.app.editor.resolution);
-                const eIdx = z.endSegIndex * this.app.editor.resolution + Math.floor(z.endT * this.app.editor.resolution);
-                const si = Math.min(sIdx, eIdx);
-                const ei = Math.max(sIdx, eIdx);
+                const si = z.segIndex * this.app.editor.resolution + Math.floor(z.t * this.app.editor.resolution);
+                const ei = z.endSegIndex * this.app.editor.resolution + Math.floor(z.endT * this.app.editor.resolution);
                 
-                let startDist = 0, endDist = 0, dist = 0;
+                let startDist = 0, endDist = 0, dist = 0, trackLength = 0;
                 for (let i = 1; i < track.length; i++) {
-                    dist += Math.hypot(track[i].x - track[i-1].x, track[i].y - track[i-1].y);
+                    const d = Math.hypot(track[i].x - track[i-1].x, track[i].y - track[i-1].y);
+                    dist += d;
+                    trackLength += d;
                     if (i === si) startDist = dist;
                     if (i === ei) endDist = dist;
                 }
-                const zoneDist = endDist - startDist;
+                if (si === 0) startDist = 0;
+                if (ei === 0) endDist = 0;
+                
+                let zoneDist = 0;
+                if (si <= ei) {
+                    zoneDist = endDist - startDist;
+                } else if (this.app.data.isClosed) {
+                    zoneDist = (trackLength - startDist) + endDist;
+                } else {
+                    zoneDist = startDist - endDist;
+                }
 
                 h += `<div class="prop-group"><label>Distance Info</label>
                     <div style="font-size:11px; color:#aaa; margin-bottom:10px; padding:0 5px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;"><span>Start Distance:</span> 
-                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-start" value="${(startDist).toFixed(1)}" step="0.1" class="prop-input" style="width:60px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px;">m</span></div>
+                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-start" value="${(startDist).toFixed(3)}" step="0.001" class="prop-input" style="width:95px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px; width:12px;">m</span></div>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;"><span>End Distance:</span> 
-                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-end" value="${(endDist).toFixed(1)}" step="0.1" class="prop-input" style="width:60px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px;">m</span></div>
+                            <div style="display:flex; align-items:center;"><input type="number" id="prop-smz-end" value="${(endDist).toFixed(3)}" step="0.001" class="prop-input" style="width:95px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px; width:12px;">m</span></div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px solid #444;"><span>Zone Length:</span> <strong style="color:#eee">${(zoneDist).toFixed(1)}m</strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px solid #444;"><span>Zone Length:</span> <strong style="color:#eee">${(zoneDist).toFixed(3)}m</strong></div>
                     </div></div>`;
 
                 h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                     <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
                     <button class="side-btn ${z.side === 'right' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
                 h += `<div class="prop-group"><label>Strip Settings</label>
-                    <div class="prop-row"><span class="prop-label" style="width:30px">Width</span><input type="range" min="1" max="15" step="0.5" value="${z.stripWidth || 5}" id="prop-str-w" class="prop-slider"><span class="prop-val" id="prop-str-w-val">${z.stripWidth || 5}</span></div>
-                    <div class="prop-row"><span class="prop-label" style="width:30px">Gap</span><input type="range" min="1" max="10" step="1" value="${z.stripSpacing || 2}" id="prop-str-s" class="prop-slider"><span class="prop-val" id="prop-str-s-val">${z.stripSpacing || 2}</span></div></div>`;
+                    <div class="prop-row"><span class="prop-label" style="width:40px">Width</span><input type="range" min="1" max="15" step="0.5" value="${z.stripWidth || 5}" id="prop-str-w" class="prop-slider" style="flex:1;"><input type="number" class="prop-input" style="width:50px; padding:2px; font-size:11px; text-align:right; margin-left: 8px;" id="prop-str-w-val" value="${z.stripWidth || 5}" min="1" max="15" step="0.5"></div>
+                    <div class="prop-row"><span class="prop-label" style="width:40px">Gap</span><input type="range" min="1" max="10" step="1" value="${z.stripSpacing || 2}" id="prop-str-s" class="prop-slider" style="flex:1;"><input type="number" class="prop-input" style="width:50px; padding:2px; font-size:11px; text-align:right; margin-left: 8px;" id="prop-str-s-val" value="${z.stripSpacing || 2}" min="1" max="10" step="1"></div></div>`;
                 h += `<button class="prop-btn danger" id="btn-del-zone" style="margin-top:10px">Delete Zone</button>`;
             }
         }
@@ -224,11 +234,11 @@ F1.UIManager = class UIManager {
     _surfaceProps() {
         const t = this.app.tools.surface;
         let h = '<h3 class="prop-title">Run-off Painter</h3><p class="prop-hint">Click near track edges.</p>';
-        h += `<div class="prop-group"><label>Type</label><div class="surface-btns">
-            <button class="surface-btn ${t.surfaceType === 'grass' ? 'active' : ''}" data-surf="grass">🟢 Grass</button>
-            <button class="surface-btn ${t.surfaceType === 'gravel' ? 'active' : ''}" data-surf="gravel">🟤 Gravel</button>
-            <button class="surface-btn ${t.surfaceType === 'asphalt' ? 'active' : ''}" data-surf="asphalt">⬛ Asphalt</button>
-            <button class="surface-btn ${t.surfaceType === 'none' ? 'active' : ''}" data-surf="none">✕ None</button></div></div>`;
+        h += `<div class="prop-group"><label>Type</label><div class="surface-btns" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button class="surface-btn ${t.surfaceType === 'grass' ? 'active' : ''}" data-surf="grass" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#0f0; margin-bottom:4px;"></div><br>Grass</button>
+            <button class="surface-btn ${t.surfaceType === 'gravel' ? 'active' : ''}" data-surf="gravel" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#a0522d; margin-bottom:4px;"></div><br>Gravel</button>
+            <button class="surface-btn ${t.surfaceType === 'asphalt' ? 'active' : ''}" data-surf="asphalt" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; background:#444; margin-bottom:4px;"></div><br>Asphalt</button>
+            <button class="surface-btn ${t.surfaceType === 'none' ? 'active' : ''}" data-surf="none" style="padding: 10px 5px;"><div style="display:inline-block; margin-bottom:4px; font-size:12px; color:#aaa;">✕</div><br>None</button></div></div>`;
         return h;
     }
 
@@ -505,22 +515,33 @@ F1.UIManager = class UIManager {
                 if (btnLeft) btnLeft.onclick = () => { this.app.data.snapshot(); z.side = 'left'; this.updateProperties(); this.app.requestRender(); };
                 if (btnRight) btnRight.onclick = () => { this.app.data.snapshot(); z.side = 'right'; this.updateProperties(); this.app.requestRender(); };
                 const strW = document.getElementById('prop-str-w');
-                if (strW) strW.oninput = () => { z.stripWidth = parseFloat(strW.value); document.getElementById('prop-str-w-val').textContent = z.stripWidth; this.app.requestRender(); };
+                const strWVal = document.getElementById('prop-str-w-val');
+                if (strW && strWVal) {
+                    strW.oninput = () => { z.stripWidth = parseFloat(strW.value); strWVal.value = z.stripWidth; this.app.requestRender(); };
+                    strWVal.onchange = () => { z.stripWidth = parseFloat(strWVal.value) || 5; strW.value = z.stripWidth; this.app.requestRender(); };
+                }
                 const strS = document.getElementById('prop-str-s');
-                if (strS) strS.oninput = () => { z.stripSpacing = parseInt(strS.value); document.getElementById('prop-str-s-val').textContent = z.stripSpacing; this.app.requestRender(); };
+                const strSVal = document.getElementById('prop-str-s-val');
+                if (strS && strSVal) {
+                    strS.oninput = () => { z.stripSpacing = parseInt(strS.value); strSVal.value = z.stripSpacing; this.app.requestRender(); };
+                    strSVal.onchange = () => { z.stripSpacing = parseInt(strSVal.value) || 2; strS.value = z.stripSpacing; this.app.requestRender(); };
+                }
                 
                 const smzStart = document.getElementById('prop-smz-start');
-                if (smzStart) smzStart.onchange = () => {
+                if (smzStart) smzStart.oninput = () => {
                     this.app.data.snapshot();
                     const pt = this.app.editor.getPointAtDistance(parseFloat(smzStart.value) || 0);
-                    if (pt) { z.segIndex = pt.segIndex; z.t = pt.t; this.updateProperties(); this.app.requestRender(); }
+                    if (pt) { z.segIndex = pt.segIndex; z.t = pt.t; this.app.requestRender(); }
                 };
+                if (smzStart) smzStart.onchange = () => { this.updateProperties(); };
+                
                 const smzEnd = document.getElementById('prop-smz-end');
-                if (smzEnd) smzEnd.onchange = () => {
+                if (smzEnd) smzEnd.oninput = () => {
                     this.app.data.snapshot();
                     const pt = this.app.editor.getPointAtDistance(parseFloat(smzEnd.value) || 0);
-                    if (pt) { z.endSegIndex = pt.segIndex; z.endT = pt.t; this.updateProperties(); this.app.requestRender(); }
+                    if (pt) { z.endSegIndex = pt.segIndex; z.endT = pt.t; this.app.requestRender(); }
                 };
+                if (smzEnd) smzEnd.onchange = () => { this.updateProperties(); };
                 const zr = document.getElementById('prop-zr');
                 const zrVal = document.getElementById('prop-zr-val');
                 if (zr && zrVal) {
