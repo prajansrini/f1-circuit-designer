@@ -98,6 +98,9 @@ html,body{height:100%;width:100%;font-family:var(--font);background:var(--bg-dar
 
 input[type="number"]::-webkit-inner-spin-button, 
 input[type="number"]::-webkit-outer-spin-button { filter: invert(0.8) hue-rotate(180deg); cursor: pointer; opacity: 0.8; }
+input[type="number"].no-spin { -moz-appearance: textfield; }
+input[type="number"].no-spin::-webkit-inner-spin-button, 
+input[type="number"].no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* Sliders */
 .prop-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none;}
 .prop-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--f1-red);cursor:pointer;border:2px solid #fff;box-shadow:0 0 6px var(--f1-red-glow);transition:transform .15s;}
