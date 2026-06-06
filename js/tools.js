@@ -843,13 +843,24 @@ class ZoneTool extends BaseTool {
         if (!sel || sel.type !== 'zone') return null;
         const zone = this.data.getZoneById(sel.id);
         if (!zone) return null;
+        if (zone.type === 'straight_mode' && this.constructor.name !== 'StraightModeTool') return null;
+        if (zone.type !== 'straight_mode' && this.constructor.name === 'StraightModeTool') return null;
         const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
         let anchorX, anchorY;
-        if (zt && zt.range) {
+        if ((zt && zt.range) || zone.type === 'straight_mode') {
             const track = this.editor.getInterpolatedTrack();
             const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
             const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-            const midIdx = Math.floor((Math.min(si, ei) + Math.max(si, ei)) / 2);
+            let indices = [];
+            if (si <= ei) {
+                for (let i = si; i <= ei; i++) indices.push(i);
+            } else if (this.data.isClosed) {
+                for (let i = si; i < track.length; i++) indices.push(i);
+                for (let i = 0; i <= ei; i++) indices.push(i);
+            } else {
+                for (let i = ei; i <= si; i++) indices.push(i);
+            }
+            const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
             const pMid = track[midIdx]; if (!pMid) return null;
             anchorX = pMid.x; anchorY = pMid.y;
         } else {
@@ -875,12 +886,12 @@ class ZoneTool extends BaseTool {
 
     _hitExisting(wx, wy) {
         const rotObj = this._hitRotationHandle(wx, wy);
-        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) return { type: 'zone_rotation', obj: rotObj };
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type) || rotObj.type === 'straight_mode')) return { type: 'zone_rotation', obj: rotObj };
         const track = this.editor.getInterpolatedTrack();
         
         // 1. Check SMZ Range Handles (if selected)
         const sel = this.app.selection;
-        if (sel && sel.type === 'zone') {
+        if (this.constructor.name === 'StraightModeTool' && sel && sel.type === 'zone') {
             const zone = this.data.getZoneById(sel.id);
             if (zone && zone.type === 'straight_mode') {
                 const sIdx = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
@@ -895,12 +906,22 @@ class ZoneTool extends BaseTool {
         // 2. Check all Zones
         for (const zone of this.data.zones) {
             if (zone.type === 'straight_mode') {
+                if (this.constructor.name !== 'StraightModeTool') continue;
                 const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
                 const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-                const lo = Math.min(si, ei), hi = Math.max(si, ei);
+                
+                let indices = [];
+                if (si <= ei) {
+                    for (let i = si; i <= ei; i++) indices.push(i);
+                } else if (this.data.isClosed) {
+                    for (let i = si; i < track.length; i++) indices.push(i);
+                    for (let i = 0; i <= ei; i++) indices.push(i);
+                } else {
+                    for (let i = ei; i <= si; i++) indices.push(i);
+                }
                 
                 // Labels
-                const midIdx = Math.floor((lo + hi) / 2);
+                const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
                 const pMid = track[midIdx];
                 if (pMid) {
                     const lx = pMid.x + (zone.labelOffsetX || 0), ly = pMid.y + (zone.labelOffsetY || 0);
@@ -910,7 +931,8 @@ class ZoneTool extends BaseTool {
                 // Path Hit Detection
                 const sgn = zone.side === 'left' ? -1 : 1;
                 const hitThresh = 15 / this.renderer.scale;
-                for (let i = lo; i <= Math.min(hi, track.length - 1); i += 2) {
+                for (let i of indices) {
+                    if (i >= track.length) continue;
                     const p = track[i];
                     if (!p) continue;
                     const w = sgn < 0 ? p.widthLeft : p.widthRight;
@@ -920,6 +942,7 @@ class ZoneTool extends BaseTool {
                     if (Math.hypot(wx - zx, wy - zy) < hitThresh) return { type: 'zone_path', obj: zone };
                 }
             } else {
+                if (this.constructor.name === 'StraightModeTool') continue;
                 const pos = this.editor.getZoneWorldPos(zone);
                 if (!pos) continue;
                 if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return { type: 'zone_circle', obj: zone };
@@ -933,7 +956,7 @@ class ZoneTool extends BaseTool {
     onMouseDown(wx, wy) {
         // 1. Always prioritize rotation handles
         const rotObj = this._hitRotationHandle(wx, wy);
-        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) {
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type) || rotObj.type === 'straight_mode')) {
             this.data.snapshot();
             this.app.setSelection({ type: 'zone', id: rotObj.id });
             this.rotatingZ = rotObj;
@@ -1055,7 +1078,7 @@ class ZoneTool extends BaseTool {
         }
 
         const rotObj = this._hitRotationHandle(wx, wy);
-        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type))) {
+        if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type) || rotObj.type === 'straight_mode')) {
             this.app.canvas.style.cursor = 'grab';
             return;
         }

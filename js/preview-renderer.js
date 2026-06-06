@@ -136,6 +136,26 @@ F1.PreviewRenderer = class PreviewRenderer {
                 }
                 ctx.restore();
             }
+
+            if (zone === firstSMZ) {
+                const zt = F1.ZONE_TYPES.find(t => t.key === zone.type) || { color: '#ff1801', textColor: '#fff' };
+                const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
+                const pMid = track[midIdx];
+                if (pMid) {
+                    const sMid = tf.toScreen(pMid.x, pMid.y);
+                    const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
+                    const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
+
+                    const sf = Math.max(0.9, tf.scale);
+                    ctx.font = `bold ${10 * sf}px Outfit`;
+                    const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
+
+                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+                    ctx.fillStyle = '#ff1801'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(text, 0, 0);
+                    ctx.restore();
+                }
+            }
         });
     }
 

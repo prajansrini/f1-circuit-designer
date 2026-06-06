@@ -150,67 +150,119 @@ F1.Renderer = class Renderer {
             const spacing = zone.stripSpacing || 2;
             const sw = zone.stripWidth || 5;
 
-            let indices = [];
-            if (si <= ei) {
-                for (let i = si; i <= ei; i += spacing) indices.push(i);
-            } else if (data.isClosed) {
-                for (let i = si; i < track.length; i += spacing) indices.push(i);
-                for (let i = 0; i <= ei; i += spacing) indices.push(i);
-            } else {
-                for (let i = ei; i <= si; i += spacing) indices.push(i);
-            }
+            const targetGap = spacing * 5; // e.g. 5m to 75m
+            let stripPoints = [];
+            let currentDist = 0;
+            let prevP = null;
 
-            for (let i of indices) {
-                if (i >= track.length) continue;
-                const p = track[i];
-                const sgn = zone.side === 'left' ? -1 : 1;
-                const w = sgn < 0 ? p.widthLeft : p.widthRight;
-                const offset = w + 6 + sw;
-                const s = this.w2s(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
-                ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
-                if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                    ctx.drawImage(this.stripsImg, -sw * this.scale, -sw * 0.5 * this.scale, sw * 2 * this.scale, sw * this.scale);
+            const addStripPoints = (startIdx, endIdx, sideSign) => {
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const p = track[i];
+                    const w = sideSign < 0 ? p.widthLeft : p.widthRight;
+                    const offset = w + 6 + sw;
+                    const ox = p.x + p.nx * offset * sideSign;
+                    const oy = p.y + p.ny * offset * sideSign;
+
+                    if (!prevP) {
+                        stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
+                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                        currentDist = 0;
+                        continue;
+                    }
+
+                    let dx = ox - prevP.x;
+                    let dy = oy - prevP.y;
+                    let d = Math.hypot(dx, dy);
+
+                    if (d > 0.0001) {
+                        while (currentDist + d >= targetGap) {
+                            const needed = targetGap - currentDist;
+                            const t = needed / d;
+
+                            const exactX = prevP.x + dx * t;
+                            const exactY = prevP.y + dy * t;
+                            let exactNx = prevP.nx + (p.nx - prevP.nx) * t;
+                            let exactNy = prevP.ny + (p.ny - prevP.ny) * t;
+                            if (isNaN(exactNx) || isNaN(exactNy)) { exactNx = p.nx; exactNy = p.ny; }
+
+                            stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy });
+
+                            currentDist = 0;
+                            prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy };
+                            dx = ox - prevP.x;
+                            dy = oy - prevP.y;
+                            d = Math.hypot(dx, dy);
+                            if (d < 0.0001) break;
+                        }
+                        currentDist += d;
+                    }
+                    prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                }
+            };
+
+            const generateStripsForSide = (sideSign) => {
+                stripPoints = [];
+                currentDist = 0;
+                prevP = null;
+                if (si <= ei) {
+                    addStripPoints(si, ei, sideSign);
+                } else if (data.isClosed) {
+                    addStripPoints(si, track.length - 1, sideSign);
+                    addStripPoints(0, ei, sideSign);
                 } else {
-                    ctx.fillStyle = '#ff1801';
-                    ctx.fillRect(-sw * this.scale, -sw * 0.3 * this.scale, sw * 2 * this.scale, sw * 0.6 * this.scale);
+                    addStripPoints(ei, si, sideSign);
                 }
-                ctx.restore();
-            }
-            // Visual handles for resizing if selected
-            const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
-            if (isSel) {
-                const pStart = track[si];
-                const pEnd = track[ei];
-                if (pStart) {
-                    const s = this.w2s(pStart.x, pStart.y);
-                    ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
-                    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#e10600'; ctx.lineWidth = 2; ctx.stroke();
-                }
-                if (pEnd) {
-                    const s = this.w2s(pEnd.x, pEnd.y);
-                    ctx.beginPath(); ctx.arc(s.x, s.y, 6 * this.scale, 0, Math.PI * 2);
-                    ctx.fillStyle = '#111'; ctx.fill(); ctx.strokeStyle = '#e10600'; ctx.lineWidth = 2; ctx.stroke();
-                }
-            }
-
-            // Render label (only for the first zone)
-            if (zone === firstSMZ) {
-                const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
-                const pMid = track[midIdx];
-                if (pMid) {
-                    const sMid = this.w2s(pMid.x, pMid.y);
-                    const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
-                    const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
-                    ctx.save(); ctx.translate(lx, ly);
-                    const sf = Math.max(0.9, this.scale);
-                    ctx.font = `bold ${10 * sf}px Outfit`;
-                    const text = zone.label || "STRAIGHT MODE ZONE";
-                    const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
-                    ctx.fillStyle = 'rgba(15, 26, 15, 0.95)'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
-                    ctx.strokeStyle = isSel ? '#00ff88' : '#ff1801'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
-                    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+                
+                for (let sp of stripPoints) {
+                    const s = this.w2s(sp.x, sp.y);
+                    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
+                    if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
+                        ctx.drawImage(this.stripsImg, -sw * this.scale, -sw * 0.5 * this.scale, sw * 2 * this.scale, sw * this.scale);
+                    } else {
+                        ctx.fillStyle = '#ff1801';
+                        ctx.fillRect(-sw * this.scale, -sw * 0.3 * this.scale, sw * 2 * this.scale, sw * 0.6 * this.scale);
+                    }
                     ctx.restore();
                 }
+            };
+
+            if (zone.side === 'both') {
+                generateStripsForSide(-1);
+                generateStripsForSide(1);
+            } else {
+                generateStripsForSide(zone.side === 'left' ? -1 : 1);
+            }
+            const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
+
+            // Render label
+            let midIdx = si;
+            if (si <= ei) {
+                midIdx = Math.floor((si + ei) / 2);
+            } else if (data.isClosed) {
+                const dist = (track.length - si) + ei;
+                midIdx = (si + Math.floor(dist / 2)) % track.length;
+            }
+            const pMid = track[midIdx];
+            if (pMid) {
+                const sMid = this.w2s(pMid.x, pMid.y);
+                const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
+                const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
+                ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
+                const sf = Math.max(0.9, this.scale);
+                ctx.font = `bold ${10 * sf}px Outfit`;
+                let text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
+                const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
+                if (isSel) {
+                    const hd = (th / 2) + 25; // slightly higher
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -hd);
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke(); // white line
+                    ctx.beginPath(); ctx.arc(0, -hd, 6 * sf, 0, Math.PI * 2); // bigger dot
+                    ctx.fillStyle = '#00ff88'; ctx.fill(); 
+                    ctx.strokeStyle = '#000000'; ctx.lineWidth = 1; ctx.stroke(); // black border
+                }
+
+                ctx.fillStyle = '#ff1801'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
+                ctx.restore();
             }
         });
     }
@@ -382,12 +434,14 @@ F1.Renderer = class Renderer {
                     const pEnd = track[Math.min(ei, track.length - 1)];
                     if (pStart) {
                         const sStart = this.w2s(pStart.x, pStart.y);
-                        ctx.fillStyle = '#00ffcc'; ctx.beginPath(); ctx.arc(sStart.x, sStart.y, 7, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#00ff66'; // Green for Start
+                        ctx.beginPath(); ctx.arc(sStart.x, sStart.y, 7, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
                     }
                     if (pEnd) {
                         const sEnd = this.w2s(pEnd.x, pEnd.y);
-                        ctx.fillStyle = '#00ffcc'; ctx.beginPath(); ctx.arc(sEnd.x, sEnd.y, 7, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#ff3333'; // Red for End
+                        ctx.beginPath(); ctx.arc(sEnd.x, sEnd.y, 7, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
                     }
                 }

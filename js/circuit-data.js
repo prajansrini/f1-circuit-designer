@@ -111,11 +111,17 @@ F1.CircuitData = class CircuitData {
     addZone(type, segIndex, t, labelOffsetX, labelOffsetY) {
         const zt = F1.ZONE_TYPES.find(z => z.key === type);
         if (zt && !zt.multi) { this.zones = this.zones.filter(z => z.type !== type); }
+        let endSegIndex = segIndex;
+        let endT = Math.min(1, t + 0.4);
+        if (type === 'straight_mode') {
+            endSegIndex = (segIndex + 1) % this.controlPoints.length;
+            endT = t;
+        }
         const zone = {
             id: this._genId(), type, segIndex, t,
-            endSegIndex: segIndex, endT: Math.min(1, t + 0.4),
+            endSegIndex: endSegIndex, endT: endT,
             labelOffsetX: labelOffsetX || 0, labelOffsetY: labelOffsetY || -50,
-            label: zt ? zt.label : type,
+            label: zt ? zt.label : (type === 'straight_mode' ? 'Straight Mode Zone' : type),
             side: 'right'
         };
         this.zones.push(zone);
