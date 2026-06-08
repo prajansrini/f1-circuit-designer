@@ -102,58 +102,173 @@ F1.PreviewRenderer = class PreviewRenderer {
         }
     }
 
-    /* Straight mode: red dashes close to track edge using strips.png */
+    /* Straight mode: red dashes close to track edge using strips.png — same equidistant algorithm as editor */
     _straightModeZones(ctx, data, editor, track, tf) {
-        const firstSMZ = data.zones.find(z => z.type === 'straight_mode');
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
             const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
             const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
             const spacing = zone.stripSpacing || 2;
             const sw = zone.stripWidth || 5;
+            const targetGap = spacing * 5;
 
-            let indices = [];
-            if (si <= ei) {
-                for (let i = si; i <= ei; i += spacing) indices.push(i);
-            } else if (data.isClosed) {
-                for (let i = si; i < track.length; i += spacing) indices.push(i);
-                for (let i = 0; i <= ei; i += spacing) indices.push(i);
-            } else {
-                for (let i = ei; i <= si; i += spacing) indices.push(i);
-            }
+            let stripPoints = [];
+            let currentDist = 0;
+            let prevP = null;
 
-            for (let i of indices) {
-                if (i >= track.length) continue;
-                const p = track[i];
-                const sgn = zone.side === 'left' ? -1 : 1;
-                const offset = 16 + sw; // Fixed offset to match fixed preview track width with gap
-                const s = tf.toScreen(p.x + p.nx * offset * sgn, p.y + p.ny * offset * sgn);
-                ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(p.ny, p.nx));
-                if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                    ctx.drawImage(this.stripsImg, -sw * tf.scale, -sw * 0.5 * tf.scale, sw * 2 * tf.scale, sw * tf.scale);
-                } else {
-                    ctx.fillStyle = '#ff1801';
-                    ctx.fillRect(-sw * tf.scale, -sw * 0.3 * tf.scale, sw * 2 * tf.scale, sw * 0.6 * tf.scale);
+            const addStripPoints = (startIdx, endIdx, sideSign) => {
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const p = track[i];
+                    const offset = 16 + sw;
+                    const ox = p.x + p.nx * offset * sideSign;
+                    const oy = p.y + p.ny * offset * sideSign;
+
+                    if (!prevP) {
+                        stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
+                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                        currentDist = 0;
+                        continue;
+                    }
+
+                    let dx = ox - prevP.x;
+                    let dy = oy - prevP.y;
+                    let d = Math.hypot(dx, dy);
+
+                    if (d > 0.0001) {
+                        while (currentDist + d >= targetGap) {
+                            const needed = targetGap - currentDist;
+                            const t = needed / d;
+
+                            const exactX = prevP.x + dx * t;
+                            const exactY = prevP.y + dy * t;
+                            let exactNx = prevP.nx + (p.nx - prevP.nx) * t;
+                            let exactNy = prevP.ny + (p.ny - prevP.ny) * t;
+                            if (isNaN(exactNx) || isNaN(exactNy)) { exactNx = p.nx; exactNy = p.ny; }
+
+                            stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy });
+
+                            currentDist = 0;
+                            prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy };
+                            dx = ox - prevP.x;
+                            dy = oy - prevP.y;
+                            d = Math.hypot(dx, dy);
+                            if (d < 0.0001) break;
+                        }
+                        currentDist += d;
+                    }
+                    prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
                 }
-                ctx.restore();
-            }
+            };
 
-            if (zone === firstSMZ) {
-                const zt = F1.ZONE_TYPES.find(t => t.key === zone.type) || { color: '#ff1801', textColor: '#fff' };
-                const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
-                const pMid = track[midIdx];
-                if (pMid) {
-                    const sMid = tf.toScreen(pMid.x, pMid.y);
-                    const lx = sMid.x + (zone.labelOffsetX || 0) * tf.scale;
-                    const ly = sMid.y + (zone.labelOffsetY || 0) * tf.scale;
+            const generateStripsForSide = (sideSign) => {
+                stripPoints = [];
+                currentDist = 0;
+                prevP = null;
+                if (si <= ei) {
+                    addStripPoints(si, ei, sideSign);
+                } else if (data.isClosed) {
+                    addStripPoints(si, track.length - 1, sideSign);
+                    addStripPoints(0, ei, sideSign);
+                } else {
+                    addStripPoints(ei, si, sideSign);
+                }
+
+                const n = stripPoints.length;
+                for (let idx = 0; idx < n; idx++) {
+                    const sp = stripPoints[idx];
+                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.5;
+                    const tsw = sw * taper;
+
+                    const s = tf.toScreen(sp.x, sp.y);
+                    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
+                    if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
+                        ctx.drawImage(this.stripsImg, -tsw * tf.scale, -tsw * 0.5 * tf.scale, tsw * 2 * tf.scale, tsw * tf.scale);
+                    } else {
+                        ctx.fillStyle = '#ff1801';
+                        ctx.fillRect(-tsw * tf.scale, -tsw * 0.3 * tf.scale, tsw * 2 * tf.scale, tsw * 0.6 * tf.scale);
+                    }
+                    ctx.restore();
+                }
+            };
+
+            generateStripsForSide(zone.side === 'left' ? -1 : 1);
+
+            // Text-on-path label: render only if this zone has showLabel
+            if (zone.showLabel !== false) {
+                const sgn = zone.side === 'left' ? -1 : 1;
+                let pathPts = [];
+                const buildPath = (startIdx, endIdx) => {
+                    for (let i = startIdx; i <= endIdx; i++) {
+                        const p = track[i];
+                        const offset = 16 + sw + sw + 12;
+                        pathPts.push({ x: p.x + p.nx * offset * sgn, y: p.y + p.ny * offset * sgn });
+                    }
+                };
+                if (si <= ei) { buildPath(si, ei); }
+                else if (data.isClosed) { buildPath(si, track.length - 1); buildPath(0, ei); }
+                else { buildPath(ei, si); }
+
+                // Flip: reverse the path so text reads the opposite direction
+                if (zone.labelFlipped) { pathPts.reverse(); }
+
+                if (pathPts.length > 1) {
+                    let cumLen = [0];
+                    for (let i = 1; i < pathPts.length; i++) {
+                        cumLen.push(cumLen[i - 1] + Math.hypot(pathPts[i].x - pathPts[i - 1].x, pathPts[i].y - pathPts[i - 1].y));
+                    }
+                    const totalLen = cumLen[cumLen.length - 1];
 
                     const sf = Math.max(0.9, tf.scale);
-                    ctx.font = `bold ${10 * sf}px Outfit`;
+                    const fontSize = (zone.labelFontSize || 10) * sf;
+                    ctx.font = `bold ${fontSize}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
+                    const charWidths = [];
+                    let totalTextW = 0;
+                    for (let c = 0; c < text.length; c++) {
+                        const cw = ctx.measureText(text[c]).width;
+                        charWidths.push(cw);
+                        totalTextW += cw;
+                    }
+                    const charGap = 1 * sf;
+                    totalTextW += charGap * (text.length - 1);
 
-                    ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-                    ctx.fillStyle = '#ff1801'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillText(text, 0, 0);
-                    ctx.restore();
+                    let startOffset = (totalLen - totalTextW) / 2;
+                    if (startOffset < 0) startOffset = 0;
+
+                    const getPointAt = (dist) => {
+                        if (dist <= 0) return { x: pathPts[0].x, y: pathPts[0].y, angle: Math.atan2(pathPts[1].y - pathPts[0].y, pathPts[1].x - pathPts[0].x) };
+                        if (dist >= totalLen) {
+                            const last = pathPts.length - 1;
+                            return { x: pathPts[last].x, y: pathPts[last].y, angle: Math.atan2(pathPts[last].y - pathPts[last - 1].y, pathPts[last].x - pathPts[last - 1].x) };
+                        }
+                        for (let i = 1; i < cumLen.length; i++) {
+                            if (cumLen[i] >= dist) {
+                                const segLen = cumLen[i] - cumLen[i - 1];
+                                const t = segLen > 0 ? (dist - cumLen[i - 1]) / segLen : 0;
+                                return {
+                                    x: pathPts[i - 1].x + (pathPts[i].x - pathPts[i - 1].x) * t,
+                                    y: pathPts[i - 1].y + (pathPts[i].y - pathPts[i - 1].y) * t,
+                                    angle: Math.atan2(pathPts[i].y - pathPts[i - 1].y, pathPts[i].x - pathPts[i - 1].x)
+                                };
+                            }
+                        }
+                        return { x: pathPts[0].x, y: pathPts[0].y, angle: 0 };
+                    };
+
+                    let curDist = startOffset;
+                    ctx.fillStyle = '#ff1801';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    for (let c = 0; c < text.length; c++) {
+                        const charMid = curDist + charWidths[c] / 2;
+                        const pt = getPointAt(charMid);
+                        const s = tf.toScreen(pt.x, pt.y);
+                        ctx.save();
+                        ctx.translate(s.x, s.y);
+                        ctx.rotate(pt.angle);
+                        ctx.font = `bold ${fontSize}px Outfit`;
+                        ctx.fillText(text[c], 0, 0);
+                        ctx.restore();
+                        curDist += charWidths[c] + charGap;
+                    }
                 }
             }
         });

@@ -213,56 +213,114 @@ F1.Renderer = class Renderer {
                     addStripPoints(ei, si, sideSign);
                 }
                 
-                for (let sp of stripPoints) {
+                const n = stripPoints.length;
+                for (let idx = 0; idx < n; idx++) {
+                    const sp = stripPoints[idx];
+                    // Only first and last strips are full width, rest are 50%
+                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.5;
+                    const tsw = sw * taper;
+
                     const s = this.w2s(sp.x, sp.y);
                     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
                     if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                        ctx.drawImage(this.stripsImg, -sw * this.scale, -sw * 0.5 * this.scale, sw * 2 * this.scale, sw * this.scale);
+                        ctx.drawImage(this.stripsImg, -tsw * this.scale, -tsw * 0.5 * this.scale, tsw * 2 * this.scale, tsw * this.scale);
                     } else {
                         ctx.fillStyle = '#ff1801';
-                        ctx.fillRect(-sw * this.scale, -sw * 0.3 * this.scale, sw * 2 * this.scale, sw * 0.6 * this.scale);
+                        ctx.fillRect(-tsw * this.scale, -tsw * 0.3 * this.scale, tsw * 2 * this.scale, tsw * 0.6 * this.scale);
                     }
                     ctx.restore();
                 }
             };
 
-            if (zone.side === 'both') {
-                generateStripsForSide(-1);
-                generateStripsForSide(1);
-            } else {
-                generateStripsForSide(zone.side === 'left' ? -1 : 1);
-            }
+            generateStripsForSide(zone.side === 'left' ? -1 : 1);
+
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
 
-            // Render label
-            let midIdx = si;
-            if (si <= ei) {
-                midIdx = Math.floor((si + ei) / 2);
-            } else if (data.isClosed) {
-                const dist = (track.length - si) + ei;
-                midIdx = (si + Math.floor(dist / 2)) % track.length;
-            }
-            const pMid = track[midIdx];
-            if (pMid) {
-                const sMid = this.w2s(pMid.x, pMid.y);
-                const lx = sMid.x + (zone.labelOffsetX || 0) * this.scale;
-                const ly = sMid.y + (zone.labelOffsetY || 0) * this.scale;
-                ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-                const sf = Math.max(0.9, this.scale);
-                ctx.font = `bold ${10 * sf}px Outfit`;
-                let text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
-                const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
-                if (isSel) {
-                    const hd = (th / 2) + 25; // slightly higher
-                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -hd);
-                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke(); // white line
-                    ctx.beginPath(); ctx.arc(0, -hd, 6 * sf, 0, Math.PI * 2); // bigger dot
-                    ctx.fillStyle = '#00ff88'; ctx.fill(); 
-                    ctx.strokeStyle = '#000000'; ctx.lineWidth = 1; ctx.stroke(); // black border
-                }
+            // Text-on-path label: render only if this zone has showLabel
+            if (zone.showLabel !== false) {
+                const sgn = zone.side === 'left' ? -1 : 1;
+                // Build path points along the offset curve for text placement
+                let pathPts = [];
+                const buildPath = (startIdx, endIdx) => {
+                    for (let i = startIdx; i <= endIdx; i++) {
+                        const p = track[i];
+                        const w = sgn < 0 ? p.widthLeft : p.widthRight;
+                        const offset = w + 6 + (zone.stripWidth || 5) + (zone.stripWidth || 5) + 12;
+                        pathPts.push({ x: p.x + p.nx * offset * sgn, y: p.y + p.ny * offset * sgn });
+                    }
+                };
+                if (si <= ei) { buildPath(si, ei); }
+                else if (data.isClosed) { buildPath(si, track.length - 1); buildPath(0, ei); }
+                else { buildPath(ei, si); }
 
-                ctx.fillStyle = '#ff1801'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
-                ctx.restore();
+                // Flip: reverse the path so text reads the opposite direction
+                if (zone.labelFlipped) { pathPts.reverse(); }
+
+                if (pathPts.length > 1) {
+                    // Compute cumulative arc-length along the path
+                    let cumLen = [0];
+                    for (let i = 1; i < pathPts.length; i++) {
+                        cumLen.push(cumLen[i - 1] + Math.hypot(pathPts[i].x - pathPts[i - 1].x, pathPts[i].y - pathPts[i - 1].y));
+                    }
+                    const totalLen = cumLen[cumLen.length - 1];
+
+                    const sf = Math.max(0.9, this.scale);
+                    const fontSize = (zone.labelFontSize || 10) * sf;
+                    ctx.font = `bold ${fontSize}px Outfit`;
+                    const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
+                    // Measure each character width
+                    const charWidths = [];
+                    let totalTextW = 0;
+                    for (let c = 0; c < text.length; c++) {
+                        const cw = ctx.measureText(text[c]).width;
+                        charWidths.push(cw);
+                        totalTextW += cw;
+                    }
+                    const charGap = 1 * sf; // small gap between chars
+                    totalTextW += charGap * (text.length - 1);
+
+                    // Center text along path
+                    let startOffset = (totalLen - totalTextW) / 2;
+                    if (startOffset < 0) startOffset = 0;
+
+                    // Helper: get position + angle at a given arc-length distance
+                    const getPointAt = (dist) => {
+                        if (dist <= 0) return { x: pathPts[0].x, y: pathPts[0].y, angle: Math.atan2(pathPts[1].y - pathPts[0].y, pathPts[1].x - pathPts[0].x) };
+                        if (dist >= totalLen) {
+                            const last = pathPts.length - 1;
+                            return { x: pathPts[last].x, y: pathPts[last].y, angle: Math.atan2(pathPts[last].y - pathPts[last - 1].y, pathPts[last].x - pathPts[last - 1].x) };
+                        }
+                        for (let i = 1; i < cumLen.length; i++) {
+                            if (cumLen[i] >= dist) {
+                                const segLen = cumLen[i] - cumLen[i - 1];
+                                const t = segLen > 0 ? (dist - cumLen[i - 1]) / segLen : 0;
+                                return {
+                                    x: pathPts[i - 1].x + (pathPts[i].x - pathPts[i - 1].x) * t,
+                                    y: pathPts[i - 1].y + (pathPts[i].y - pathPts[i - 1].y) * t,
+                                    angle: Math.atan2(pathPts[i].y - pathPts[i - 1].y, pathPts[i].x - pathPts[i - 1].x)
+                                };
+                            }
+                        }
+                        return { x: pathPts[0].x, y: pathPts[0].y, angle: 0 };
+                    };
+
+                    // Draw each character along the path
+                    let curDist = startOffset;
+                    ctx.fillStyle = '#ff1801';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    for (let c = 0; c < text.length; c++) {
+                        const charMid = curDist + charWidths[c] / 2;
+                        const pt = getPointAt(charMid);
+                        const s = this.w2s(pt.x, pt.y);
+                        ctx.save();
+                        ctx.translate(s.x, s.y);
+                        ctx.rotate(pt.angle);
+                        ctx.font = `bold ${fontSize}px Outfit`;
+                        ctx.fillText(text[c], 0, 0);
+                        ctx.restore();
+                        curDist += charWidths[c] + charGap;
+                    }
+                }
             }
         });
     }

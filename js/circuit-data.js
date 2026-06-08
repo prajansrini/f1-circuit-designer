@@ -117,12 +117,14 @@ F1.CircuitData = class CircuitData {
             endSegIndex = (segIndex + 1) % this.controlPoints.length;
             endT = t;
         }
+        const hasExistingLabel = type === 'straight_mode' && this.zones.some(z => z.type === 'straight_mode' && z.showLabel !== false);
         const zone = {
             id: this._genId(), type, segIndex, t,
             endSegIndex: endSegIndex, endT: endT,
             labelOffsetX: labelOffsetX || 0, labelOffsetY: labelOffsetY || -50,
             label: zt ? zt.label : (type === 'straight_mode' ? 'Straight Mode Zone' : type),
-            side: 'right'
+            side: 'right',
+            showLabel: type === 'straight_mode' ? !hasExistingLabel : true
         };
         this.zones.push(zone);
         return zone;
