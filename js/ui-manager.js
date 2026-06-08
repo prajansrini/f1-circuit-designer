@@ -199,8 +199,24 @@ F1.UIManager = class UIManager {
                     </div></div>`;
                 h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                     <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
-                    <button class="side-btn ${z.side === 'both' ? 'active' : ''}" id="btn-side-both">Both</button>
                     <button class="side-btn ${z.side === 'right' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
+                const labelOn = z.showLabel !== false;
+                h += `<div class="prop-group"><label>Label Settings</label>
+                    <div style="font-size:11px; color:#aaa; padding:0 5px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                            <span>Show Label</span>
+                            <input type="checkbox" id="prop-show-label" ${labelOn ? 'checked' : ''} style="accent-color:#e10600;">
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; ${!labelOn ? 'opacity:0.35; pointer-events:none;' : ''}">
+                            <span>Flip Direction</span>
+                            <button id="btn-flip-label" class="side-btn ${z.labelFlipped ? 'active' : ''}" style="font-size:10px; padding:2px 10px; ${!labelOn ? 'opacity:0.5;' : ''}">${z.labelFlipped ? 'Flipped' : 'Normal'}</button>
+                        </div>
+                        <div style="display:flex; align-items:center; margin-bottom:4px; ${!labelOn ? 'opacity:0.35; pointer-events:none;' : ''}">
+                            <span style="flex: 0 0 60px;">Font Size:</span>
+                            <input type="range" min="6" max="20" step="1" value="${z.labelFontSize || 10}" id="prop-label-fs" class="prop-slider" style="flex:1; margin-right:6px; min-width:0;">
+                            <input type="number" class="prop-input" style="flex: 0 0 36px; padding:2px; font-size:11px; text-align:right; min-width:0;" id="prop-label-fs-val" value="${z.labelFontSize || 10}" min="6" max="20" step="1">
+                        </div>
+                    </div></div>`;
                 h += `<div class="prop-group"><label>Strip Settings</label>
                     <div style="font-size:11px; color:#aaa; padding:0 5px;">
                         <div style="display:flex; align-items:center; margin-bottom: 8px;">
@@ -577,11 +593,30 @@ F1.UIManager = class UIManager {
                     };
                 }
                 const bL = document.getElementById('btn-side-left');
-                const bB = document.getElementById('btn-side-both');
                 const bR = document.getElementById('btn-side-right');
                 if (bL) bL.onclick = () => { z.side = 'left'; this.app.requestRender(); this.updateProperties(); };
-                if (bB) bB.onclick = () => { z.side = 'both'; this.app.requestRender(); this.updateProperties(); };
                 if (bR) bR.onclick = () => { z.side = 'right'; this.app.requestRender(); this.updateProperties(); };
+                const slCb = document.getElementById('prop-show-label');
+                if (slCb) slCb.onchange = () => {
+                    if (slCb.checked) {
+                        // Exclusive: turn off label on all other straight_mode zones
+                        this.app.data.zones.filter(oz => oz.type === 'straight_mode' && oz.id !== z.id).forEach(oz => oz.showLabel = false);
+                    }
+                    z.showLabel = slCb.checked;
+                    this.app.requestRender();
+                    this.updateProperties();
+                };
+                const flipBtn = document.getElementById('btn-flip-label');
+                if (flipBtn) flipBtn.onclick = () => {
+                    z.labelFlipped = !z.labelFlipped;
+                    this.app.requestRender();
+                    this.updateProperties();
+                };
+                const lfs = document.getElementById('prop-label-fs'), lfsVal = document.getElementById('prop-label-fs-val');
+                if (lfs && lfsVal) {
+                    lfs.oninput = () => { z.labelFontSize = parseInt(lfs.value); lfsVal.value = z.labelFontSize; this.app.requestRender(); };
+                    lfsVal.onchange = () => { let v = parseInt(lfsVal.value) || 10; if (v < 6) v = 6; if (v > 20) v = 20; lfsVal.value = v; lfs.value = v; z.labelFontSize = v; this.app.requestRender(); };
+                }
                 const zx = document.getElementById('prop-zx'), zy = document.getElementById('prop-zy');
                 if (zx) zx.onchange = () => { z.labelOffsetX = parseInt(zx.value) || 0; this.app.requestRender(); };
                 if (zy) zy.onchange = () => { z.labelOffsetY = parseInt(zy.value) || 0; this.app.requestRender(); };
