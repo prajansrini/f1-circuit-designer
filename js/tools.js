@@ -169,9 +169,9 @@ class SelectTool extends BaseTool {
                 if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) {
                     this.data.snapshot();
                     this.app.setSelection({ type: 'zone', id: firstSMZ.id });
-                    this.dragging = { 
+                    this.dragging = {
                         type: 'zone_label', obj: firstSMZ, anchor: pMid,
-                        dragOffsetX: wx - lx, dragOffsetY: wy - ly 
+                        dragOffsetX: wx - lx, dragOffsetY: wy - ly
                     };
                     return;
                 }
@@ -195,7 +195,7 @@ class SelectTool extends BaseTool {
             if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) {
                 this.data.snapshot();
                 this.app.setSelection({ type: 'zone', id: zone.id });
-                this.dragging = { 
+                this.dragging = {
                     type: 'zone_label', obj: zone, anchor: pos,
                     dragOffsetX: wx - lx, dragOffsetY: wy - ly
                 };
@@ -232,7 +232,7 @@ class SelectTool extends BaseTool {
                 if (this._hitRotatedRect(wx, wy, slx, sly, sl.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) {
                     this.data.snapshot();
                     this.app.setSelection({ type: 'sector_label', sector: sl.sector });
-                    this.dragging = { 
+                    this.dragging = {
                         type: 'sector_label', obj: sl, anchor: mid,
                         dragOffsetX: wx - slx, dragOffsetY: wy - sly
                     };
@@ -523,7 +523,7 @@ class DrawTrackTool extends BaseTool {
         if (this.data.isClosed) return;
         if (this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale)) {
             this.data.snapshot(); this.data.closeTrack();
-            this.app.setStatus('Circuit closed! First turn=S1, last=S3. Assign remaining sectors.');
+            this.app.setStatus('Circuit closed! You can now manually assign sectors.');
             this.app.requestRender(); return;
         }
         this.data.snapshot();
@@ -708,14 +708,14 @@ class SectorTool extends BaseTool {
 
     _apply(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
-        if (cp && cp.sector !== this.currentSector) { 
-            cp.sector = this.currentSector; 
+        if (cp && cp.sector !== this.currentSector) {
+            cp.sector = this.currentSector;
             this.editor._needsUpdate = true;
-            this.app.requestRender(); 
-            this.app.uiManager.updateProperties(); 
+            this.app.requestRender();
+            this.app.uiManager.updateProperties();
         }
     }
-    
+
     onMouseDown(wx, wy) {
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj) { this.data.snapshot(); this.rotatingObj = rotObj; return; }
@@ -731,7 +731,7 @@ class SectorTool extends BaseTool {
         if (hit) {
             this.data.snapshot();
             this.app.setSelection({ type: 'sector_label', sector: hit.sl.sector });
-            this.dragging = hit; 
+            this.dragging = hit;
             this.dragging.dragOffsetX = wx - (hit.anchor.x + (hit.sl.labelOffsetX || 0));
             this.dragging.dragOffsetY = wy - (hit.anchor.y + (hit.sl.labelOffsetY || 0));
             return;
@@ -745,7 +745,7 @@ class SectorTool extends BaseTool {
 
         this.data.snapshot(); this.painting = true; this._apply(wx, wy);
     }
-    
+
     onMouseMove(wx, wy) {
         if (this.rotatingObj) {
             const s = this.renderer.w2s(wx, wy);
@@ -765,7 +765,8 @@ class SectorTool extends BaseTool {
         else {
             const rotObj = this._hitRotationHandle(wx, wy);
             const ex = this._hitExisting(wx, wy);
-            this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : 'pointer');
+            const cp = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+            this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : (cp ? 'crosshair' : 'pointer'));
         }
     }
     onMouseUp() { this.painting = false; this.dragging = null; this.rotatingObj = null; }
@@ -832,10 +833,10 @@ class GrandstandTool extends BaseTool {
 class ZoneTool extends BaseTool {
     constructor(app) { super(app); this.zoneType = null; this._placingRange = null; this.dragging = null; this.rotatingZ = null; this._lastHit = null; }
     activate() { this.zoneType = null; this._placingRange = null; this._lastHit = null; }
-    getCursor() { 
+    getCursor() {
         if (this.rotatingZ || this.dragging) return 'grabbing';
         if (this._lastHit) return 'pointer';
-        return 'crosshair'; 
+        return 'crosshair';
     }
 
     _hitRotationHandle(wx, wy) {
@@ -871,7 +872,7 @@ class ZoneTool extends BaseTool {
         const lx = sA.x + (zone.labelOffsetX || 0) * this.renderer.scale;
         const ly = sA.y + (zone.labelOffsetY || 0) * this.renderer.scale;
         const rad = (zone.rotation || 0) * Math.PI / 180;
-        
+
         const sf = Math.max(0.9, this.renderer.scale);
         const text = zone.label ? zone.label.toUpperCase() : '';
         const lines = text.split('\n');
@@ -888,7 +889,7 @@ class ZoneTool extends BaseTool {
         const rotObj = this._hitRotationHandle(wx, wy);
         if (rotObj && rotObj.type && (F1.ZONE_TYPES.find(z => z.key === rotObj.type) || rotObj.type === 'straight_mode')) return { type: 'zone_rotation', obj: rotObj };
         const track = this.editor.getInterpolatedTrack();
-        
+
         // 1. Check SMZ Range Handles (if selected)
         const sel = this.app.selection;
         if (this.constructor.name === 'StraightModeTool' && sel && sel.type === 'zone') {
@@ -909,7 +910,7 @@ class ZoneTool extends BaseTool {
                 if (this.constructor.name !== 'StraightModeTool') continue;
                 const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
                 const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
-                
+
                 let indices = [];
                 if (si <= ei) {
                     for (let i = si; i <= ei; i++) indices.push(i);
@@ -919,7 +920,7 @@ class ZoneTool extends BaseTool {
                 } else {
                     for (let i = ei; i <= si; i++) indices.push(i);
                 }
-                
+
                 // Labels
                 const midIdx = indices.length > 0 ? indices[Math.floor(indices.length / 2)] : si;
                 const pMid = track[midIdx];
@@ -927,7 +928,7 @@ class ZoneTool extends BaseTool {
                     const lx = pMid.x + (zone.labelOffsetX || 0), ly = pMid.y + (zone.labelOffsetY || 0);
                     if (Math.hypot(wx - lx, wy - ly) < 30 / this.renderer.scale) return { type: 'zone_label', obj: zone, anchor: pMid };
                 }
-                
+
                 // Path Hit Detection
                 const sgn = zone.side === 'left' ? -1 : 1;
                 const hitThresh = 15 / this.renderer.scale;
@@ -1144,20 +1145,230 @@ class GarageTool extends BaseTool {
 
 /* ---- Eraser ---- */
 class EraserTool extends BaseTool {
-    getCursor() { return 'not-allowed'; }
+    constructor(app) { super(app); this.hoverErasable = false; }
+    getCursor() { return this.hoverErasable ? 'not-allowed' : 'crosshair'; }
+    onMouseMove(wx, wy) {
+        const h = this._checkHover(wx, wy);
+        if (this.hoverErasable !== h) {
+            this.hoverErasable = h;
+            this.app.canvas.style.cursor = this.getCursor();
+        }
+    }
+    _hitZone(wx, wy) {
+        const track = this.editor.getInterpolatedTrack();
+        for (const zone of this.data.zones) {
+            if (zone.type === 'straight_mode') {
+                const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                let indices = [];
+                if (si <= ei) {
+                    for (let i = si; i <= ei; i++) indices.push(i);
+                } else if (this.data.isClosed) {
+                    for (let i = si; i < track.length; i++) indices.push(i);
+                    for (let i = 0; i <= ei; i++) indices.push(i);
+                } else {
+                    for (let i = ei; i <= si; i++) indices.push(i);
+                }
+                const sgn = zone.side === 'left' ? -1 : 1;
+                const hitThresh = 20 / this.renderer.scale;
+                for (let i of indices) {
+                    if (i >= track.length) continue;
+                    const p = track[i];
+                    if (!p) continue;
+                    const w = sgn < 0 ? p.widthLeft : p.widthRight;
+
+                    // Check dashed red line
+                    const dashOffset = w + 4;
+                    const dx = p.x + p.nx * dashOffset * sgn, dy = p.y + p.ny * dashOffset * sgn;
+                    if (Math.hypot(wx - dx, wy - dy) < hitThresh) return zone;
+
+                    // Check text path
+                    const textOffset = w + 18 + (zone.stripWidth || 5) * 2;
+                    const tx = p.x + p.nx * textOffset * sgn, ty = p.y + p.ny * textOffset * sgn;
+                    if (Math.hypot(wx - tx, wy - ty) < hitThresh) return zone;
+                }
+            } else {
+                const pos = this.editor.getZoneWorldPos(zone);
+                if (!pos) continue;
+                if (Math.hypot(wx - pos.x, wy - pos.y) < 15 / this.renderer.scale) return zone;
+                const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
+                if (this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) return zone;
+            }
+        }
+        return null;
+    }
+
+    _hitTurnMarker(wx, wy) {
+        const track = this.editor.getInterpolatedTrack();
+        for (const tm of this.data.turnMarkers) {
+            const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
+            const p = track[Math.min(idx, track.length - 1)];
+            if (!p) continue;
+            const actualSgn = tm.side === 'left' ? -1 : 1;
+            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
+            const offset = w + sw + 13;
+            const mx = p.x + p.nx * offset * actualSgn;
+            const my = p.y + p.ny * offset * actualSgn;
+            if (Math.hypot(wx - mx, wy - my) < 20 / this.renderer.scale) return tm;
+        }
+        return null;
+    }
+
+    _hitPitLanePath(wx, wy) {
+        const pitLane = this.editor.getInterpolatedPitLane();
+        if (pitLane.length < 2) return false;
+        for (let i = 0; i < pitLane.length; i++) {
+            if (Math.hypot(wx - pitLane[i].x, wy - pitLane[i].y) < 15 / this.renderer.scale) return true;
+        }
+        return false;
+    }
+
+    _checkHover(wx, wy) {
+        let h = false;
+        if (this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale)) h = true;
+        else if (this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale)) h = true;
+        else if (this._hitZone(wx, wy)) h = true;
+        else if (this._hitTurnMarker(wx, wy)) h = true;
+        else if (this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale)) h = true;
+        else if (this._hitPitLanePath(wx, wy)) h = true;
+        else {
+            let bestGD = 30 / this.renderer.scale;
+            for (const g of this.data.garages) { if (Math.hypot(g.x - wx, g.y - wy) < bestGD) { h = true; break; } }
+        }
+        if (!h) {
+            const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+            if (trackPt.point) {
+                const p = trackPt.point;
+                const pt = this.data.controlPoints[p.segIndex];
+                const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+                const isL = sd < 0;
+                const d = Math.abs(sd);
+
+                if (pt) {
+                    const w = isL ? p.widthLeft : p.widthRight;
+                    const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                    if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) h = true;
+                    else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) h = true;
+                }
+
+                if (!h && trackPt.dist < 20 / this.renderer.scale) h = true;
+            }
+        }
+        return h;
+    }
+
     onMouseDown(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
         if (cp) { this.data.snapshot(); this.data.removeControlPoint(cp.id); this.app.requestRender(); return; }
         const gs = this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale);
         if (gs) { this.data.snapshot(); this.data.removeGrandstand(gs.id); this.app.requestRender(); return; }
-        const zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
+        const zone = this._hitZone(wx, wy);
         if (zone) { this.data.snapshot(); this.data.removeZone(zone.id); this.app.requestRender(); return; }
+        const tm = this._hitTurnMarker(wx, wy);
+        if (tm) { this.data.snapshot(); this.data.removeTurnMarker(tm.id); this.app.requestRender(); return; }
         let bestG = null, bestGD = 30 / this.renderer.scale;
         for (const g of this.data.garages) { const d = Math.hypot(g.x - wx, g.y - wy); if (d < bestGD) { bestGD = d; bestG = g; } }
         if (bestG) { this.data.snapshot(); this.data.removeGarage(bestG.id); this.app.requestRender(); return; }
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
-        if (pp) { this.data.snapshot(); this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== pp.id); this.app.requestRender(); }
+        if (pp) { this.data.snapshot(); this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== pp.id); this.app.requestRender(); return; }
+        if (this._hitPitLanePath(wx, wy)) { this.data.snapshot(); this.data.clearPitLane(); this.app.requestRender(); return; }
+
+        const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+        if (trackPt.point) {
+            const p = trackPt.point;
+            const pt = this.data.controlPoints[p.segIndex];
+            const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+            const isL = sd < 0;
+            const d = Math.abs(sd);
+
+            if (pt) {
+                const w = isL ? p.widthLeft : p.widthRight;
+                const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+
+                // Check barrier (outer edge)
+                if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale) {
+                    if (isL && pt.barrierLeft) { this.data.snapshot(); pt.barrierLeft = false; this.app.requestRender(); return; }
+                    if (!isL && pt.barrierRight) { this.data.snapshot(); pt.barrierRight = false; this.app.requestRender(); return; }
+                }
+
+                // Check surface (between track edge and barrier edge)
+                if (d > w && d < w + sw + 5 / this.renderer.scale) {
+                    if (isL && pt.surfaceLeft !== 'none') { this.data.snapshot(); pt.surfaceLeft = 'none'; this.app.requestRender(); return; }
+                    if (!isL && pt.surfaceRight !== 'none') { this.data.snapshot(); pt.surfaceRight = 'none'; this.app.requestRender(); return; }
+                }
+            }
+
+            if (trackPt.dist < 20 / this.renderer.scale) {
+                this.data.snapshot();
+                const idx = trackPt.point.segIndex;
+                const isClosed = this.data.isClosed;
+                const zoneOverlaps = (z, targetIdx, closed) => {
+                    if (z.endSegIndex === undefined) return z.segIndex === targetIdx;
+                    if (!closed || z.segIndex <= z.endSegIndex) {
+                        const s = Math.min(z.segIndex, z.endSegIndex);
+                        const e = Math.max(z.segIndex, z.endSegIndex);
+                        return targetIdx >= s && targetIdx <= e;
+                    } else {
+                        return targetIdx >= z.segIndex || targetIdx <= z.endSegIndex;
+                    }
+                };
+
+                if (this.data.isClosed) {
+                    // Delete items on the broken segment first!
+                    this.data.turnMarkers = this.data.turnMarkers.filter(tm => tm.segIndex !== idx);
+                    this.data.zones = this.data.zones.filter(z => !zoneOverlaps(z, idx, isClosed));
+
+                    const n = this.data.controlPoints.length;
+                    const newArr = [];
+                    for (let j = 0; j < n; j++) {
+                        newArr.push(this.data.controlPoints[(idx + 1 + j) % n]);
+                    }
+                    this.data.controlPoints = newArr;
+                    this.data.isClosed = false;
+                    const shiftIndex = (k) => (k - (idx + 1) + n) % n;
+                    this.data.turnMarkers.forEach(tm => tm.segIndex = shiftIndex(tm.segIndex));
+                    this.data.zones.forEach(z => {
+                        z.segIndex = shiftIndex(z.segIndex);
+                        if (z.endSegIndex !== undefined) z.endSegIndex = shiftIndex(z.endSegIndex);
+                    });
+                } else {
+                    const n = this.data.controlPoints.length;
+                    if (idx === 0) {
+                        this.data.controlPoints.splice(0, 1);
+                        const shift = -1;
+                        this.data.turnMarkers = this.data.turnMarkers.filter(tm => tm.segIndex > 0);
+                        this.data.turnMarkers.forEach(tm => tm.segIndex += shift);
+                        this.data.zones = this.data.zones.filter(z => !zoneOverlaps(z, 0, isClosed));
+                        this.data.zones.forEach(z => {
+                            z.segIndex += shift;
+                            if (z.endSegIndex !== undefined) z.endSegIndex += shift;
+                        });
+                    } else if (idx === n - 2) {
+                        this.data.controlPoints.splice(n - 1, 1);
+                        this.data.turnMarkers = this.data.turnMarkers.filter(tm => tm.segIndex < idx);
+                        this.data.zones = this.data.zones.filter(z => !zoneOverlaps(z, idx, isClosed));
+                    } else {
+                        this.app.setStatus("Cannot break an open track in the middle. Delete nodes instead, or trim the ends.");
+                        return;
+                    }
+                }
+                this.app.requestRender();
+                return;
+            }
+        }
     }
+
+    onMouseMove(wx, wy) {
+        const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
+        this.app.hoverPoint = cp || null;
+
+        this.hoverErasable = this._checkHover(wx, wy);
+        this.app.canvas.style.cursor = this.getCursor();
+        this.app.requestRender();
+    }
+
+    deactivate() { this.app.hoverPoint = null; this.hoverErasable = false; }
 }
 
 class StraightModeTool extends ZoneTool {

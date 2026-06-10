@@ -31,6 +31,8 @@ F1.CircuitData = class CircuitData {
         this.name = 'Untitled Circuit';
         this.controlPoints = []; // Node points for track shaping
         this.isClosed = false;
+        this.startNodeId = null;
+        this.gridSize = 50;
         this.pitLane = { points: [], width: 8 };
         this.grandstands = [];
         this.zones = [];
@@ -64,22 +66,23 @@ F1.CircuitData = class CircuitData {
             pt.barrierLeft = prev.barrierLeft; pt.barrierRight = prev.barrierRight;
         }
         this.controlPoints.splice(index, 0, pt);
+        if (this.startNodeId === null) this.startNodeId = pt.id;
         this._shiftIndices(index, 1);
         return pt;
     }
     addControlPoint(x, y) { return this.insertControlPoint(x, y, this.controlPoints.length); }
-    removeControlPoint(id) { 
+    removeControlPoint(id) {
         const index = this.controlPoints.findIndex(p => p.id === id);
         if (index === -1) return;
         this.controlPoints.splice(index, 1);
-        if (this.controlPoints.length < 3) this.isClosed = false; 
+        if (this.controlPoints.length < 3) this.isClosed = false;
         this._shiftIndices(index, -1);
     }
     _shiftIndices(index, amount) {
-        this.turnMarkers.forEach(tm => { if (tm.segIndex >= index) tm.segIndex += amount; });
-        this.zones.forEach(z => { 
-            if (z.segIndex >= index) z.segIndex += amount; 
-            if (z.range && z.endSegIndex >= index) z.endSegIndex += amount;
+        this.turnMarkers.forEach(tm => { if (tm.segIndex >= index) tm.segIndex = Math.max(0, tm.segIndex + amount); });
+        this.zones.forEach(z => {
+            if (z.segIndex >= index) z.segIndex = Math.max(0, z.segIndex + amount);
+            if (z.range && z.endSegIndex >= index) z.endSegIndex = Math.max(0, z.endSegIndex + amount);
         });
     }
     getPointById(id) { return this.controlPoints.find(p => p.id === id) || null; }
@@ -87,9 +90,6 @@ F1.CircuitData = class CircuitData {
     closeTrack() {
         if (this.controlPoints.length < 3) return;
         this.isClosed = true;
-        // Auto: first = S1, last = S3
-        this.controlPoints[0].sector = 1;
-        this.controlPoints[this.controlPoints.length - 1].sector = 3;
     }
 
     // Turn markers - user manually places these
@@ -140,9 +140,9 @@ F1.CircuitData = class CircuitData {
     removeGarage(id) { this.garages = this.garages.filter(g => g.id !== id); }
     getGarageById(id) { return this.garages.find(g => g.id === id) || null; }
 
-    _serialize() { return { name: this.name, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, pitLane: JSON.parse(JSON.stringify(this.pitLane)), grandstands: JSON.parse(JSON.stringify(this.grandstands)), zones: JSON.parse(JSON.stringify(this.zones)), garages: JSON.parse(JSON.stringify(this.garages)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), _nextId: this._nextId }; }
+    _serialize() { return { name: this.name, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), grandstands: JSON.parse(JSON.stringify(this.grandstands)), zones: JSON.parse(JSON.stringify(this.zones)), garages: JSON.parse(JSON.stringify(this.garages)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), _nextId: this._nextId }; }
     _deserialize(d) {
-        this.name = d.name; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.pitLane = d.pitLane; this.grandstands = d.grandstands; this.zones = d.zones || []; this.garages = d.garages || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
+        this.name = d.name; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.grandstands = d.grandstands; this.zones = d.zones || []; this.garages = d.garages || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
@@ -151,7 +151,7 @@ F1.CircuitData = class CircuitData {
     toJSON() { return JSON.stringify(this._serialize()); }
     fromJSON(json) { this._deserialize(JSON.parse(json)); this._undoStack = []; this._redoStack = []; }
     clear() {
-        this.controlPoints = []; this.isClosed = false; this.pitLane = { points: [], width: 8 }; this.grandstands = []; this.zones = []; this.garages = []; this.turnMarkers = []; this.sectorLabels = [
+        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.pitLane = { points: [], width: 8 }; this.grandstands = []; this.zones = []; this.garages = []; this.turnMarkers = []; this.sectorLabels = [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }

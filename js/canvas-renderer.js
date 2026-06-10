@@ -14,7 +14,7 @@ F1.Renderer = class Renderer {
         this.ctx = canvas.getContext('2d');
         this.ox = 0; this.oy = 0; this.scale = 1;
         this.showGrid = true; this.showCtrlPts = true;
-        this.gridSize = 50; this.gridColor = '#ffffff'; this.gridOpacity = 0.04;
+        this.gridColor = '#ffffff'; this.gridOpacity = 0.04;
         this.C = {
             bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
@@ -61,7 +61,7 @@ F1.Renderer = class Renderer {
         this._editor = editor;
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
         ctx.fillStyle = this.C.bg; ctx.fillRect(0, 0, W, H);
-        if (this.showGrid) this._grid();
+        if (this.showGrid) this._grid(data);
         const track = editor.getInterpolatedTrack();
         if (track.length > 1) {
             this._surfaces(track); this._trackSurface(track); this._sectorStripes(track);
@@ -69,14 +69,14 @@ F1.Renderer = class Renderer {
             this._startFinish(track, data);
         }
         this._pitLane(editor); this._garages(data, sel); this._grandstands(data, sel);
-        this._zones(data, editor, sel); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
+        this._zones(data, editor, sel, activeTool); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
         this._rotationHandles(data, editor, sel);
     }
 
-    _grid() {
-        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = this.gridSize;
+    _grid(data) {
+        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = 50;
         const tl = this.s2w(0, 0), br = this.s2w(W, H);
         ctx.strokeStyle = this.gridColor; ctx.globalAlpha = this.gridOpacity; ctx.lineWidth = 1; ctx.beginPath();
         for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) { const s = this.w2s(x, 0); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, H); }
@@ -212,21 +212,29 @@ F1.Renderer = class Renderer {
                 } else {
                     addStripPoints(ei, si, sideSign);
                 }
-                
+
                 const n = stripPoints.length;
                 for (let idx = 0; idx < n; idx++) {
                     const sp = stripPoints[idx];
-                    // Only first and last strips are full width, rest are 50%
-                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.5;
-                    const tsw = sw * taper;
+                    // Only first and last strips are full length, rest are 35%
+                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
+                    const L_half = sw * taper;
 
                     const s = this.w2s(sp.x, sp.y);
                     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
+
+                    // sp is at offset = w + 6 + sw
+                    // Inner edge should be at -sw relative to sp
+                    // So we shift the drawing center by -(sw - L_half)
+                    const shiftX = -(sw - L_half) * this.scale;
+                    const len = L_half * 2 * this.scale;
+                    const thick = sw * 0.6 * this.scale; // Constant thickness
+
                     if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                        ctx.drawImage(this.stripsImg, -tsw * this.scale, -tsw * 0.5 * this.scale, tsw * 2 * this.scale, tsw * this.scale);
+                        ctx.drawImage(this.stripsImg, shiftX - len / 2, -thick / 2, len, thick);
                     } else {
                         ctx.fillStyle = '#ff1801';
-                        ctx.fillRect(-tsw * this.scale, -tsw * 0.3 * this.scale, tsw * 2 * this.scale, tsw * 0.6 * this.scale);
+                        ctx.fillRect(shiftX - len / 2, -thick / 2, len, thick);
                     }
                     ctx.restore();
                 }
@@ -327,8 +335,17 @@ F1.Renderer = class Renderer {
 
     /* Checkered flag 🏁 aligned with track + arrow next to it using preloaded PNGs */
     _startFinish(track, data) {
-        if (!data.isClosed || track.length < 4) return;
-        const ctx = this.ctx, p = track[0], p2 = track[1];
+        if (track.length < 4) return;
+        const ctx = this.ctx;
+        let p = track[0], p2 = track[1];
+        if (data.startNodeId) {
+            const cpIdx = data.controlPoints.findIndex(cp => cp.id === data.startNodeId);
+            if (cpIdx >= 0) {
+                const trkIdx = cpIdx * this._editor.resolution;
+                p = track[trkIdx] || track[0];
+                p2 = track[trkIdx + 1] || track[1];
+            }
+        }
         const angle = Math.atan2(p2.y - p.y, p2.x - p.x);
 
         // Checkered flag spanning track width, aligned with direction
@@ -358,22 +375,21 @@ F1.Renderer = class Renderer {
             }
         }
 
-        // Direction arrow — half size, right next to checkered flag
-        const ai = Math.min(1, track.length - 2);
-        const ap = track[ai], anp = track[ai + 1];
-        const as = this.w2s(ap.x, ap.y);
-        const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
-        if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
-            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
-            const ar = Math.max(6, 7 * this.scale);
-            ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
-        } else {
-            const ar = Math.max(5, 6 * this.scale);
-            ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
-            ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
-        }
+        // Direction arrow — using provided SVG
+        ctx.save();
+        const s2 = this.w2s(p.x, p.y);
+        ctx.translate(s2.x, s2.y);
+        ctx.rotate(angle);
+        ctx.translate(13 * this.scale, 0); // 4px flag half + 6px gap + 3px arrow base
+
+        const svgScale = (16 * this.scale) / 24;
+        ctx.scale(svgScale, svgScale);
+        ctx.rotate(Math.PI / 4); // point it forward
+        ctx.translate(-12, -12); // center the 24x24 SVG
+
+        ctx.fillStyle = '#fff';
+        ctx.fill(new Path2D("M21.15,2.86a2.89,2.89,0,0,0-3-.71L4,6.88a2.9,2.9,0,0,0-.12,5.47l5.24,2h0a.93.93,0,0,1,.53.52l2,5.25A2.87,2.87,0,0,0,14.36,22h.07a2.88,2.88,0,0,0,2.69-2L21.85,5.83A2.89,2.89,0,0,0,21.15,2.86ZM20,5.2,15.22,19.38a.88.88,0,0,1-.84.62.92.92,0,0,1-.87-.58l-2-5.25a2.91,2.91,0,0,0-1.67-1.68l-5.25-2A.9.9,0,0,1,4,9.62a.88.88,0,0,1,.62-.84L18.8,4.05A.91.91,0,0,1,20,5.2Z"));
+        ctx.restore();
     }
 
     _pitLane(editor) {
@@ -475,7 +491,7 @@ F1.Renderer = class Renderer {
         }
     }
 
-    _zones(data, editor, sel) {
+    _zones(data, editor, sel, activeTool) {
         const ctx = this.ctx;
         data.zones.forEach(zone => {
             const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);
@@ -484,7 +500,7 @@ F1.Renderer = class Renderer {
             // If range zone like straight mode, we drew its dashes already
             // If it is straight mode, we can draw interactive handle circles if selected!
             if (zt.range) {
-                if (sel && sel.type === 'zone' && sel.id === zone.id) {
+                if (sel && sel.type === 'zone' && sel.id === zone.id && activeTool === 'straightMode') {
                     const track = editor.getInterpolatedTrack();
                     const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
                     const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
