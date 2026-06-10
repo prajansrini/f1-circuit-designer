@@ -84,7 +84,7 @@ F1.TrackEditor = class TrackEditor {
         const pts = this.data.controlPoints, n = pts.length;
         if (n < 2) return null;
         const segs = this.data.isClosed ? n : n - 1;
-        const i = Math.min(zone.segIndex, segs - 1);
+        const i = Math.max(0, Math.min(zone.segIndex || 0, segs - 1));
         let p0, p1 = pts[i], p2 = pts[(i + 1) % n], p3;
         if (this.data.isClosed) {
             p0 = pts[(i - 1 + n) % n]; p3 = pts[(i + 2) % n];
@@ -141,7 +141,7 @@ F1.TrackEditor = class TrackEditor {
         const t = this.getInterpolatedTrack();
         let totalLen = this.getTrackLength();
         if (totalLen <= 0) return t[0];
-        
+
         if (this.data.isClosed) {
             targetDist = ((targetDist % totalLen) + totalLen) % totalLen;
         } else {

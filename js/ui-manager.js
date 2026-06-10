@@ -31,14 +31,15 @@ F1.UIManager = class UIManager {
                 <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
                 <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
             </div></div>`;
-        h += `<div class="prop-group"><label>Track Width</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthLeft}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${pt.widthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="5" max="40" step="0.5" value="${pt.widthRight}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${pt.widthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
-        h += `<div class="prop-group"><label>Surface Width (Run-off)</label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthLeft}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${pt.surfaceWidthLeft}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="50" step="0.5" value="${pt.surfaceWidthRight}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${pt.surfaceWidthRight}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="-20" max="20" step="0.5" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
+        const sm = (this.app.data.gridSize || 50) / 50.0;
+        h += `<div class="prop-group"><label>Track Width (m)</label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthLeft * sm).toFixed(1)}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${(pt.widthLeft * sm).toFixed(1)}" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthRight * sm).toFixed(1)}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${(pt.widthRight * sm).toFixed(1)}" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
+        h += `<div class="prop-group"><label>Surface Width (Run-off) (m)</label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${(pt.surfaceWidthLeft * sm).toFixed(1)}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${(pt.surfaceWidthLeft * sm).toFixed(1)}" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${(pt.surfaceWidthRight * sm).toFixed(1)}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${(pt.surfaceWidthRight * sm).toFixed(1)}" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div></div>`;
         h += `<div class="prop-group"><label>Sector</label><div class="sector-btns" style="display:flex; flex-wrap:nowrap;">
             <button class="sector-btn s1 ${pt.sector === 1 ? 'active' : ''}" data-sec="1">S1</button>
             <button class="sector-btn s2 ${pt.sector === 2 ? 'active' : ''}" data-sec="2">S2</button>
@@ -195,7 +196,7 @@ F1.UIManager = class UIManager {
                             <span style="flex: 0 0 75px;">End Point:</span> 
                             <div style="display:flex; align-items:center; flex:1; justify-content:flex-end;"><input type="number" id="prop-smz-end" value="${(endDist).toFixed(3)}" step="0.001" class="prop-input" style="width:85px; text-align:right; padding:2px; font-size:11px;"> <span style="margin-left:4px; width:12px;">m</span></div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px solid #444;"><span>Zone Length:</span> <strong style="color:#eee">${(zoneDist).toFixed(3)}m</strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px solid #444;"><span>Zone Length:</span> <strong style="color:#eee">${(zoneDist * ((this.app.data.gridSize || 50) / 50.0)).toFixed(3)}m</strong></div>
                     </div></div>`;
                 h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                     <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
@@ -241,12 +242,49 @@ F1.UIManager = class UIManager {
         const n = this.app.data.controlPoints.length;
         if (this.app.data.isClosed) h += '<p class="prop-hint success">✓ Circuit closed</p>';
         else {
-            h += `<p class="prop-hint">Click to place points. Count: <strong>${n}</strong></p>`;
+            h += `<p class="prop-hint">Click to place points.</p>`;
             if (n >= 3) h += '<p class="prop-hint dim">Click near first point to close.</p>';
             else h += `<p class="prop-hint dim">Need ${3 - n} more to close.</p>`;
         }
-        const len = this.app.editor.getTrackLength();
-        if (len > 0) h += `<div class="prop-group"><label>Track Length</label><p class="prop-hint">${len.toFixed(0)}m · ${(len / 1000).toFixed(3)} km</p></div>`;
+
+        const scaleFact = (this.app.data.gridSize || 50) / 50.0;
+        const len = this.app.editor.getTrackLength() * scaleFact;
+        const turns = this.app.data.turnMarkers.length;
+
+        h += `<div class="prop-group" style="margin-top: 15px;">
+                <label>Circuit Stats</label>
+                <div class="prop-row" style="margin-top:5px;"><span class="prop-label" style="width:90px">Total Length</span><span class="prop-val">${(len / 1000).toFixed(3)} km</span></div>
+                <div class="prop-row"><span class="prop-label" style="width:90px">Nodes</span><span class="prop-val">${n}</span></div>
+                <div class="prop-row"><span class="prop-label" style="width:90px">Turns</span><span class="prop-val">${turns}</span></div>`;
+
+        if (len > 0) {
+            const track = this.app.editor.getInterpolatedTrack();
+            let sLen = {};
+            for (let i = 1; i < track.length; i++) {
+                const s = track[i].sector;
+                if (!sLen[s]) sLen[s] = 0;
+                sLen[s] += Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) * scaleFact;
+            }
+            const sectors = Object.keys(sLen).sort();
+            h += `<div class="prop-row"><span class="prop-label" style="width:90px">Sectors</span><span class="prop-val">${sectors.length}</span></div>`;
+            sectors.forEach(s => {
+                const sName = s == 0 ? "Unassigned" : `Sector ${s}`;
+                h += `<div class="prop-row"><span class="prop-label dim" style="width:90px; margin-left:10px;">${sName}</span><span class="prop-val dim">${(sLen[s] / 1000).toFixed(3)} km</span></div>`;
+            });
+        }
+        if (n > 0) {
+            h += `<div class="prop-group" style="margin-top: 15px;">
+                    <label>Start / Finish Line</label>
+                    <select class="prop-input" id="prop-start-node" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                        <option value="">-- Auto (First Node) --</option>`;
+            this.app.data.controlPoints.forEach((pt, idx) => {
+                const isSelected = pt.id === this.app.data.startNodeId;
+                h += `<option value="${pt.id}" ${isSelected ? 'selected' : ''}>Node ${idx + 1}</option>`;
+            });
+            h += `  </select>
+                  </div>`;
+        }
+        h += `</div>`;
         return h;
     }
 
@@ -317,7 +355,7 @@ F1.UIManager = class UIManager {
             h += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#aaa; margin-bottom:15px; padding:0 5px;">
                 <span>Nodes: <strong style="color:#eee">${d.nodes}</strong></span>
                 <span>Turns: <strong style="color:#eee">${d.turns}</strong></span>
-                <span>Length: <strong style="color:#eee">${(d.length / 1000).toFixed(3)} km</strong></span>
+                <span>Length: <strong style="color:#eee">${(d.length * ((this.app.data.gridSize || 50) / 50.0) / 1000).toFixed(3)} km</strong></span>
             </div>`;
         });
         h += `</div>`;
@@ -333,12 +371,43 @@ F1.UIManager = class UIManager {
         }
 
         if (this.app.data.controlPoints.length >= 3) {
-            if (unassigned > 0) h += `<p class="prop-hint" style="color:#ff6600; margin-top:10px;">⚠ ${unassigned} nodes unassigned</p>`;
-            else {
-                let valid = true, last = secs[0];
-                for (let i = 1; i < secs.length; i++) { if (secs[i] !== last) { if (secs[i] !== (last % 3) + 1) { valid = false; break; } last = secs[i]; } }
-                h += valid ? '<p class="prop-hint success" style="margin-top:10px;">✓ Valid flow</p>' : '<p class="prop-hint" style="color:#ff6600; margin-top:10px;">⚠ Should flow S1→S2→S3</p>';
+            let orderedSectors = [];
+            let startIdx = this.app.data.controlPoints.findIndex(p => p.id === this.app.data.startNodeId);
+            if (startIdx === -1) startIdx = 0;
+
+            for (let i = 0; i < this.app.data.controlPoints.length; i++) {
+                orderedSectors.push(this.app.data.controlPoints[(startIdx + i) % this.app.data.controlPoints.length].sector);
             }
+
+            const c1 = [1, 2, 3].every(s => orderedSectors.includes(s));
+            const c2 = !orderedSectors.includes(0);
+            const c3 = orderedSectors[0] === 1;
+            const c4 = orderedSectors[orderedSectors.length - 1] === 3;
+
+            let simplified = [];
+            for (let i = 0; i < orderedSectors.length; i++) {
+                if (simplified.length === 0 || simplified[simplified.length - 1] !== orderedSectors[i]) {
+                    simplified.push(orderedSectors[i]);
+                }
+            }
+            const validFlows = ['1,2,3', '1,2,3,1', '2,3,1', '2,3,1,2', '3,1,2', '3,1,2,3'];
+            const c5 = validFlows.includes(simplified.join(','));
+
+            const iconCheck = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            const iconX = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+            const mkChk = (cond, text) => `<div style="color: ${cond ? '#00e676' : '#ff5252'}; padding: 3px 0; display: flex; align-items: center;"><span style="display:inline-flex; align-items: center; justify-content: center; width:20px; font-weight:bold;">${cond ? iconCheck : iconX}</span> <span style="color:#ddd; margin-left: 4px;">${text}</span></div>`;
+
+            h += `<div class="prop-group" style="margin-top:15px; background: #1a1a1a; padding: 10px; border-radius: 6px; border: 1px solid #333;">
+                <label style="margin-bottom: 8px; display: block; color: #fff;">Flow Validation</label>
+                <div style="font-size:11px; line-height:1.4;">
+                    ${mkChk(c1, 'All 3 sectors used')}
+                    ${mkChk(c2, 'No unassigned nodes')}
+                    ${mkChk(c3, 'Sector 1 starts at S/F line')}
+                    ${mkChk(c4, 'Sector 3 ends at S/F line')}
+                    ${mkChk(c5, 'Continuous flow (S1 → S2 → S3)')}
+                </div>
+            </div>`;
         }
         return h;
     }
@@ -446,7 +515,7 @@ F1.UIManager = class UIManager {
         return h;
     }
 
-    _eraserProps() { return '<h3 class="prop-title">Eraser</h3><p class="prop-hint">Click elements to remove.</p>'; }
+    _eraserProps() { return '<h3 class="prop-title">Eraser</h3><p class="prop-hint">Click on any component (nodes, track sections, zones, garages, etc.) to erase it.</p>'; }
 
     _scaleProps() {
         return `<h3 class="prop-title">Scale & Grid</h3>
@@ -459,8 +528,8 @@ F1.UIManager = class UIManager {
                 </div>
                 <div class="prop-group"><label>Grid Scale</label>
                     <div class="prop-row">
-                        <input type="range" min="10" max="200" step="10" value="${this.app.renderer.gridSize}" id="prop-grid-size" class="prop-slider">
-                        <input type="number" id="prop-grid-size-val" value="${this.app.renderer.gridSize}" step="10" class="prop-input" style="width:50px;padding:2px 4px;font-size:11px;">
+                        <input type="range" min="10" max="200" step="10" value="${this.app.data.gridSize || 50}" id="prop-grid-size" class="prop-slider">
+                        <input type="number" id="prop-grid-size-val" value="${this.app.data.gridSize || 50}" step="10" class="prop-input" style="width:50px;padding:2px 4px;font-size:11px;">
                     </div>
                 </div>
                 <div class="prop-group"><label>Grid Color</label>
@@ -496,6 +565,17 @@ F1.UIManager = class UIManager {
             };
         }
 
+        // Start/Finish Selector
+        const sfn = document.getElementById('prop-start-node');
+        if (sfn) {
+            sfn.onchange = () => {
+                if (sfn.value) {
+                    this.app.data.snapshot();
+                    this.app.data.startNodeId = parseInt(sfn.value);
+                    this.app.requestRender();
+                }
+            };
+        }
 
         // Sector btns
         document.querySelectorAll('.sector-btn[data-sec]').forEach(b => {
@@ -549,20 +629,20 @@ F1.UIManager = class UIManager {
                 const strWVal = document.getElementById('prop-str-w-val');
                 if (strW && strWVal) {
                     strW.oninput = () => { z.stripWidth = parseFloat(strW.value); strWVal.value = z.stripWidth; this.app.requestRender(); };
-                    strWVal.onchange = () => { 
+                    strWVal.onchange = () => {
                         let v = parseFloat(strWVal.value) || 5;
                         if (v < 1) v = 1; if (v > 15) v = 15;
-                        z.stripWidth = v; strW.value = v; strWVal.value = v; this.app.requestRender(); 
+                        z.stripWidth = v; strW.value = v; strWVal.value = v; this.app.requestRender();
                     };
                 }
                 const strS = document.getElementById('prop-str-s');
                 const strSVal = document.getElementById('prop-str-s-val');
                 if (strS && strSVal) {
                     strS.oninput = () => { z.stripSpacing = parseInt(strS.value); strSVal.value = z.stripSpacing; this.app.requestRender(); };
-                    strSVal.onchange = () => { 
+                    strSVal.onchange = () => {
                         let v = parseInt(strSVal.value) || 2;
                         if (v < 1) v = 1; if (v > 15) v = 15;
-                        z.stripSpacing = v; strS.value = v; strSVal.value = v; this.app.requestRender(); 
+                        z.stripSpacing = v; strS.value = v; strSVal.value = v; this.app.requestRender();
                     };
                 }
 
@@ -695,10 +775,11 @@ F1.UIManager = class UIManager {
                 const py = document.getElementById('prop-y-val');
                 if (py) py.onchange = () => { pt.y = parseFloat(py.value); this.app.requestRender(); };
 
+                const sm = (this.app.data.gridSize || 50) / 50.0;
                 const b = (sl, inp, key) => {
                     if (sl && inp) {
-                        sl.oninput = () => { pt[key] = parseFloat(sl.value); inp.value = sl.value; this.app.requestRender(); };
-                        inp.onchange = () => { pt[key] = parseFloat(inp.value); sl.value = inp.value; this.app.requestRender(); };
+                        sl.oninput = () => { pt[key] = parseFloat(sl.value) / sm; inp.value = sl.value; this.app.requestRender(); };
+                        inp.onchange = () => { pt[key] = parseFloat(inp.value) / sm; sl.value = inp.value; this.app.requestRender(); };
                     }
                 };
                 b(wl, wlv, 'widthLeft'); b(wr, wrv, 'widthRight'); b(swl, swlv, 'surfaceWidthLeft'); b(swr, swrv, 'surfaceWidthRight');
@@ -707,10 +788,10 @@ F1.UIManager = class UIManager {
                 if (wb && wbv) {
                     let lastV = 0;
                     const applyDelta = (v) => {
-                        const d = v - lastV; lastV = v;
+                        const d = (v - lastV) / sm; lastV = v;
                         pt.widthLeft = Math.max(1, pt.widthLeft + d); pt.widthRight = Math.max(1, pt.widthRight + d);
-                        if (wl) wl.value = pt.widthLeft; if (wlv) wlv.value = pt.widthLeft;
-                        if (wr) wr.value = pt.widthRight; if (wrv) wrv.value = pt.widthRight;
+                        if (wl) wl.value = (pt.widthLeft * sm).toFixed(1); if (wlv) wlv.value = (pt.widthLeft * sm).toFixed(1);
+                        if (wr) wr.value = (pt.widthRight * sm).toFixed(1); if (wrv) wrv.value = (pt.widthRight * sm).toFixed(1);
                         this.app.requestRender();
                     };
                     wb.oninput = () => { wbv.value = wb.value; applyDelta(parseFloat(wb.value)); };
@@ -721,10 +802,10 @@ F1.UIManager = class UIManager {
                 if (swb && swbv) {
                     let lastV = 0;
                     const applyDelta = (v) => {
-                        const d = v - lastV; lastV = v;
+                        const d = (v - lastV) / sm; lastV = v;
                         pt.surfaceWidthLeft = Math.max(0, pt.surfaceWidthLeft + d); pt.surfaceWidthRight = Math.max(0, pt.surfaceWidthRight + d);
-                        if (swl) swl.value = pt.surfaceWidthLeft; if (swlv) swlv.value = pt.surfaceWidthLeft;
-                        if (swr) swr.value = pt.surfaceWidthRight; if (swrv) swrv.value = pt.surfaceWidthRight;
+                        if (swl) swl.value = (pt.surfaceWidthLeft * sm).toFixed(1); if (swlv) swlv.value = (pt.surfaceWidthLeft * sm).toFixed(1);
+                        if (swr) swr.value = (pt.surfaceWidthRight * sm).toFixed(1); if (swrv) swrv.value = (pt.surfaceWidthRight * sm).toFixed(1);
                         this.app.requestRender();
                     };
                     swb.oninput = () => { swbv.value = swb.value; applyDelta(parseFloat(swb.value)); };
@@ -787,8 +868,9 @@ F1.UIManager = class UIManager {
         if (cg) cg.onchange = () => { this.app.renderer.showGrid = cg.checked; this.app.requestRender(); };
         const gsz = document.getElementById('prop-grid-size'), gszv = document.getElementById('prop-grid-size-val');
         if (gsz && gszv) {
-            gsz.oninput = () => { this.app.renderer.gridSize = parseInt(gsz.value); gszv.value = gsz.value; this.app.requestRender(); this.updateStatusBar(); };
-            gszv.onchange = () => { this.app.renderer.gridSize = parseInt(gszv.value); gsz.value = gszv.value; this.app.requestRender(); this.updateStatusBar(); };
+            gsz.onmousedown = () => { this.app.data.snapshot(); };
+            gsz.oninput = () => { this.app.data.gridSize = parseInt(gsz.value); gszv.value = gsz.value; this.app.requestRender(); this.app._renderPreview(); this.updateStatusBar(); };
+            gszv.onchange = () => { this.app.data.snapshot(); this.app.data.gridSize = parseInt(gszv.value); gsz.value = gszv.value; this.app.requestRender(); this.app._renderPreview(); this.updateStatusBar(); };
         }
         const gcol = document.getElementById('prop-grid-color');
         if (gcol) gcol.oninput = () => { this.app.renderer.gridColor = gcol.value; this.app.requestRender(); };
@@ -813,10 +895,10 @@ F1.UIManager = class UIManager {
         document.getElementById('status-coords').textContent = `X: ${Math.round(lx)}  Y: ${Math.round(ly)}`;
         document.getElementById('status-zoom').textContent = `${Math.round(this.app.renderer.scale * 100)}%`;
         document.getElementById('status-tool').textContent = this._tn(this.app.activeToolName);
-        const len = this.app.editor.getTrackLength();
+        const len = this.app.editor.getTrackLength() * ((this.app.data.gridSize || 50) / 50.0);
         const nodes = this.app.data.controlPoints.length;
         const turns = this.app.data.turnMarkers.length;
-        const scaleStr = `Scale: 1 Grid = ${this.app.renderer.gridSize}m`;
+        const scaleStr = `Scale: 1 Grid = ${this.app.data.gridSize || 50}m`;
         document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(3)} km · ${nodes} nodes · ${turns} turns · ${scaleStr}` : scaleStr;
     }
 

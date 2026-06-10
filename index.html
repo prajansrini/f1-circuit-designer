@@ -16,6 +16,15 @@
 </head>
 
 <body>
+    <div id="error-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,0,0,0.85);color:white;z-index:99999;padding:40px;font-family:monospace;white-space:pre-wrap;display:none;font-size:18px;"></div>
+    <script>
+    window.onerror = function(msg, url, line, col, error) {
+        const errDiv = document.getElementById('error-overlay');
+        errDiv.style.display = 'block';
+        errDiv.innerHTML += `<b>FATAL ERROR:</b> ${msg}<br>Line: ${line}, Col: ${col}<br>File: ${url}<br><br><b>Stack:</b><br>${error ? error.stack : 'N/A'}<br><br>`;
+        return false;
+    };
+    </script>
     <header id="top-bar">
         <div class="top-left">
             <div class="logo"><span class="logo-f1">F1</span><span class="logo-sep"></span><span
@@ -56,6 +65,11 @@
                         <path d="M12 19l7-7 3 3-7 7-3-3z" />
                         <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
                     </svg><span>Draw</span></button>
+                <button class="tool-btn" data-tool="eraser" title="Eraser (E)"><svg width="20" height="20"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 20H7L3 16l10-10 8 8-4 4" />
+                        <path d="M6 11l8 8" />
+                    </svg><span>Eraser</span></button>
                 <button class="tool-btn" data-tool="node" title="Insert Node (N)"><svg width="20" height="20"
                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3" />
@@ -127,14 +141,6 @@
                         <line x1="2" y1="10" x2="22" y2="10" />
                         <line x1="2" y1="14" x2="22" y2="14" />
                     </svg><span>Stands</span></button>
-            </div>
-            <div class="toolbar-sep"></div>
-            <div class="toolbar-section">
-                <button class="tool-btn" data-tool="eraser" title="Eraser (E)"><svg width="20" height="20"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 20H7L3 16l10-10 8 8-4 4" />
-                        <path d="M6 11l8 8" />
-                    </svg><span>Eraser</span></button>
             </div>
             <div class="toolbar-spacer"></div>
             <div class="toolbar-section">
@@ -287,13 +293,13 @@
         <span id="status-info" class="status-item">Ready</span>
     </footer>
 
-    <script src="js/circuit-data.js?v=54"></script>
-    <script src="js/track-editor.js?v=54"></script>
-    <script src="js/canvas-renderer.js?v=54"></script>
-    <script src="js/preview-renderer.js?v=54"></script>
-    <script src="js/tools.js?v=54"></script>
-    <script src="js/ui-manager.js?v=54"></script>
-    <script src="js/app.js?v=54"></script>
+    <script src="js/circuit-data.js?v=66"></script>
+    <script src="js/track-editor.js?v=66"></script>
+    <script src="js/canvas-renderer.js?v=66"></script>
+    <script src="js/preview-renderer.js?v=66"></script>
+    <script src="js/tools.js?v=66"></script>
+    <script src="js/ui-manager.js?v=66"></script>
+    <script src="js/app.js?v=66"></script>
 </body>
 
 </html>

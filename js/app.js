@@ -84,9 +84,9 @@ F1.App = class App {
 
         canvas.addEventListener('mousedown', e => {
             if (e.button === 1 || (e.button === 0 && (e.detail === 2 || isSpaceDown))) { this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
-            if (e.button === 0) { 
-                const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); 
-                this.activeTool.onMouseDown(w.x, w.y, e); 
+            if (e.button === 0) {
+                const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top);
+                this.activeTool.onMouseDown(w.x, w.y, e);
                 if (this.activeTool.constructor.name === 'SelectTool' && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection) {
                     this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing';
                 }
@@ -122,25 +122,25 @@ F1.App = class App {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (e.key === 'Escape') { this.setTool('select'); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this._renderPreview(); return; }
-            if ((e.ctrlKey || e.metaKey) && e.key === '/') { 
-                e.preventDefault(); 
-                const cn = document.getElementById('circuit-name'); 
-                if (cn) { cn.focus(); cn.select(); } 
-                return; 
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                e.preventDefault();
+                const cn = document.getElementById('circuit-name');
+                if (cn) { cn.focus(); cn.select(); }
+                return;
             }
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', g: 'garage', l: 'grandstand', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
-            if (e.key.toLowerCase() === 'f') { 
+            if (e.key.toLowerCase() === 'f') {
                 if (hoveredCanvas === 'editor') {
-                    this.renderer.fitToScreen(this.data, this.editor); 
-                    this.requestRender(); 
+                    this.renderer.fitToScreen(this.data, this.editor);
+                    this.requestRender();
                 } else {
-                    this.preview.fitToScreen(this.data, this.editor); 
-                    this._renderPreview(); 
+                    this.preview.fitToScreen(this.data, this.editor);
+                    this._renderPreview();
                 }
-                return; 
+                return;
             }
             this.activeTool.onKeyDown(e);
         });
@@ -148,29 +148,29 @@ F1.App = class App {
 
     _initToolbar() {
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => this.setTool(btn.dataset.tool)); });
-        
+
         const eBg = document.getElementById('editor-bg-color');
-        if (eBg) { 
-            eBg.addEventListener('change', (e) => { this.renderer.C.bg = e.target.value; this.requestRender(); }); 
-            eBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.renderer.C.bg = e.target.value; this.requestRender(); } });
+        if (eBg) {
+            eBg.addEventListener('change', (e) => { this.renderer.C.bg = e.target.value; this.requestRender(); });
+            eBg.addEventListener('input', (e) => { if (e.target.value.length === 7) { this.renderer.C.bg = e.target.value; this.requestRender(); } });
         }
-        
+
         const pBg = document.getElementById('preview-bg-color');
-        if (pBg) { 
-            pBg.addEventListener('change', (e) => { this.preview.bgColor = e.target.value; this._renderPreview(); }); 
-            pBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.bgColor = e.target.value; this._renderPreview(); } });
+        if (pBg) {
+            pBg.addEventListener('change', (e) => { this.preview.bgColor = e.target.value; this._renderPreview(); });
+            pBg.addEventListener('input', (e) => { if (e.target.value.length === 7) { this.preview.bgColor = e.target.value; this._renderPreview(); } });
         }
 
         const iBg = document.getElementById('info-text-color');
-        if (iBg) { 
-            iBg.addEventListener('change', (e) => { this.preview.infoColor = e.target.value; this._renderPreview(); }); 
-            iBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.infoColor = e.target.value; this._renderPreview(); } });
+        if (iBg) {
+            iBg.addEventListener('change', (e) => { this.preview.infoColor = e.target.value; this._renderPreview(); });
+            iBg.addEventListener('input', (e) => { if (e.target.value.length === 7) { this.preview.infoColor = e.target.value; this._renderPreview(); } });
         }
 
         const nBg = document.getElementById('name-text-color');
-        if (nBg) { 
-            nBg.addEventListener('change', (e) => { this.preview.nameColor = e.target.value; this._renderPreview(); }); 
-            nBg.addEventListener('input', (e) => { if(e.target.value.length === 7) { this.preview.nameColor = e.target.value; this._renderPreview(); } });
+        if (nBg) {
+            nBg.addEventListener('change', (e) => { this.preview.nameColor = e.target.value; this._renderPreview(); });
+            nBg.addEventListener('input', (e) => { if (e.target.value.length === 7) { this.preview.nameColor = e.target.value; this._renderPreview(); } });
         }
 
         document.querySelectorAll('.swatch').forEach(sw => {
@@ -178,12 +178,12 @@ F1.App = class App {
                 const targetId = sw.parentElement.dataset.target;
                 const input = document.getElementById(targetId);
                 const color = sw.dataset.color;
-                if(input) {
+                if (input) {
                     input.value = color;
-                    if(targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
-                    else if(targetId === 'preview-bg-color') { this.preview.bgColor = color; this._renderPreview(); }
-                    else if(targetId === 'info-text-color') { this.preview.infoColor = color; this._renderPreview(); }
-                    else if(targetId === 'name-text-color') { this.preview.nameColor = color; this._renderPreview(); }
+                    if (targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
+                    else if (targetId === 'preview-bg-color') { this.preview.bgColor = color; this._renderPreview(); }
+                    else if (targetId === 'info-text-color') { this.preview.infoColor = color; this._renderPreview(); }
+                    else if (targetId === 'name-text-color') { this.preview.nameColor = color; this._renderPreview(); }
                 }
             });
         });

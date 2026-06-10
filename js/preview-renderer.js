@@ -29,13 +29,13 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.stripsImg.src = 'resources/strips.png';
         this.userScale = 1; this.userOx = 0; this.userOy = 0;
     }
-    zoom(d, sx, sy) { 
+    zoom(d, sx, sy) {
         const oldScale = this.userScale;
-        this.userScale *= (d > 0 ? 0.92 : 1.08); 
-        this.userScale = Math.max(0.1, Math.min(10, this.userScale)); 
+        this.userScale *= (d > 0 ? 0.92 : 1.08);
+        this.userScale = Math.max(0.1, Math.min(10, this.userScale));
         const ratio = this.userScale / oldScale;
-        this.userOx = sx - this.canvas.width/2 - (sx - this.canvas.width/2 - this.userOx) * ratio;
-        this.userOy = sy - this.canvas.height/2 - (sy - this.canvas.height/2 - this.userOy) * ratio;
+        this.userOx = sx - this.canvas.width / 2 - (sx - this.canvas.width / 2 - this.userOx) * ratio;
+        this.userOy = sy - this.canvas.height / 2 - (sy - this.canvas.height / 2 - this.userOy) * ratio;
     }
     pan(dx, dy) { this.userOx += dx; this.userOy += dy; }
     fitToScreen() { this.userScale = 1; this.userOx = 0; this.userOy = 0; }
@@ -57,7 +57,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
         if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); }
-        this._startFinish(ctx, track, data, tf);
+        this._startFinish(ctx, track, data, tf, editor);
         if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
         if (this.layers.garages) this._garages(ctx, data, tf);
@@ -175,16 +175,21 @@ F1.PreviewRenderer = class PreviewRenderer {
                 const n = stripPoints.length;
                 for (let idx = 0; idx < n; idx++) {
                     const sp = stripPoints[idx];
-                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.5;
-                    const tsw = sw * taper;
+                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
+                    const L_half = sw * taper;
 
                     const s = tf.toScreen(sp.x, sp.y);
                     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
+
+                    const shiftX = -(sw - L_half) * tf.scale;
+                    const len = L_half * 2 * tf.scale;
+                    const thick = sw * 0.6 * tf.scale;
+
                     if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
-                        ctx.drawImage(this.stripsImg, -tsw * tf.scale, -tsw * 0.5 * tf.scale, tsw * 2 * tf.scale, tsw * tf.scale);
+                        ctx.drawImage(this.stripsImg, shiftX - len / 2, -thick / 2, len, thick);
                     } else {
                         ctx.fillStyle = '#ff1801';
-                        ctx.fillRect(-tsw * tf.scale, -tsw * 0.3 * tf.scale, tsw * 2 * tf.scale, tsw * 0.6 * tf.scale);
+                        ctx.fillRect(shiftX - len / 2, -thick / 2, len, thick);
                     }
                     ctx.restore();
                 }
@@ -275,9 +280,17 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
     /* Checkered flag spanning track + arrow next to it using preloaded PNGs */
-    _startFinish(ctx, track, data, tf) {
-        if (!data.isClosed || track.length < 4) return;
-        const p = track[0], p2 = track[1];
+    _startFinish(ctx, track, data, tf, editor) {
+        if (track.length < 4) return;
+        let p = track[0], p2 = track[1];
+        if (data.startNodeId && editor) {
+            const cpIdx = data.controlPoints.findIndex(cp => cp.id === data.startNodeId);
+            if (cpIdx >= 0) {
+                const trkIdx = cpIdx * editor.resolution;
+                p = track[trkIdx] || track[0];
+                p2 = track[trkIdx + 1] || track[1];
+            }
+        }
         const angle = Math.atan2(p2.y - p.y, p2.x - p.x);
 
         // Checkered flag spanning track width, aligned with direction
@@ -309,23 +322,22 @@ F1.PreviewRenderer = class PreviewRenderer {
             }
         }
 
-        // Direction arrow — half size, right next to checkered flag
+        // Direction arrow — using provided SVG
         if (this.layers.direction !== false) {
-            const ai = Math.min(1, track.length - 2);
-            const ap = track[ai], anp = track[ai + 1];
-            const as = tf.toScreen(ap.x, ap.y);
-            const aAngle = Math.atan2(anp.y - ap.y, anp.x - ap.x);
-            if (this.arrowImg.complete && this.arrowImg.naturalWidth > 0) {
-                ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle);
-                const ar = Math.max(6, 7 * tf.scale);
-                ctx.drawImage(this.arrowImg, -ar, -ar, ar * 2, ar * 2); ctx.restore();
-            } else {
-                const ar = Math.max(5, 6 * tf.scale);
-                ctx.beginPath(); ctx.arc(as.x, as.y, ar, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-                ctx.save(); ctx.translate(as.x, as.y); ctx.rotate(aAngle); ctx.fillStyle = '#fff'; ctx.beginPath();
-                ctx.moveTo(ar * 0.5, 0); ctx.lineTo(-ar * 0.3, -ar * 0.35); ctx.lineTo(-ar * 0.3, ar * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
-            }
+            ctx.save();
+            const s2 = tf.toScreen(p.x, p.y);
+            ctx.translate(s2.x, s2.y);
+            ctx.rotate(angle);
+            ctx.translate(13 * tf.scale, 0); // 4px flag half + 6px gap + 3px arrow base
+
+            const svgScale = (16 * tf.scale) / 24;
+            ctx.scale(svgScale, svgScale);
+            ctx.rotate(Math.PI / 4); // point it forward
+            ctx.translate(-12, -12); // center the 24x24 SVG
+
+            ctx.fillStyle = '#fff';
+            ctx.fill(new Path2D("M21.15,2.86a2.89,2.89,0,0,0-3-.71L4,6.88a2.9,2.9,0,0,0-.12,5.47l5.24,2h0a.93.93,0,0,1,.53.52l2,5.25A2.87,2.87,0,0,0,14.36,22h.07a2.88,2.88,0,0,0,2.69-2L21.85,5.83A2.89,2.89,0,0,0,21.15,2.86ZM20,5.2,15.22,19.38a.88.88,0,0,1-.84.62.92.92,0,0,1-.87-.58l-2-5.25a2.91,2.91,0,0,0-1.67-1.68l-5.25-2A.9.9,0,0,1,4,9.62a.88.88,0,0,1,.62-.84L18.8,4.05A.91.91,0,0,1,20,5.2Z"));
+            ctx.restore();
         }
     }
 
@@ -463,7 +475,7 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _info(ctx, data, editor, W, H) {
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        const len = editor.getTrackLength();
+        const len = editor.getTrackLength() * ((data.gridSize || 50) / 50.0);
         if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 20, 46); }
         ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 20, 68);
         const ly = H - 30; ctx.font = 'bold 10px Outfit'; let lx = 20;
