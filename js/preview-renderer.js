@@ -15,8 +15,8 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.ctx = canvas.getContext('2d');
         this.sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
         this.bgColor = '#0f1a0f';
-        this.infoColor = '#ffffff';
-        this.nameColor = '#ffffff';
+        this.infoColor = '#2B44BF';
+        this.nameColor = '#7081FF';
         this.layers = {};
         F1.PREVIEW_LAYERS.forEach(l => this.layers[l.key] = l.default);
 
@@ -56,7 +56,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf); }
+        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf, data); }
         this._startFinish(ctx, track, data, tf, editor);
         if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
@@ -90,7 +90,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = tf.toScreen(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
 
-    _sectorEdges(ctx, track, tf) {
+    _sectorEdges(ctx, track, tf, data) {
         const lw = Math.max(4, 5 * tf.scale);
         for (let i = 1; i < track.length; i++) {
             const sec = track[i - 1].sector;
@@ -451,7 +451,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             // Label container
             const sf = Math.max(0.9, tf.scale);
             ctx.font = `bold ${10 * sf}px Outfit`;
-            const text = zone.label.toUpperCase();
+            const text = (zone.label || zt.label || '').toUpperCase();
             const lines = text.split('\n');
             const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
             const th = lines.length * 16 * sf + 6 * sf;

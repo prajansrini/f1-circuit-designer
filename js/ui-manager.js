@@ -19,7 +19,8 @@ F1.UIManager = class UIManager {
             pitlane: () => this._pitLaneProps(), grandstand: () => this._grandstandProps(),
             zone: () => this._zoneProps(sel), garage: () => this._garageProps(sel),
             straightMode: () => this._straightModeProps(sel),
-            eraser: () => this._eraserProps(), scale: () => this._scaleProps()
+            eraser: () => this._eraserProps(), scale: () => this._scaleProps(),
+            help: () => this._helpProps()
         };
         this.panelContent.innerHTML = (map[tool] || (() => '<p class="prop-hint">Select a tool</p>'))();
         this._bindEvents();
@@ -261,7 +262,7 @@ F1.UIManager = class UIManager {
             const track = this.app.editor.getInterpolatedTrack();
             let sLen = {};
             for (let i = 1; i < track.length; i++) {
-                const s = track[i].sector;
+                const s = track[i - 1].sector;
                 if (!sLen[s]) sLen[s] = 0;
                 sLen[s] += Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) * scaleFact;
             }
@@ -282,6 +283,7 @@ F1.UIManager = class UIManager {
                 h += `<option value="${pt.id}" ${isSelected ? 'selected' : ''}>Node ${idx + 1}</option>`;
             });
             h += `  </select>
+                    <button class="prop-btn" id="btn-reverse-track" style="margin-top: 10px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>
                   </div>`;
         }
         h += `</div>`;
@@ -333,11 +335,9 @@ F1.UIManager = class UIManager {
             details = [1, 2, 3].map(s => {
                 const nodes = this.app.data.controlPoints.filter(p => p.sector === s).length;
                 let turns = 0, length = 0;
-                for (let i = 0; i < track.length; i++) {
-                    const p = track[i];
-                    if (p.sector === s) {
-                        const next = track[(i + 1) % track.length];
-                        if (next && next.sector === s) length += Math.hypot(next.x - p.x, next.y - p.y);
+                for (let i = 1; i < track.length; i++) {
+                    if (track[i - 1].sector === s) {
+                        length += Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y);
                     }
                 }
                 this.app.data.turnMarkers.forEach(tm => {
@@ -408,6 +408,7 @@ F1.UIManager = class UIManager {
                     ${mkChk(c5, 'Continuous flow (S1 → S2 → S3)')}
                 </div>
             </div>`;
+            h += `<button class="prop-btn" id="btn-reverse-track-sector" style="margin-top: 15px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>`;
         }
         return h;
     }
@@ -515,7 +516,22 @@ F1.UIManager = class UIManager {
         return h;
     }
 
-    _eraserProps() { return '<h3 class="prop-title">Eraser</h3><p class="prop-hint">Click on any component (nodes, track sections, zones, garages, etc.) to erase it.</p>'; }
+    _eraserProps() {
+        let h = '<h3 class="prop-title">Eraser</h3><p class="prop-hint">Click on any component (nodes, track sections, zones, garages, etc.) to erase it.</p>';
+        h += '<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">';
+        h += '<label>Bulk Actions</label>';
+        h += '<button class="prop-btn danger" id="btn-clear-turns" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Turns</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-sectors" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Sectors</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-barriers" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Barriers</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-zones" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Zones</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-smz" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Straight Modes</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-pitlane" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Pit Lane</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-garages" style="width:100%; margin-bottom:4px; transition: background-color 0.2s;">Clear Garages</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-stands" style="width:100%; margin-bottom:12px; transition: background-color 0.2s;">Clear Stands</button>';
+        h += '<button class="prop-btn danger" id="btn-clear-map" style="width:100%; transition: background-color 0.2s;">Clear Map</button>';
+        h += '</div>';
+        return h;
+    }
 
     _scaleProps() {
         return `<h3 class="prop-title">Scale & Grid</h3>
@@ -576,6 +592,20 @@ F1.UIManager = class UIManager {
                 }
             };
         }
+
+        // Reverse Track
+        const handleReverse = () => {
+            if (this.app.data.controlPoints.length >= 2) {
+                this.app.data.snapshot();
+                this.app.data.reverseTrack();
+                this.updateProperties();
+                this.app.requestRender();
+            }
+        };
+        const btnRevDraw = document.getElementById('btn-reverse-track');
+        if (btnRevDraw) btnRevDraw.onclick = handleReverse;
+        const btnRevSec = document.getElementById('btn-reverse-track-sector');
+        if (btnRevSec) btnRevSec.onclick = handleReverse;
 
         // Sector btns
         document.querySelectorAll('.sector-btn[data-sec]').forEach(b => {
@@ -886,6 +916,119 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             };
         }
+
+        // Bulk erase actions
+        const setupConfirmBtn = (id, defaultText, action) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            let confirming = false;
+            let timeout = null;
+            btn.onclick = () => {
+                if (!confirming) {
+                    confirming = true;
+                    btn.textContent = 'Click again to confirm';
+                    btn.style.backgroundColor = '#900000'; // Darker red
+                    timeout = setTimeout(() => {
+                        confirming = false;
+                        btn.textContent = defaultText;
+                        btn.style.backgroundColor = '';
+                    }, 3000); // Reset after 3 seconds
+                } else {
+                    clearTimeout(timeout);
+                    confirming = false;
+                    btn.textContent = defaultText;
+                    btn.style.backgroundColor = '';
+                    this.app.data.snapshot();
+                    action();
+                    this.app.requestRender();
+                    if (id === 'btn-clear-map') this.app._renderPreview();
+                    this.updateProperties();
+                }
+            };
+        };
+
+        setupConfirmBtn('btn-clear-turns', 'Clear Turns', () => this.app.data.turnMarkers = []);
+        setupConfirmBtn('btn-clear-sectors', 'Clear Sectors', () => this.app.data.controlPoints.forEach(p => p.sector = 0));
+        setupConfirmBtn('btn-clear-barriers', 'Clear Barriers', () => this.app.data.controlPoints.forEach(p => { p.barrierLeft = false; p.barrierRight = false; }));
+        setupConfirmBtn('btn-clear-zones', 'Clear Zones', () => this.app.data.zones = this.app.data.zones.filter(z => z.type === 'straight_mode'));
+        setupConfirmBtn('btn-clear-smz', 'Clear Straight Modes', () => this.app.data.zones = this.app.data.zones.filter(z => z.type !== 'straight_mode'));
+        setupConfirmBtn('btn-clear-pitlane', 'Clear Pit Lane', () => this.app.data.clearPitLane());
+        setupConfirmBtn('btn-clear-garages', 'Clear Garages', () => this.app.data.garages = []);
+        setupConfirmBtn('btn-clear-stands', 'Clear Stands', () => this.app.data.grandstands = []);
+        setupConfirmBtn('btn-clear-map', 'Clear Map', () => {
+            this.app.data.clear();
+            document.getElementById('circuit-name').value = 'Untitled Circuit';
+            this.app.data.name = 'Untitled Circuit';
+            this.app.renderer.fitToScreen(this.app.data, this.app.editor);
+        });
+    }
+
+    _helpProps() {
+        return `
+            <h3 class="prop-title">Help Guide</h3>
+            <p class="prop-hint">Learn how to design the perfect circuit.</p>
+            
+            <div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
+                <label>Example Circuits</label>
+                <div style="font-size: 11px; color: #aaa; margin-bottom: 8px;">Load an example circuit to explore the app:</div>
+                <button class="prop-btn example-map-btn" id="example-map-oval" style="width:100%; margin-bottom:4px; font-size:11px;">Example 1</button>
+                <button class="prop-btn example-map-btn" id="example-map-technical" style="width:100%; margin-bottom:4px; font-size:11px;">Example 2</button>
+                <button class="prop-btn example-map-btn" id="example-map-street" style="width:100%; margin-bottom:8px; font-size:11px;">Example 3</button>
+            </div>
+
+            <div class="prop-group help-guide" style="margin-top:15px; border-top:1px solid #333; padding-top:15px; max-height: 50vh; overflow-y: auto; padding-right: 5px;">
+                <h4 style="color:#ddd; margin:0 0 10px 0; font-size:13px;">Circuit Design Guide</h4>
+                
+                <div style="font-size:11px; color:#aaa; line-height:1.6;">
+                    <p style="color:#ddd; font-weight:600; margin:0 0 4px; font-size:12px;">Getting Started</p>
+                    <p style="margin:0 0 4px;"><b>1. Draw Your Track</b><br>Select the Draw Tool (D) and click to place nodes.</p>
+                    <p style="margin:0 0 4px;"><b>2. Complete the Circuit</b><br>Place at least 3 nodes, then click the first node again to close the track loop.</p>
+                    <p style="margin:0 0 12px;"><b>3. Adjust Track Width</b><br>Use the Width Tool (W) to change the width of each section of track.</p>
+                    
+                    <p style="color:#ddd; font-weight:600; margin:0 0 4px; font-size:12px;">Design Tips:</p>
+                    <ul style="padding-left:15px; margin:0 0 12px;">
+                        <li>Keep sectors reasonably balanced.</li>
+                        <li>Give each sector a unique character (Fast, Technical, Mixed).<br><i>Example: S1 → High Speed, S2 → Technical Corners, S3 → Overtaking Opportunities</i></li>
+                    </ul>
+
+                    <p style="color:#ddd; font-weight:600; margin:0 0 4px; font-size:12px;">F1 Zones</p>
+                    <p style="margin:0 0 8px;">These zones simulate systems commonly used during a Formula 1 race.</p>
+                    
+                    <p style="color:#ddd; font-weight:bold; margin:0 0 4px;">Straight Mode Zone</p>
+                    <p style="margin:0 0 8px;">Used on long straights.<br><b>Purpose:</b> Indicates where cars reach max speed. Ideal for DRS-like systems and overtaking.<br><b>Place On:</b> Long straights, sections after slow corners.</p>
+                    
+                    <p style="color:#ddd; font-weight:bold; margin:0 0 4px;">Overtake Detection Zone</p>
+                    <p style="margin:0 0 8px;">The first part of a DRS system.<br><b>Purpose:</b> Measures the time gap between two cars to determine overtaking assistance eligibility. <i>Real F1 Example: If the following car is within 1 second, it becomes eligible for DRS.</i><br><b>Place Before:</b> Long straights, major overtaking zones.</p>
+
+                    <p style="color:#ddd; font-weight:bold; margin:0 0 4px;">Overtake Activation Zone</p>
+                    <p style="margin:0 0 8px;">Equivalent to a DRS activation line.<br><b>Purpose:</b> Allows the overtaking system to activate.<br><b>Place:</b> At the beginning of long straights, shortly after a corner exit.</p>
+
+                    <p style="color:#ddd; font-weight:bold; margin:0 0 4px;">Speed Trap</p>
+                    <p style="margin:0 0 12px;">A speed measurement point.<br><b>Purpose:</b> Records highest speed reached.<br><b>Place:</b> Just before a heavy braking zone at the end of a long straight.</p>
+
+                    <p style="color:#ddd; font-weight:600; margin:0 0 4px; font-size:12px;">Good Circuit Design Practices</p>
+                    <p style="margin:0 0 4px;"><b>Create Flow</b><br>Corners should connect naturally. (e.g. Fast Corner → Medium Corner → Heavy Braking Zone)</p>
+                    <p style="margin:0 0 4px;"><b>Include Overtaking Opportunities</b><br>A good zone: Slow Corner → Long Straight → Heavy Braking Corner.</p>
+                    <p style="margin:0 0 4px;"><b>Mix Corner Types</b><br>Use hairpins, sweepers, esses, chicanes, double apexes, high-speed bends.</p>
+                    <p style="margin:0 0 4px;"><b>Vary the Track</b><br>Avoid all high speed or all low speed.</p>
+                    <p style="margin:0 0 12px;"><b>Safety Considerations</b><br>Add run-off areas at high-speed corners and heavy braking zones. Use barriers on narrow sections.</p>
+
+                    <p style="color:#ddd; font-weight:600; margin:0 0 4px; font-size:12px;">Recommended F1-Style Layout</p>
+                    <ul style="padding-left:15px; margin:0 0 12px;">
+                        <li><b>Length:</b> 4–7 km</li>
+                        <li><b>Corners:</b> 10–20</li>
+                        <li><b>Sectors:</b> 3</li>
+                        <li><b>Straights:</b> 1–3</li>
+                        <li><b>Overtaking:</b> 2–4</li>
+                        <li><b>Speed Traps:</b> 1–2</li>
+                        <li><b>Width:</b> 10–15 m</li>
+                    </ul>
+
+                    <p style="color:#fff; font-weight:bold; margin:0 0 12px;">Final Tip:</p>
+                    <p style="margin:0;">Track design is part engineering and part creativity. Use the guidelines in this editor, but don't be afraid to try crazy ideas. Some of the most exciting circuits come from experimentation. Have fun and build the track of your dreams!</p>
+                </div>
+            </div>
+        `;
     }
 
     updateStatusBar(wx, wy) {
@@ -902,5 +1045,5 @@ F1.UIManager = class UIManager {
         document.getElementById('status-info').textContent = len > 0 ? `Track: ${(len / 1000).toFixed(3)} km · ${nodes} nodes · ${turns} turns · ${scaleStr}` : scaleStr;
     }
 
-    _tn(n) { return { select: 'Select', draw: 'Draw Track', node: 'Node', width: 'Width', surface: 'Surface', barrier: 'Barrier', sector: 'Sectors', turn: 'Turns', pitlane: 'Pit Lane', grandstand: 'Grandstand', zone: 'Zones', straightMode: 'Straight Mode', garage: 'Garages', eraser: 'Eraser', scale: 'Scale' }[n] || n; }
+    _tn(n) { return { select: 'Select', draw: 'Draw Track', node: 'Node', width: 'Width', surface: 'Surface', barrier: 'Barrier', sector: 'Sectors', turn: 'Turns', pitlane: 'Pit Lane', grandstand: 'Grandstand', zone: 'Zones', straightMode: 'Straight Mode', garage: 'Garages', eraser: 'Eraser', scale: 'Scale', help: 'Help' }[n] || n; }
 };
