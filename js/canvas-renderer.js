@@ -48,13 +48,18 @@ F1.Renderer = class Renderer {
         this.ox = -(minX + maxX) / 2; this.oy = -(minY + maxY) / 2;
     }
 
-    _getOutsideSgn(p, data) {
-        if (!data || data.controlPoints.length === 0) return 1;
-        const cx = data.controlPoints.reduce((sum, cp) => sum + cp.x, 0) / data.controlPoints.length;
-        const cy = data.controlPoints.reduce((sum, cp) => sum + cp.y, 0) / data.controlPoints.length;
-        const distLeft = Math.hypot(p.x + p.nx - cx, p.y + p.ny - cy);
-        const distRight = Math.hypot(p.x - p.nx - cx, p.y - p.ny - cy);
-        return distLeft > distRight ? 1 : -1;
+    _getTrackOutsideSgn(track) {
+        // Use the signed area (shoelace formula) of the centerline to determine
+        // track winding direction. This gives a single consistent "outside" for
+        // the entire track, preventing stripes from flipping between inside/outside.
+        if (track.length < 3) return 1;
+        let area = 0;
+        for (let i = 0; i < track.length - 1; i++) {
+            area += (track[i].x * track[i + 1].y - track[i + 1].x * track[i].y);
+        }
+        // Positive area = counter-clockwise winding → outside is to the right (sgn=1)
+        // Negative area = clockwise winding → outside is to the left (sgn=-1)
+        return area >= 0 ? 1 : -1;
     }
 
     render(data, editor, sel, hoverPt, activeTool) {
@@ -64,7 +69,7 @@ F1.Renderer = class Renderer {
         if (this.showGrid) this._grid(data);
         const track = editor.getInterpolatedTrack();
         if (track.length > 1) {
-            this._surfaces(track); this._trackSurface(track); this._sectorStripes(track);
+            this._surfaces(track); this._trackSurface(track); this._sectorStripes(track, data);
             this._barriers(track); this._straightModeZones(data, editor, track, sel);
             this._startFinish(track, data);
         }
@@ -118,14 +123,17 @@ F1.Renderer = class Renderer {
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = this.w2s(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
     }
 
-    _sectorStripes(track) {
+    _sectorStripes(track, data) {
         const ctx = this.ctx, sw = Math.max(2, 3 * this.scale);
+        const sgn = this._getTrackOutsideSgn(track);
         for (let i = 1; i < track.length; i++) {
             const sec = track[i - 1].sector; if (sec === 0) continue;
             ctx.strokeStyle = sec === 1 ? this.C.s1 : sec === 2 ? this.C.s2 : this.C.s3;
             ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
-            const a = this.w2s(track[i - 1].x - track[i - 1].nx * (track[i - 1].widthLeft + 2), track[i - 1].y - track[i - 1].ny * (track[i - 1].widthLeft + 2));
-            const b = this.w2s(track[i].x - track[i].nx * (track[i].widthLeft + 2), track[i].y - track[i].ny * (track[i].widthLeft + 2));
+            const w1 = sgn > 0 ? track[i - 1].widthRight : track[i - 1].widthLeft;
+            const w2 = sgn > 0 ? track[i].widthRight : track[i].widthLeft;
+            const a = this.w2s(track[i - 1].x + track[i - 1].nx * (w1 + 2) * sgn, track[i - 1].y + track[i - 1].ny * (w1 + 2) * sgn);
+            const b = this.w2s(track[i].x + track[i].nx * (w2 + 2) * sgn, track[i].y + track[i].ny * (w2 + 2) * sgn);
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
         ctx.globalAlpha = 1;
@@ -547,7 +555,7 @@ F1.Renderer = class Renderer {
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
             const sf = Math.max(0.9, this.scale);
             ctx.font = `bold ${10 * sf}px Outfit`;
-            const text = zone.label.toUpperCase();
+            const text = (zone.label || zt.label || '').toUpperCase();
             const lines = text.split('\n');
             const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
             const th = lines.length * 16 * sf + 6 * sf;

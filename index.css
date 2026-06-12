@@ -201,10 +201,11 @@ body {
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    justify-content: space-evenly;
     padding: 8px 6px;
     gap: 2px;
     z-index: 50;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .toolbar-section {
