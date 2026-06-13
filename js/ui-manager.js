@@ -286,6 +286,27 @@ F1.UIManager = class UIManager {
                     <button class="prop-btn" id="btn-reverse-track" style="margin-top: 10px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>
                   </div>`;
         }
+        
+        // Track Intersections
+        if (this.app.intersections && this.app.intersections.length > 0) {
+            h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+                    <label>Track Intersections <span style="font-size:10px;">${this.app.intersections.length}</span></label>
+                    <p class="prop-hint" style="margin-bottom:8px;">Manage overlapping track segments (e.g., bridges).</p>
+                    <select class="prop-input" id="prop-intersection-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">`;
+            this.app.intersections.forEach((ix, index) => {
+                const isSelected = this.app.uiState && this.app.uiState.selectedIntersection === ix.id;
+                h += `<option value="${ix.id}" ${isSelected ? 'selected' : ''}>Intersection ${index + 1} (Nodes ${ix.cpA + 1}-${ix.cpA + 2} & ${ix.cpB + 1}-${ix.cpB + 2})</option>`;
+            });
+            h += `  </select>
+                    <button class="prop-btn" id="btn-invert-overlap" style="margin-top: 10px; width: 100%;">Invert Overlap</button>
+                  </div>`;
+        } else {
+            h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+                    <label>Track Intersections</label>
+                    <p class="prop-hint dim">No intersections detected.</p>
+                  </div>`;
+        }
+        
         h += `</div>`;
         return h;
     }
@@ -301,21 +322,25 @@ F1.UIManager = class UIManager {
 
     _surfaceProps() {
         const t = this.app.tools.surface;
-        let h = '<h3 class="prop-title">Run-off Painter</h3><p class="prop-hint">Click near track edges.</p>';
-        h += `<div class="prop-group"><label>Type</label><div class="surface-btns" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button class="surface-btn ${t.surfaceType === 'grass' ? 'active' : ''}" data-surf="grass" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#0f0; margin-bottom:4px;"></div><br>Grass</button>
-            <button class="surface-btn ${t.surfaceType === 'gravel' ? 'active' : ''}" data-surf="gravel" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#a0522d; margin-bottom:4px;"></div><br>Gravel</button>
-            <button class="surface-btn ${t.surfaceType === 'asphalt' ? 'active' : ''}" data-surf="asphalt" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; background:#444; margin-bottom:4px;"></div><br>Asphalt</button>
-            <button class="surface-btn ${t.surfaceType === 'none' ? 'active' : ''}" data-surf="none" style="padding: 10px 5px;"><div style="display:inline-block; margin-bottom:4px; font-size:12px; color:#aaa;">✕</div><br>None</button></div></div>`;
-        return h;
-    }
-
-    _barrierProps() {
-        const t = this.app.tools.barrier;
-        let h = '<h3 class="prop-title">Barriers</h3><p class="prop-hint">Click at surface edges. Barriers auto-adjust to surface width.</p>';
-        h += `<div class="prop-group"><div class="surface-btns">
-            <button class="surface-btn barrier ${t.barrierOn ? 'active' : ''}" data-bar="on">🔴 Place</button>
-            <button class="surface-btn ${!t.barrierOn ? 'active' : ''}" data-bar="off">✕ Remove</button></div></div>`;
+        let h = '<h3 class="prop-title">Run-off & Barriers</h3><p class="prop-hint">Click near track edges. Barriers auto-adjust to surface width.</p>';
+        
+        h += `<div class="prop-group" style="margin-bottom: 15px;"><label>Active Paint Mode</label>
+              <div class="surface-btns" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button class="surface-btn mode-btn ${t.paintMode === 'surface' ? 'active' : ''}" data-pmode="surface">Run-off</button>
+                <button class="surface-btn mode-btn ${t.paintMode === 'barrier' ? 'active' : ''}" data-pmode="barrier">Barriers</button>
+              </div></div>`;
+              
+        if (t.paintMode === 'surface') {
+            h += `<div class="prop-group"><label>Surface Type</label><div class="surface-btns" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button class="surface-btn ${t.surfaceType === 'grass' ? 'active' : ''}" data-surf="grass" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#0f0; margin-bottom:4px;"></div><br>Grass</button>
+                <button class="surface-btn ${t.surfaceType === 'gravel' ? 'active' : ''}" data-surf="gravel" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#a0522d; margin-bottom:4px;"></div><br>Gravel</button>
+                <button class="surface-btn ${t.surfaceType === 'asphalt' ? 'active' : ''}" data-surf="asphalt" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; background:#444; margin-bottom:4px;"></div><br>Asphalt</button>
+                <button class="surface-btn ${t.surfaceType === 'none' ? 'active' : ''}" data-surf="none" style="padding: 10px 5px;"><div style="display:inline-block; margin-bottom:4px; font-size:12px; color:#aaa;">✕</div><br>None</button></div></div>`;
+        } else {
+            h += `<div class="prop-group"><label>Barrier Action</label><div class="surface-btns">
+                <button class="surface-btn barrier ${t.barrierOn ? 'active' : ''}" data-bar="on">🔴 Place</button>
+                <button class="surface-btn ${!t.barrierOn ? 'active' : ''}" data-bar="off">✕ Remove</button></div></div>`;
+        }
         return h;
     }
 
@@ -556,6 +581,10 @@ F1.UIManager = class UIManager {
                         <input type="range" min="1" max="100" value="${Math.round(this.app.renderer.gridOpacity * 100)}" id="prop-grid-opacity" class="prop-slider">
                         <input type="number" id="prop-grid-opacity-val" value="${Math.round(this.app.renderer.gridOpacity * 100)}" class="prop-input" style="width:50px;padding:2px 4px;font-size:11px;">
                     </div>
+                <div class="prop-group" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+                    <label>Ruler Tool</label>
+                    <p class="prop-hint" style="margin-bottom: 10px;">Enable Ruler to place multiple measurements on the track.</p>
+                    <button class="prop-btn ${this.app.rulerMode ? 'danger' : ''}" id="btn-toggle-ruler" style="width:100%; margin-bottom:10px;">${this.app.rulerMode ? 'Clear Rulers' : 'Ruler'}</button>
                 </div>`;
     }
 
@@ -606,6 +635,35 @@ F1.UIManager = class UIManager {
         if (btnRevDraw) btnRevDraw.onclick = handleReverse;
         const btnRevSec = document.getElementById('btn-reverse-track-sector');
         if (btnRevSec) btnRevSec.onclick = handleReverse;
+
+        // Intersections
+        const ixSel = document.getElementById('prop-intersection-selector');
+        if (ixSel) {
+            ixSel.onchange = () => {
+                if (!this.app.uiState) this.app.uiState = {};
+                this.app.uiState.selectedIntersection = parseInt(ixSel.value);
+            };
+        }
+
+        const btnInvertOverlap = document.getElementById('btn-invert-overlap');
+        if (btnInvertOverlap) {
+            btnInvertOverlap.onclick = () => {
+                if (!ixSel || !ixSel.value) return;
+                const ixId = parseInt(ixSel.value);
+                const ix = this.app.intersections.find(i => i.id === ixId);
+                if (!ix) return;
+                
+                this.app.data.snapshot();
+                const key = `${ix.cpA}-${ix.cpB}`;
+                const idx = this.app.data.overlapInversions.indexOf(key);
+                if (idx > -1) {
+                    this.app.data.overlapInversions.splice(idx, 1);
+                } else {
+                    this.app.data.overlapInversions.push(key);
+                }
+                this.app.requestRender();
+            };
+        }
 
         // Sector btns
         document.querySelectorAll('.sector-btn[data-sec]').forEach(b => {
@@ -849,7 +907,8 @@ F1.UIManager = class UIManager {
         document.querySelectorAll('.side-btn[data-wmode]').forEach(b => { b.onclick = () => { this.app.tools.width.setMode(b.dataset.wmode); this.updateProperties(); } });
         // Surface btns
         document.querySelectorAll('.surface-btn[data-surf]').forEach(b => { b.onclick = () => { this.app.tools.surface.surfaceType = b.dataset.surf; this.updateProperties(); } });
-        document.querySelectorAll('.surface-btn[data-bar]').forEach(b => { b.onclick = () => { this.app.tools.barrier.barrierOn = b.dataset.bar === 'on'; this.updateProperties(); } });
+        document.querySelectorAll('.surface-btn[data-bar]').forEach(b => { b.onclick = () => { this.app.tools.surface.barrierOn = b.dataset.bar === 'on'; this.updateProperties(); } });
+        document.querySelectorAll('.surface-btn[data-pmode]').forEach(b => { b.onclick = () => { this.app.tools.surface.paintMode = b.dataset.pmode; this.updateProperties(); } });
         // Zone btns
         document.querySelectorAll('.zone-btn[data-zone]').forEach(b => {
             b.onclick = () => {
@@ -913,6 +972,22 @@ F1.UIManager = class UIManager {
                 v = Math.max(0, Math.min(100, v));
                 this.app.renderer.gridOpacity = v / 100;
                 gop.value = v; gopv.value = v;
+                this.app.requestRender();
+            };
+        }
+
+        // Ruler tool
+        const btnToggleRuler = document.getElementById('btn-toggle-ruler');
+        if (btnToggleRuler) {
+            btnToggleRuler.onclick = () => {
+                if (this.app.rulerMode) {
+                    this.app.rulerMode = false;
+                    this.app.rulers = [];
+                    this.app.activeRuler = null;
+                } else {
+                    this.app.rulerMode = true;
+                }
+                this.updateProperties(); // Re-render button state
                 this.app.requestRender();
             };
         }

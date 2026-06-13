@@ -19,7 +19,6 @@ F1.App = class App {
             node: new F1.Tools.NodeTool(this),
             width: new F1.Tools.WidthTool(this),
             surface: new F1.Tools.SurfacePainterTool(this),
-            barrier: new F1.Tools.BarrierPainterTool(this),
             sector: new F1.Tools.SectorTool(this),
             turn: new F1.Tools.TurnTool(this),
             pitlane: new F1.Tools.PitLaneTool(this),
@@ -28,7 +27,7 @@ F1.App = class App {
             straightMode: new F1.Tools.StraightModeTool(this),
             garage: new F1.Tools.GarageTool(this),
             eraser: new F1.Tools.EraserTool(this),
-            scale: new F1.Tools.BaseTool(this),
+            scale: new F1.Tools.ScaleTool(this),
             help: new F1.Tools.BaseTool(this)
         };
 
@@ -39,6 +38,10 @@ F1.App = class App {
         this._needsRender = true;
         this._isPanning = false;
         this._panStart = null;
+        this.rulerMode = false;
+        this.rulers = [];
+        this.activeRuler = null;
+        this.intersections = [];
 
         this._initEvents();
         this._initToolbar();
@@ -56,6 +59,13 @@ F1.App = class App {
         this.activeTool = this.tools[name];
         this.activeTool.activate();
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
+        
+        if (name !== 'scale' && this.rulerMode) {
+            this.rulerMode = false;
+            this.activeRuler = null;
+            this.rulers = [];
+        }
+        
         this.canvas.style.cursor = this.activeTool.getCursor();
         this.uiManager.updateProperties();
         this.requestRender();
@@ -65,8 +75,51 @@ F1.App = class App {
     setStatus(msg) { document.getElementById('status-info').textContent = msg; }
     requestRender() { this._needsRender = true; }
 
+    _updateIntersections() {
+        const track = this.editor.getInterpolatedTrack();
+        const intersections = [];
+        
+        function intersect(p1, p2, p3, p4) {
+            if (Math.min(p1.x, p2.x) > Math.max(p3.x, p4.x) || Math.max(p1.x, p2.x) < Math.min(p3.x, p4.x) ||
+                Math.min(p1.y, p2.y) > Math.max(p3.y, p4.y) || Math.max(p1.y, p2.y) < Math.min(p3.y, p4.y)) return false;
+            const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+            return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
+        }
+
+        const skip = 10;
+        
+        for (let i = 0; i < track.length - 1; i++) {
+            for (let j = i + skip; j < track.length - 1; j++) {
+                if (this.data.isClosed) {
+                    const dist = Math.min(j - i, track.length - (j - i));
+                    if (dist < skip) continue;
+                }
+                
+                if (intersect(track[i], track[i+1], track[j], track[j+1])) {
+                    const cx = (track[i].x + track[i+1].x + track[j].x + track[j+1].x) / 4;
+                    const cy = (track[i].y + track[i+1].y + track[j].y + track[j+1].y) / 4;
+                    const isDuplicate = intersections.some(ix => Math.hypot(ix.x - cx, ix.y - cy) < 50);
+                    if (!isDuplicate) {
+                        intersections.push({
+                            id: intersections.length + 1,
+                            cpA: Math.min(track[i].segIndex, track[j].segIndex),
+                            cpB: Math.max(track[i].segIndex, track[j].segIndex),
+                            trackIdxA: i, trackIdxB: j,
+                            x: cx, y: cy
+                        });
+                    }
+                }
+            }
+        }
+        this.intersections = intersections;
+    }
+
     _renderLoop() {
-        if (this._needsRender) { this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName); this._needsRender = false; }
+        if (this._needsRender) { 
+            if (['draw', 'node'].includes(this.activeToolName)) this._updateIntersections();
+            this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName); 
+            this._needsRender = false; 
+        }
         requestAnimationFrame(() => this._renderLoop());
     }
 
@@ -118,6 +171,13 @@ F1.App = class App {
         pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
         pCanvas.addEventListener('wheel', e => { e.preventDefault(); const r = pCanvas.getBoundingClientRect(); this.preview.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this._renderPreview(); }, { passive: false });
         pCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        window.addEventListener('beforeunload', (e) => {
+            if (this.data.controlPoints && this.data.controlPoints.length > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
 
         window.addEventListener('resize', () => { this.renderer.resize(); this.preview.resize(); this.requestRender(); this._renderPreview(); });
         document.addEventListener('keydown', e => {
@@ -214,23 +274,48 @@ F1.App = class App {
         document.getElementById('btn-undo').addEventListener('click', () => { this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); });
         document.getElementById('btn-redo').addEventListener('click', () => { this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); });
         document.getElementById('btn-save').addEventListener('click', () => {
-            const name = document.getElementById('circuit-name').value || 'Untitled'; this.data.name = name;
-            localStorage.setItem('f1circuit_' + name, this.data.toJSON()); this.setStatus(`Saved "${name}"`);
+            const name = document.getElementById('circuit-name').value || 'Untitled Circuit'; 
+            this.data.name = name;
+            const jsonStr = this.data.toJSON();
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            this.setStatus(`Downloaded "${name}.json"`);
         });
         document.getElementById('btn-load').addEventListener('click', () => {
-            const keys = Object.keys(localStorage).filter(k => k.startsWith('f1circuit_'));
-            if (!keys.length) { this.setStatus('No saved circuits'); return; }
-            const name = prompt('Load circuit:\n\n' + keys.map(k => '• ' + k.replace('f1circuit_', '')).join('\n'));
-            if (!name) return; const json = localStorage.getItem('f1circuit_' + name);
-            if (json) { this.data.fromJSON(json); document.getElementById('circuit-name').value = this.data.name; this.setSelection(null); this.requestRender(); this._renderPreview(); this.setStatus(`Loaded "${name}"`); }
-            else this.setStatus(`"${name}" not found`);
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const json = event.target.result;
+                        this.data.fromJSON(json);
+                        document.getElementById('circuit-name').value = this.data.name || 'Untitled Circuit';
+                        this.setSelection(null);
+                        this.renderer.fitToScreen(this.data, this.editor);
+                        this.requestRender();
+                        this._renderPreview();
+                        this.uiManager.updateProperties();
+                        this.setStatus(`Loaded "${file.name}"`);
+                    } catch (err) {
+                        alert("Invalid or corrupted circuit file.");
+                        this.setStatus("Error loading file.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         });
         document.getElementById('btn-export').addEventListener('click', () => {
-            this.renderer.showCtrlPts = false; this.renderer.showGrid = false;
-            this.renderer.render(this.data, this.editor, null, null, '');
-            const url = this.renderer.canvas.toDataURL('image/png');
-            this.renderer.showCtrlPts = true; this.renderer.showGrid = true; this.requestRender();
-            const a = document.createElement('a'); a.href = url; a.download = (this.data.name || 'circuit') + '_editor.png'; a.click();
+            this._openExportModal();
         });
         document.getElementById('btn-clear').addEventListener('click', () => {
             if (confirm('Clear entire circuit?')) { this.data.snapshot(); this.data.clear(); this.setSelection(null); this.requestRender(); this._renderPreview(); this.uiManager.updateProperties(); }
@@ -246,28 +331,7 @@ F1.App = class App {
             setTimeout(() => document.getElementById('preview-container').classList.remove('pulse'), 600);
         });
         document.getElementById('btn-download-map').addEventListener('click', () => {
-            this.data.name = document.getElementById('circuit-name').value || 'Untitled Circuit';
-            const c = document.createElement('canvas'); c.width = 1920; c.height = 1080;
-            const pr = new F1.PreviewRenderer(c);
-            Object.assign(pr.layers, this.preview.layers);
-            pr.resize = () => { pr.canvas.width = 1920; pr.canvas.height = 1080; };
-            // Wait for images to load then render
-            const imgs = [pr.chequeredImg, pr.arrowImg, pr.stripsImg];
-            const loaded = imgs.filter(i => i.complete);
-            if (loaded.length === imgs.length) {
-                pr.resize(); pr.render(this.data, this.editor);
-                const url = c.toDataURL('image/png');
-                const a = document.createElement('a'); a.href = url; a.download = (this.data.name || 'circuit') + '_map.png'; a.click();
-                this.setStatus('Circuit map downloaded (1920×1080)');
-            } else {
-                this.setStatus('Loading assets...');
-                setTimeout(() => {
-                    pr.resize(); pr.render(this.data, this.editor);
-                    const url = c.toDataURL('image/png');
-                    const a = document.createElement('a'); a.href = url; a.download = (this.data.name || 'circuit') + '_map.png'; a.click();
-                    this.setStatus('Circuit map downloaded (1920×1080)');
-                }, 500);
-            }
+            this._openExportModal();
         });
     }
     _initHelp() {
@@ -406,6 +470,170 @@ F1.App = class App {
                 ]);
             }
         });
+        
+        this._initExportModal();
+    }
+
+    _initExportModal() {
+        const c = document.getElementById('export-preview-canvas');
+        if (!c) return;
+        this.exportPreview = new F1.PreviewRenderer(c);
+        
+        let isDragging = false, lastX, lastY, draggingText = false;
+        c.addEventListener('wheel', e => {
+            e.preventDefault();
+            const rect = c.getBoundingClientRect();
+            const ratioX = c.width / c.clientWidth;
+            const ratioY = c.height / c.clientHeight;
+            this.exportPreview.zoom(e.deltaY, (e.clientX - rect.left) * ratioX, (e.clientY - rect.top) * ratioY);
+            this._renderExportPreview();
+        });
+        c.addEventListener('mousedown', e => {
+            const rect = c.getBoundingClientRect();
+            const ratioX = c.width / c.clientWidth;
+            const ratioY = c.height / c.clientHeight;
+            const cx = (e.clientX - rect.left) * ratioX;
+            const cy = (e.clientY - rect.top) * ratioY;
+            
+            // Hit test for text (approximate bounding box)
+            const px = this.exportPreview.customNamePos ? this.exportPreview.customNamePos.x : (this.data.namePos ? this.data.namePos.x : 20);
+            const py = this.exportPreview.customNamePos ? this.exportPreview.customNamePos.y : (this.data.namePos ? this.data.namePos.y : 16);
+            if (cx >= px - 10 && cx <= px + 300 && cy >= py - 10 && cy <= py + 100) {
+                draggingText = true;
+            } else {
+                isDragging = true;
+            }
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        window.addEventListener('mousemove', e => {
+            if (!isDragging && !draggingText) return;
+            const rect = c.getBoundingClientRect();
+            const ratioX = c.width / c.clientWidth;
+            const ratioY = c.height / c.clientHeight;
+            const dx = (e.clientX - lastX) * ratioX;
+            const dy = (e.clientY - lastY) * ratioY;
+            lastX = e.clientX; lastY = e.clientY;
+            
+            if (draggingText) {
+                if (!this.exportPreview.customNamePos) {
+                    this.exportPreview.customNamePos = { 
+                        x: this.data.namePos ? this.data.namePos.x : 20, 
+                        y: this.data.namePos ? this.data.namePos.y : 16 
+                    };
+                }
+                this.exportPreview.customNamePos.x += dx;
+                this.exportPreview.customNamePos.y += dy;
+            } else {
+                this.exportPreview.pan(dx, dy);
+            }
+            this._renderExportPreview();
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; draggingText = false; });
+
+        document.getElementById('btn-close-export').onclick = () => document.getElementById('export-modal').style.display = 'none';
+        document.getElementById('btn-export-fit').onclick = () => { this.exportPreview.fitToScreen(); this._renderExportPreview(); };
+        
+        document.getElementById('btn-do-export').onclick = () => this._doExport();
+        
+        const resync = () => this._renderExportPreview();
+        document.getElementById('export-w').addEventListener('change', resync);
+        document.getElementById('export-h').addEventListener('change', resync);
+        document.getElementById('export-transparent').addEventListener('change', resync);
+        
+        // Handle window resize for export modal
+        window.addEventListener('resize', () => {
+            if (document.getElementById('export-modal').style.display === 'flex') {
+                this._renderExportPreview();
+            }
+        });
+    }
+
+    _openExportModal() {
+        document.getElementById('export-modal').style.display = 'flex';
+        this.data.name = document.getElementById('circuit-name').value || 'Untitled Circuit';
+        
+        // Sync layers and styles
+        Object.assign(this.exportPreview.layers, this.preview.layers);
+        this.exportPreview.bgColor = this.preview.bgColor;
+        this.exportPreview.infoColor = this.preview.infoColor;
+        this.exportPreview.nameColor = this.preview.nameColor;
+        this.exportPreview.customNamePos = null; // Reset text position for export
+        
+        this.exportPreview.fitToScreen();
+        this._renderExportPreview();
+    }
+
+    _renderExportPreview() {
+        const wrap = document.getElementById('export-preview-wrapper');
+        const W = document.getElementById('export-w').value || 1920;
+        const H = document.getElementById('export-h').value || 1080;
+        const transparent = document.getElementById('export-transparent').checked;
+        
+        // Fit canvas aspect ratio inside wrapper
+        const wrapRatio = wrap.clientWidth / wrap.clientHeight;
+        const expRatio = W / H;
+        
+        let cw, ch;
+        if (wrapRatio > expRatio) {
+            ch = wrap.clientHeight - 40;
+            cw = ch * expRatio;
+        } else {
+            cw = wrap.clientWidth - 40;
+            ch = cw / expRatio;
+        }
+        
+        const c = this.exportPreview.canvas;
+        c.style.width = cw + 'px';
+        c.style.height = ch + 'px';
+        c.width = W;
+        c.height = H;
+        
+        // Force background override if transparent
+        const oldBg = this.exportPreview.bgColor;
+        if (transparent) this.exportPreview.bgColor = 'rgba(0,0,0,0)';
+        
+        this.exportPreview.render(this.data, this.editor);
+        
+        // Restore
+        this.exportPreview.bgColor = oldBg;
+    }
+
+    _doExport() {
+        const fmt = document.getElementById('export-format').value;
+        const W = parseInt(document.getElementById('export-w').value) || 1920;
+        const H = parseInt(document.getElementById('export-h').value) || 1080;
+        const transparent = document.getElementById('export-transparent').checked;
+        const name = (this.data.name || 'circuit').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        if (fmt === 'svg') {
+            const exporter = new F1.SVGExporter(this.preview.bgColor, this.preview.infoColor, this.preview.nameColor);
+            const svgStr = exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.customNamePos);
+            const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `${name}.svg`; a.click();
+            URL.revokeObjectURL(url);
+            this.setStatus(`Exported ${name}.svg`);
+        } else {
+            // Render full res to canvas
+            const c = document.createElement('canvas'); c.width = W; c.height = H;
+            const pr = new F1.PreviewRenderer(c);
+            Object.assign(pr.layers, this.preview.layers);
+            pr.bgColor = transparent && fmt !== 'jpg' ? 'rgba(0,0,0,0)' : this.preview.bgColor;
+            pr.infoColor = this.preview.infoColor;
+            pr.nameColor = this.preview.nameColor;
+            pr.userScale = this.exportPreview.userScale;
+            pr.userOx = this.exportPreview.userOx;
+            pr.userOy = this.exportPreview.userOy;
+            
+            pr.render(this.data, this.editor);
+            
+            const mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
+            const url = c.toDataURL(mime, 0.95);
+            const a = document.createElement('a'); a.href = url; a.download = `${name}.${fmt}`; a.click();
+            this.setStatus(`Exported ${name}.${fmt}`);
+        }
+        
+        document.getElementById('export-modal').style.display = 'none';
     }
 };
 
