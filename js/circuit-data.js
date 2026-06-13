@@ -43,6 +43,7 @@ F1.CircuitData = class CircuitData {
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
         ];
+        this.overlapInversions = [];
         this._nextId = 1;
         this._undoStack = [];
         this._redoStack = [];
@@ -150,6 +151,13 @@ F1.CircuitData = class CircuitData {
     reverseTrack() {
         if (this.controlPoints.length < 2) return;
         const N = this.controlPoints.length;
+
+        // 0. Pre-calculate mapping for overlap inversions
+        const oldOverlaps = [...(this.overlapInversions || [])];
+        const oldSegToCpId = [];
+        for (let i = 0; i < N; i++) {
+            oldSegToCpId.push(this.controlPoints[(i + 1) % N].id);
+        }
 
         // --- Helper: Catmull-Rom interpolation for world-position computation ---
         const crInterp = (p0, p1, p2, p3, t) => {
@@ -276,23 +284,38 @@ F1.CircuitData = class CircuitData {
             tm.t = newPos.t;
             tm.side = tm.side === 'left' ? 'right' : 'left';
         });
+
+        // 6. Re-map overlap inversions
+        if (oldOverlaps.length > 0) {
+            this.overlapInversions = oldOverlaps.map(key => {
+                const parts = key.split('-');
+                const oldA = parseInt(parts[0]);
+                const oldB = parseInt(parts[1]);
+                const idA = oldSegToCpId[oldA];
+                const idB = oldSegToCpId[oldB];
+                const newA = this.controlPoints.findIndex(p => p.id === idA);
+                const newB = this.controlPoints.findIndex(p => p.id === idB);
+                if (newA === -1 || newB === -1) return null;
+                return `${Math.min(newA, newB)}-${Math.max(newA, newB)}`;
+            }).filter(Boolean);
+        }
     }
 
-    _serialize() { return { name: this.name, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), grandstands: JSON.parse(JSON.stringify(this.grandstands)), zones: JSON.parse(JSON.stringify(this.zones)), garages: JSON.parse(JSON.stringify(this.garages)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), _nextId: this._nextId }; }
+    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), grandstands: JSON.parse(JSON.stringify(this.grandstands)), zones: JSON.parse(JSON.stringify(this.zones)), garages: JSON.parse(JSON.stringify(this.garages)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), _nextId: this._nextId }; }
     _deserialize(d) {
-        this.name = d.name; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.grandstands = d.grandstands; this.zones = d.zones || []; this.garages = d.garages || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
+        this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.grandstands = d.grandstands; this.zones = d.zones || []; this.garages = d.garages || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ]; this._nextId = d._nextId;
+        ]; this.overlapInversions = d.overlapInversions || []; this._nextId = d._nextId;
     }
     toJSON() { return JSON.stringify(this._serialize()); }
     fromJSON(json) { this._deserialize(JSON.parse(json)); this._undoStack = []; this._redoStack = []; }
     clear() {
-        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.pitLane = { points: [], width: 8 }; this.grandstands = []; this.zones = []; this.garages = []; this.turnMarkers = []; this.sectorLabels = [
+        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.namePos = { x: 20, y: 16 }; this.pitLane = { points: [], width: 8 }; this.grandstands = []; this.zones = []; this.garages = []; this.turnMarkers = []; this.sectorLabels = [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ];
+        ]; this.overlapInversions = [];
     }
 };

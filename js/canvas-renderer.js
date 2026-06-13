@@ -71,6 +71,7 @@ F1.Renderer = class Renderer {
         if (track.length > 1) {
             this._surfaces(track); this._trackSurface(track); this._sectorStripes(track, data);
             this._barriers(track); this._straightModeZones(data, editor, track, sel);
+            this._renderIntersections(track, data, editor, sel);
             this._startFinish(track, data);
         }
         this._pitLane(editor); this._garages(data, sel); this._grandstands(data, sel);
@@ -78,6 +79,7 @@ F1.Renderer = class Renderer {
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
         this._rotationHandles(data, editor, sel);
+        this._rulers(track, data);
     }
 
     _grid(data) {
@@ -123,19 +125,35 @@ F1.Renderer = class Renderer {
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = this.w2s(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
     }
 
-    _sectorStripes(track, data) {
+    _sectorStripes(track, data, forceSgn = null) {
         const ctx = this.ctx, sw = Math.max(2, 3 * this.scale);
-        const sgn = this._getTrackOutsideSgn(track);
+        const sgn = forceSgn !== null ? forceSgn : this._getTrackOutsideSgn(track);
+        let currentSec = -1;
+        let pathStarted = false;
+        
+        ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
+        
         for (let i = 1; i < track.length; i++) {
-            const sec = track[i - 1].sector; if (sec === 0) continue;
-            ctx.strokeStyle = sec === 1 ? this.C.s1 : sec === 2 ? this.C.s2 : this.C.s3;
-            ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
-            const w1 = sgn > 0 ? track[i - 1].widthRight : track[i - 1].widthLeft;
+            const sec = track[i - 1].sector; 
+            if (sec === 0) {
+                if (pathStarted) { ctx.stroke(); pathStarted = false; }
+                continue;
+            }
+            if (sec !== currentSec || !pathStarted) {
+                if (pathStarted) { ctx.stroke(); }
+                currentSec = sec;
+                ctx.strokeStyle = sec === 1 ? this.C.s1 : sec === 2 ? this.C.s2 : this.C.s3;
+                ctx.beginPath();
+                const w1 = sgn > 0 ? track[i - 1].widthRight : track[i - 1].widthLeft;
+                const a = this.w2s(track[i - 1].x + track[i - 1].nx * (w1 + 2) * sgn, track[i - 1].y + track[i - 1].ny * (w1 + 2) * sgn);
+                ctx.moveTo(a.x, a.y);
+                pathStarted = true;
+            }
             const w2 = sgn > 0 ? track[i].widthRight : track[i].widthLeft;
-            const a = this.w2s(track[i - 1].x + track[i - 1].nx * (w1 + 2) * sgn, track[i - 1].y + track[i - 1].ny * (w1 + 2) * sgn);
             const b = this.w2s(track[i].x + track[i].nx * (w2 + 2) * sgn, track[i].y + track[i].ny * (w2 + 2) * sgn);
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            ctx.lineTo(b.x, b.y);
         }
+        if (pathStarted) ctx.stroke();
         ctx.globalAlpha = 1;
     }
 
@@ -663,6 +681,158 @@ F1.Renderer = class Renderer {
             const isSel = sel && sel.type === 'pit' && sel.id === pt.id;
             ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
             ctx.fillStyle = isSel ? '#ff8800' : '#ffff00'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
+        });
+    }
+
+    _renderIntersections(track, data, editor, sel) {
+        if (!window.app || !window.app.intersections) return;
+        
+        window.app.intersections.forEach(ix => {
+            const key = `${ix.cpA}-${ix.cpB}`;
+            const inverted = data.overlapInversions && data.overlapInversions.includes(key);
+            
+            const idxA = ix.trackIdxA;
+            const idxB = ix.trackIdxB;
+            
+            let topIdx = Math.max(idxA, idxB);
+            if (inverted) topIdx = Math.min(idxA, idxB);
+            
+            const span = 25;
+            let start = topIdx - span;
+            let end = topIdx + span;
+            
+            if (!data.isClosed) {
+                start = Math.max(0, start);
+                end = Math.min(track.length - 1, end);
+            }
+            
+            const subTrack = [];
+            for (let i = start; i <= end; i++) {
+                let actualI = i;
+                if (actualI < 0) actualI += track.length;
+                if (actualI >= track.length) actualI -= track.length;
+                if (track[actualI]) subTrack.push(track[actualI]);
+            }
+            
+            if (subTrack.length > 1) {
+                // Ensure proper caps for the redrawn segment to blend in
+                this.ctx.lineCap = 'butt';
+                this._surfaces(subTrack); 
+                this._trackSurface(subTrack); 
+                this._sectorStripes(subTrack, data, this._getTrackOutsideSgn(track));
+                this._barriers(subTrack);
+                this.ctx.lineCap = 'round';
+            }
+        });
+    }
+
+    _rulers(track, data) {
+        if (!window.app || !window.app.rulers) return;
+        // ... (unchanged previous logic up to end of class)
+        // I will just add _renderIntersections before _rulers.
+        if (!window.app || !window.app.rulers) return;
+        const ctx = this.ctx;
+        
+        const allRulers = [...window.app.rulers];
+        if (window.app.activeRuler && !allRulers.includes(window.app.activeRuler)) {
+            allRulers.push(window.app.activeRuler);
+        }
+
+        const scaleFact = (data.gridSize || 50) / 50.0;
+        const N = track.length;
+
+        allRulers.forEach(r => {
+            if (r.start === undefined || r.end === undefined) return;
+            if (r.start >= N) return;
+            
+            let s = r.start;
+            let e = r.end;
+            let wrap = false;
+            
+            if (data.isClosed && Math.abs(s - e) > N / 2) {
+                wrap = true;
+            }
+            
+            ctx.beginPath();
+            let dist = 0;
+            
+            let cur = s;
+            const step = wrap ? (s < e ? -1 : 1) : (s < e ? 1 : -1);
+            
+            const indices = [];
+            if (s === e) {
+                indices.push(s);
+            } else {
+                while (cur !== e) {
+                    indices.push(cur);
+                    cur += step;
+                    if (data.isClosed) {
+                        if (cur >= N) cur = 0;
+                        if (cur < 0) cur = N - 1;
+                    } else {
+                        if (cur >= N || cur < 0) break;
+                    }
+                }
+                indices.push(e);
+            }
+
+            for (let k = 0; k < indices.length; k++) {
+                const i = indices[k];
+                const pt = track[i];
+                if (!pt) continue;
+                const sp = this.w2s(pt.x, pt.y);
+                if (k === 0) ctx.moveTo(sp.x, sp.y);
+                else {
+                    ctx.lineTo(sp.x, sp.y);
+                    const prevPt = track[indices[k-1]];
+                    dist += Math.hypot(pt.x - prevPt.x, pt.y - prevPt.y);
+                }
+            }
+            
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = Math.max(4, 6 * this.scale);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            const drawEndpoint = (idx) => {
+                const p = track[Math.min(idx, track.length - 1)];
+                if (!p) return;
+                const s = this.w2s(p.x, p.y);
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ffff';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+            };
+            drawEndpoint(r.start);
+            if (r.start !== r.end) drawEndpoint(r.end);
+            
+            if (s !== e && indices.length > 0) {
+                const midIdx = indices[Math.floor(indices.length / 2)];
+                const p = track[Math.min(midIdx, track.length - 1)];
+                if (p) {
+                    const realDist = dist * scaleFact;
+                    const txt = realDist >= 1000 ? (realDist/1000).toFixed(3) + ' km' : realDist.toFixed(1) + ' m';
+                    const s = this.w2s(p.x, p.y);
+                    
+                    ctx.font = 'bold 12px Outfit';
+                    const tm = ctx.measureText(txt);
+                    const tw = tm.width;
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.beginPath();
+                    ctx.roundRect(s.x - tw/2 - 6, s.y - 12 - 14, tw + 12, 20, 4);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#00ffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(txt, s.x, s.y - 14);
+                }
+            }
         });
     }
 };

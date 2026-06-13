@@ -626,35 +626,29 @@ class WidthTool extends BaseTool {
 
 /* ---- Surface Painter ---- */
 class SurfacePainterTool extends BaseTool {
-    constructor(app) { super(app); this.surfaceType = 'gravel'; this.painting = false; }
-    getCursor() { return 'cell'; }
-    _apply(wx, wy) {
-        const n = this.editor.findNearestTrackPoint(wx, wy);
-        if (!n.point || n.dist > 60 / this.renderer.scale) return;
-        const pt = this.data.controlPoints[n.point.segIndex]; if (!pt) return;
-        const p = n.point;
-        const dL = Math.hypot(wx - (p.x - p.nx * p.widthLeft), wy - (p.y - p.ny * p.widthLeft));
-        const dR = Math.hypot(wx - (p.x + p.nx * p.widthRight), wy - (p.y + p.ny * p.widthRight));
-        if (dL < dR) pt.surfaceLeft = this.surfaceType; else pt.surfaceRight = this.surfaceType;
-        this.app.requestRender();
+    constructor(app) { 
+        super(app); 
+        this.paintMode = 'surface'; // 'surface' or 'barrier'
+        this.surfaceType = 'gravel'; 
+        this.barrierOn = true;
+        this.painting = false; 
     }
-    onMouseDown(wx, wy) { this.data.snapshot(); this.painting = true; this._apply(wx, wy); }
-    onMouseMove(wx, wy) { if (this.painting) this._apply(wx, wy); }
-    onMouseUp() { this.painting = false; }
-}
-
-/* ---- Barrier ---- */
-class BarrierPainterTool extends BaseTool {
-    constructor(app) { super(app); this.painting = false; this.barrierOn = true; }
     getCursor() { return 'cell'; }
     _apply(wx, wy) {
         const n = this.editor.findNearestTrackPoint(wx, wy);
         if (!n.point || n.dist > 80 / this.renderer.scale) return;
         const pt = this.data.controlPoints[n.point.segIndex]; if (!pt) return;
         const p = n.point;
-        const dL = Math.hypot(wx - (p.x - p.nx * (p.widthLeft + (p.surfaceWidthLeft ?? 10))), wy - (p.y - p.ny * (p.widthLeft + (p.surfaceWidthLeft ?? 10))));
-        const dR = Math.hypot(wx - (p.x + p.nx * (p.widthRight + (p.surfaceWidthRight ?? 10))), wy - (p.y + p.ny * (p.widthRight + (p.surfaceWidthRight ?? 10))));
-        if (dL < dR) pt.barrierLeft = this.barrierOn; else pt.barrierRight = this.barrierOn;
+        
+        if (this.paintMode === 'surface') {
+            const dL = Math.hypot(wx - (p.x - p.nx * p.widthLeft), wy - (p.y - p.ny * p.widthLeft));
+            const dR = Math.hypot(wx - (p.x + p.nx * p.widthRight), wy - (p.y + p.ny * p.widthRight));
+            if (dL < dR) pt.surfaceLeft = this.surfaceType; else pt.surfaceRight = this.surfaceType;
+        } else if (this.paintMode === 'barrier') {
+            const dL = Math.hypot(wx - (p.x - p.nx * (p.widthLeft + (p.surfaceWidthLeft ?? 10))), wy - (p.y - p.ny * (p.widthLeft + (p.surfaceWidthLeft ?? 10))));
+            const dR = Math.hypot(wx - (p.x + p.nx * (p.widthRight + (p.surfaceWidthRight ?? 10))), wy - (p.y + p.ny * (p.widthRight + (p.surfaceWidthRight ?? 10))));
+            if (dL < dR) pt.barrierLeft = this.barrierOn; else pt.barrierRight = this.barrierOn;
+        }
         this.app.requestRender();
     }
     onMouseDown(wx, wy) { this.data.snapshot(); this.painting = true; this._apply(wx, wy); }
@@ -1376,4 +1370,109 @@ class StraightModeTool extends ZoneTool {
     activate() { super.activate(); this.zoneType = 'straight_mode'; }
 }
 
-F1.Tools = { BaseTool, SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, BarrierPainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool };
+class ScaleTool extends BaseTool {
+    constructor(app) {
+        super(app);
+        this.dragInfo = null;
+    }
+
+    activate() {
+        if (!this.app.rulers) this.app.rulers = [];
+        this.app.requestRender();
+    }
+
+    deactivate() {
+        this.dragInfo = null;
+        if (this.app.activeRuler) {
+            this.app.activeRuler = null;
+        }
+        this.app.requestRender();
+    }
+
+    getCursor() {
+        if (!this.app.rulerMode) return 'default';
+        if (this.dragInfo) return 'grabbing';
+        if (this.hoveringHandle) return 'grab';
+        return 'crosshair';
+    }
+
+    onMouseDown(wx, wy) {
+        if (!this.app.rulerMode) return;
+        if (this.dragInfo) return;
+        const hitThresh = 20 / this.renderer.scale;
+        for (let i = 0; i < (this.app.rulers || []).length; i++) {
+            const r = this.app.rulers[i];
+            if (r === this.app.activeRuler) continue;
+            
+            const track = this.editor.getInterpolatedTrack();
+            const pS = track[Math.min(r.start, track.length - 1)];
+            const pE = track[Math.min(r.end, track.length - 1)];
+            if (pS && Math.hypot(pS.x - wx, pS.y - wy) < hitThresh) {
+                this.dragInfo = { ruler: r, type: 'start' };
+                this.app.requestRender();
+                return;
+            }
+            if (pE && Math.hypot(pE.x - wx, pE.y - wy) < hitThresh) {
+                this.dragInfo = { ruler: r, type: 'end' };
+                this.app.requestRender();
+                return;
+            }
+        }
+        
+        const pt = this.editor.findNearestTrackPoint(wx, wy);
+        if (!pt || pt.dist > 50) return;
+
+        if (this.app.activeRuler) {
+            this.app.activeRuler.end = pt.index;
+            this.app.activeRuler = null;
+        } else {
+            if (!this.app.rulers) this.app.rulers = [];
+            this.app.activeRuler = { start: pt.index, end: pt.index };
+            this.app.rulers.push(this.app.activeRuler);
+        }
+        this.app.requestRender();
+    }
+
+    onMouseMove(wx, wy) {
+        if (!this.app.rulerMode) return;
+        if (this.dragInfo) {
+            const pt = this.editor.findNearestTrackPoint(wx, wy);
+            if (pt) {
+                if (this.dragInfo.type === 'start') this.dragInfo.ruler.start = pt.index;
+                else this.dragInfo.ruler.end = pt.index;
+                this.app.requestRender();
+            }
+            return;
+        }
+        if (this.app.activeRuler) {
+            const pt = this.editor.findNearestTrackPoint(wx, wy);
+            if (pt) {
+                this.app.activeRuler.end = pt.index;
+                this.app.requestRender();
+            }
+        } else {
+            const hitThresh = 20 / this.renderer.scale;
+            this.hoveringHandle = false;
+            for (let i = 0; i < (this.app.rulers || []).length; i++) {
+                const r = this.app.rulers[i];
+                if (r === this.app.activeRuler) continue;
+                
+                const track = this.editor.getInterpolatedTrack();
+                const pS = track[Math.min(r.start, track.length - 1)];
+                const pE = track[Math.min(r.end, track.length - 1)];
+                if ((pS && Math.hypot(pS.x - wx, pS.y - wy) < hitThresh) || (pE && Math.hypot(pE.x - wx, pE.y - wy) < hitThresh)) {
+                    this.hoveringHandle = true; break;
+                }
+            }
+        }
+    }
+
+    onMouseUp() {
+        if (this.dragInfo) {
+            this.dragInfo = null;
+            this.app.requestRender();
+        }
+    }
+}
+
+F1.Tools = { BaseTool, SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool, ScaleTool };

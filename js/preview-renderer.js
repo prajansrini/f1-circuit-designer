@@ -56,7 +56,11 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-        if (this.layers.track) { this._trackBase(ctx, track, tf); this._sectorEdges(ctx, track, tf, data); }
+        if (this.layers.track) { 
+            this._trackBase(ctx, track, tf); 
+            this._sectorEdges(ctx, track, tf, data); 
+            this._renderIntersections(ctx, track, data, tf);
+        }
         this._startFinish(ctx, track, data, tf, editor);
         if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
@@ -92,14 +96,105 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _sectorEdges(ctx, track, tf, data) {
         const lw = Math.max(4, 5 * tf.scale);
+        let currentSec = -1;
+        let pathStarted = false;
+        ctx.lineWidth = lw; ctx.lineCap = 'round';
+        
         for (let i = 1; i < track.length; i++) {
             const sec = track[i - 1].sector;
-            if (sec === 0) continue;
-            ctx.strokeStyle = this.sectorColors[sec] || '#555';
-            ctx.lineWidth = lw; ctx.lineCap = 'round';
-            const a = tf.toScreen(track[i - 1].x, track[i - 1].y), b = tf.toScreen(track[i].x, track[i].y);
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            if (sec === 0) {
+                if (pathStarted) { ctx.stroke(); pathStarted = false; }
+                continue;
+            }
+            if (sec !== currentSec || !pathStarted) {
+                if (pathStarted) { ctx.stroke(); }
+                currentSec = sec;
+                ctx.strokeStyle = this.sectorColors[sec] || '#555';
+                ctx.beginPath();
+                const a = tf.toScreen(track[i - 1].x, track[i - 1].y);
+                ctx.moveTo(a.x, a.y);
+                pathStarted = true;
+            }
+            const b = tf.toScreen(track[i].x, track[i].y);
+            ctx.lineTo(b.x, b.y);
         }
+        if (pathStarted) ctx.stroke();
+    }
+
+    _renderIntersections(ctx, track, data, tf) {
+        if (!window.app || !window.app.intersections) return;
+        
+        window.app.intersections.forEach(ix => {
+            const key = `${ix.cpA}-${ix.cpB}`;
+            const inverted = data.overlapInversions && data.overlapInversions.includes(key);
+            let topIdx = Math.max(ix.trackIdxA, ix.trackIdxB);
+            if (inverted) topIdx = Math.min(ix.trackIdxA, ix.trackIdxB);
+
+            const span = 25;
+            let start = topIdx - span;
+            let end = topIdx + span;
+
+            if (!data.isClosed) {
+                start = Math.max(0, start);
+                end = Math.min(track.length - 1, end);
+            }
+
+            const subTrack = [];
+            for (let i = start; i <= end; i++) {
+                let actualI = i;
+                if (actualI < 0) actualI += track.length;
+                if (actualI >= track.length) actualI -= track.length;
+                if (track[actualI]) subTrack.push(track[actualI]);
+            }
+
+            if (subTrack.length > 1) {
+                const lwBase = Math.max(16, 20 * tf.scale);
+                const lwSectors = Math.max(4, 5 * tf.scale);
+                
+                ctx.lineCap = 'butt';
+                ctx.lineJoin = 'round';
+                
+                // Draw base background color to mask out bottom track
+                ctx.strokeStyle = this.bgColor || '#0f1a0f';
+                ctx.lineWidth = lwBase + 2;
+                ctx.beginPath();
+                subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
+                ctx.stroke();
+
+                // Draw Track Base
+                ctx.strokeStyle = '#111111';
+                ctx.lineWidth = lwBase;
+                ctx.beginPath();
+                subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
+                ctx.stroke();
+
+                // Draw sectors
+                ctx.lineWidth = lwSectors;
+                let currentSec = -1;
+                let pathStarted = false;
+                for (let i = 1; i < subTrack.length; i++) {
+                    const sec = subTrack[i - 1].sector;
+                    if (sec === 0) {
+                        if (pathStarted) { ctx.stroke(); pathStarted = false; }
+                        continue;
+                    }
+                    if (sec !== currentSec || !pathStarted) {
+                        if (pathStarted) { ctx.stroke(); }
+                        currentSec = sec;
+                        ctx.strokeStyle = this.sectorColors[sec] || '#555';
+                        ctx.beginPath();
+                        const a = tf.toScreen(subTrack[i - 1].x, subTrack[i - 1].y);
+                        ctx.moveTo(a.x, a.y);
+                        pathStarted = true;
+                    }
+                    const b = tf.toScreen(subTrack[i].x, subTrack[i].y);
+                    ctx.lineTo(b.x, b.y);
+                }
+                if (pathStarted) ctx.stroke();
+                
+                ctx.lineCap = 'round';
+            }
+        });
     }
 
     /* Straight mode: red dashes close to track edge using strips.png — same equidistant algorithm as editor */
@@ -222,21 +317,24 @@ F1.PreviewRenderer = class PreviewRenderer {
                     }
                     const totalLen = cumLen[cumLen.length - 1];
 
-                    const sf = Math.max(0.9, tf.scale);
-                    const fontSize = (zone.labelFontSize || 10) * sf;
-                    ctx.font = `bold ${fontSize}px Outfit`;
+                    const fontSizeScreen = (zone.labelFontSize || 10);
+                    // Use the constant screen font size for measurement
+                    ctx.font = `bold ${fontSizeScreen}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
-                    const charWidths = [];
-                    let totalTextW = 0;
+                    
+                    const charWidthsWorld = [];
+                    let totalTextWWorld = 0;
                     for (let c = 0; c < text.length; c++) {
-                        const cw = ctx.measureText(text[c]).width;
-                        charWidths.push(cw);
-                        totalTextW += cw;
+                        // Measure in screen pixels, then convert to world distance
+                        const cwScreen = ctx.measureText(text[c]).width;
+                        const cwWorld = cwScreen / tf.scale;
+                        charWidthsWorld.push(cwWorld);
+                        totalTextWWorld += cwWorld;
                     }
-                    const charGap = 1 * sf;
-                    totalTextW += charGap * (text.length - 1);
+                    const charGapWorld = 1 / tf.scale;
+                    totalTextWWorld += charGapWorld * (text.length - 1);
 
-                    let startOffset = (totalLen - totalTextW) / 2;
+                    let startOffset = (totalLen - totalTextWWorld) / 2;
                     if (startOffset < 0) startOffset = 0;
 
                     const getPointAt = (dist) => {
@@ -263,16 +361,17 @@ F1.PreviewRenderer = class PreviewRenderer {
                     ctx.fillStyle = '#ff1801';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     for (let c = 0; c < text.length; c++) {
-                        const charMid = curDist + charWidths[c] / 2;
+                        const charMid = curDist + charWidthsWorld[c] / 2;
                         const pt = getPointAt(charMid);
                         const s = tf.toScreen(pt.x, pt.y);
                         ctx.save();
                         ctx.translate(s.x, s.y);
                         ctx.rotate(pt.angle);
-                        ctx.font = `bold ${fontSize}px Outfit`;
+                        // Draw with constant screen size
+                        ctx.font = `bold ${fontSizeScreen}px Outfit`;
                         ctx.fillText(text[c], 0, 0);
                         ctx.restore();
-                        curDist += charWidths[c] + charGap;
+                        curDist += charWidthsWorld[c] + charGapWorld;
                     }
                 }
             }
@@ -470,14 +569,18 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _name(ctx, data, W, H) {
         ctx.fillStyle = this.nameColor || '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.fillText(data.name || 'Circuit', 20, 16);
+        const px = data.namePos ? data.namePos.x : 20;
+        const py = data.namePos ? data.namePos.y : 16;
+        ctx.fillText(data.name || 'Circuit', px, py);
     }
 
     _info(ctx, data, editor, W, H) {
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         const len = editor.getTrackLength() * ((data.gridSize || 50) / 50.0);
-        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 20, 46); }
-        ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 20, 68);
+        const px = data.namePos ? data.namePos.x : 20;
+        const py = data.namePos ? data.namePos.y : 16;
+        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, px, py + 30); }
+        ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, px, py + 52);
         const ly = H - 30; ctx.font = 'bold 10px Outfit'; let lx = 20;
         [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
             ctx.fillStyle = item.c; ctx.fillRect(lx, ly, 12, 12); ctx.fillStyle = this.infoColor || '#ccc'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(item.l, lx + 16, ly + 6); lx += ctx.measureText(item.l).width + 32;
