@@ -291,12 +291,13 @@ F1.CircuitData = class CircuitData {
                 const parts = key.split('-');
                 const oldA = parseInt(parts[0]);
                 const oldB = parseInt(parts[1]);
+                const ixIndex = parts.length > 2 ? parts[2] : '0';
                 const idA = oldSegToCpId[oldA];
                 const idB = oldSegToCpId[oldB];
                 const newA = this.controlPoints.findIndex(p => p.id === idA);
                 const newB = this.controlPoints.findIndex(p => p.id === idB);
                 if (newA === -1 || newB === -1) return null;
-                return `${Math.min(newA, newB)}-${Math.max(newA, newB)}`;
+                return `${Math.min(newA, newB)}-${Math.max(newA, newB)}-${ixIndex}`;
             }).filter(Boolean);
         }
     }

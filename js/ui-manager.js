@@ -238,10 +238,26 @@ F1.UIManager = class UIManager {
         return h;
     }
 
+    _getNodeDisplayNum(index) {
+        let startIdx = this.app.data.controlPoints.findIndex(p => p.id === this.app.data.startNodeId);
+        if (startIdx === -1) startIdx = 0;
+        const n = this.app.data.controlPoints.length;
+        if (n === 0) return index + 1;
+        let diff = index - startIdx;
+        if (diff < 0) diff += n;
+        return diff + 1;
+    }
+
     _drawProps() {
         let h = '<h3 class="prop-title">Draw Track</h3>';
         const n = this.app.data.controlPoints.length;
-        if (this.app.data.isClosed) h += '<p class="prop-hint success">✓ Circuit closed</p>';
+        if (this.app.data.isClosed) {
+            h += `<p class="prop-hint success" style="display: flex; align-items: center; gap: 4px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg> Circuit closed
+                  </p>`;
+        }
         else {
             h += `<p class="prop-hint">Click to place points.</p>`;
             if (n >= 3) h += '<p class="prop-hint dim">Click near first point to close.</p>';
@@ -280,7 +296,7 @@ F1.UIManager = class UIManager {
                         <option value="">-- Auto (First Node) --</option>`;
             this.app.data.controlPoints.forEach((pt, idx) => {
                 const isSelected = pt.id === this.app.data.startNodeId;
-                h += `<option value="${pt.id}" ${isSelected ? 'selected' : ''}>Node ${idx + 1}</option>`;
+                h += `<option value="${pt.id}" ${isSelected ? 'selected' : ''}>Node ${this._getNodeDisplayNum(idx)}</option>`;
             });
             h += `  </select>
                     <button class="prop-btn" id="btn-reverse-track" style="margin-top: 10px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>
@@ -295,7 +311,11 @@ F1.UIManager = class UIManager {
                     <select class="prop-input" id="prop-intersection-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">`;
             this.app.intersections.forEach((ix, index) => {
                 const isSelected = this.app.uiState && this.app.uiState.selectedIntersection === ix.id;
-                h += `<option value="${ix.id}" ${isSelected ? 'selected' : ''}>Intersection ${index + 1} (Nodes ${ix.cpA + 1}-${ix.cpA + 2} & ${ix.cpB + 1}-${ix.cpB + 2})</option>`;
+                const dA1 = this._getNodeDisplayNum(ix.cpA);
+                const dA2 = this._getNodeDisplayNum((ix.cpA + 1) % n);
+                const dB1 = this._getNodeDisplayNum(ix.cpB);
+                const dB2 = this._getNodeDisplayNum((ix.cpB + 1) % n);
+                h += `<option value="${ix.id}" ${isSelected ? 'selected' : ''}>Intersection ${index + 1} (Nodes ${dA1}-${dA2} & ${dB1}-${dB2})</option>`;
             });
             h += `  </select>
                     <button class="prop-btn" id="btn-invert-overlap" style="margin-top: 10px; width: 100%;">Invert Overlap</button>
@@ -443,8 +463,11 @@ F1.UIManager = class UIManager {
         let h = '<h3 class="prop-title">Pit Lane</h3><p class="prop-hint">Click to place path. FIA: min 12m width, with fast lane (outer) and slow lane (inner, crew side).</p>';
         h += `<p class="prop-hint dim">Points: <strong>${n}</strong></p>`;
         h += `<div class="prop-group"><label>Width</label>
-            <div class="prop-row"><input type="range" min="4" max="20" step="0.5" value="${this.app.data.pitLane.width}" id="prop-pitw" class="prop-slider">
-            <span class="prop-val" id="prop-pitw-val">${this.app.data.pitLane.width}m</span></div></div>`;
+            <div style="display:flex; align-items:center; margin-bottom: 4px;">
+                <input type="range" min="4" max="20" step="0.5" value="${this.app.data.pitLane.width}" id="prop-pitw" class="prop-slider" style="flex:1; margin-right:6px; min-width:0;">
+                <input type="number" class="prop-input" style="flex: 0 0 45px; padding:2px; font-size:11px; text-align:right; min-width:0;" id="prop-pitw-val-input" value="${this.app.data.pitLane.width}" min="4" max="20" step="0.5">
+                <span style="margin-left:4px; font-size:11px; color:#aaa; width:12px;">m</span>
+            </div></div>`;
         h += '<p class="prop-hint dim">Pit entry/exit should not cross racing line. Speed limit: 80 km/h.</p>';
         h += '<button class="prop-btn danger" id="btn-clear-pit">Clear Pit Lane</button>';
         return h;
@@ -617,6 +640,8 @@ F1.UIManager = class UIManager {
                 if (sfn.value) {
                     this.app.data.snapshot();
                     this.app.data.startNodeId = parseInt(sfn.value);
+                    this.app._updateIntersections();
+                    this.updateProperties();
                     this.app.requestRender();
                 }
             };
@@ -654,10 +679,15 @@ F1.UIManager = class UIManager {
                 if (!ix) return;
                 
                 this.app.data.snapshot();
-                const key = `${ix.cpA}-${ix.cpB}`;
+                const key = ix.key;
+                const legacyKey = `${ix.cpA}-${ix.cpB}`;
                 const idx = this.app.data.overlapInversions.indexOf(key);
+                const legacyIdx = this.app.data.overlapInversions.indexOf(legacyKey);
+                
                 if (idx > -1) {
                     this.app.data.overlapInversions.splice(idx, 1);
+                } else if (legacyIdx > -1) {
+                    this.app.data.overlapInversions.splice(legacyIdx, 1);
                 } else {
                     this.app.data.overlapInversions.push(key);
                 }
@@ -944,7 +974,19 @@ F1.UIManager = class UIManager {
         }
         // Pit width
         const pitw = document.getElementById('prop-pitw');
-        if (pitw) pitw.oninput = () => { this.app.data.pitLane.width = parseFloat(pitw.value); document.getElementById('prop-pitw-val').textContent = pitw.value + 'm'; this.app.requestRender(); };
+        const pitwVal = document.getElementById('prop-pitw-val-input');
+        if (pitw && pitwVal) {
+            const updatePitWidth = (val) => {
+                const w = Math.max(4, Math.min(20, parseFloat(val) || 12));
+                this.app.data.pitLane.width = w;
+                pitw.value = w;
+                pitwVal.value = w;
+                this.app.requestRender();
+            };
+            pitw.oninput = () => updatePitWidth(pitw.value);
+            pitwVal.onchange = () => updatePitWidth(pitwVal.value);
+            pitwVal.oninput = () => updatePitWidth(pitwVal.value);
+        }
         const cp = document.getElementById('btn-clear-pit');
         if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
         const dz = document.getElementById('btn-del-zone');

@@ -108,8 +108,9 @@ F1.SVGExporter = class SVGExporter {
         // Track Intersections (Overlaps)
         if (window.app && window.app.intersections) {
             window.app.intersections.forEach(ix => {
-                const key = `${ix.cpA}-${ix.cpB}`;
-                const inverted = data.overlapInversions && data.overlapInversions.includes(key);
+                const key = ix.key;
+                const legacyKey = `${ix.cpA}-${ix.cpB}`;
+                const inverted = data.overlapInversions && (data.overlapInversions.includes(key) || data.overlapInversions.includes(legacyKey));
                 let topIdx = Math.max(ix.trackIdxA, ix.trackIdxB);
                 if (inverted) topIdx = Math.min(ix.trackIdxA, ix.trackIdxB);
 
