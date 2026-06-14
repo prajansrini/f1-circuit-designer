@@ -524,6 +524,7 @@ class DrawTrackTool extends BaseTool {
         if (this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale)) {
             this.data.snapshot(); this.data.closeTrack();
             this.app.setStatus('Circuit closed! You can now manually assign sectors.');
+            this.app.uiManager.updateProperties();
             this.app.requestRender(); return;
         }
         this.data.snapshot();

@@ -111,6 +111,13 @@ F1.App = class App {
                 }
             }
         }
+        const counts = {};
+        intersections.forEach(ix => {
+            const baseKey = `${ix.cpA}-${ix.cpB}`;
+            counts[baseKey] = (counts[baseKey] || 0) + 1;
+            ix.key = `${baseKey}-${counts[baseKey] - 1}`;
+        });
+        
         this.intersections = intersections;
     }
 
