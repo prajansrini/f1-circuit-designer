@@ -74,12 +74,30 @@ F1.Renderer = class Renderer {
             this._renderIntersections(track, data, editor, sel);
             this._startFinish(track, data);
         }
-        this._pitLane(editor); this._garages(data, sel); this._grandstands(data, sel);
+        this._pitLane(editor);
         this._zones(data, editor, sel, activeTool); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
         this._rotationHandles(data, editor, sel);
         this._rulers(track, data);
+
+        // Hover tooltip for Nodes
+        if (hoverPt) {
+            const nodeIdx = data.getLogicalNodeIndex(hoverPt.id);
+            if (nodeIdx > 0) {
+                const s = this.w2s(hoverPt.x, hoverPt.y);
+                ctx.font = `bold 12px Outfit`;
+                const txt = `Node ${nodeIdx}`;
+                const tw = ctx.measureText(txt).width;
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.beginPath();
+                ctx.roundRect ? ctx.roundRect(s.x + 12, s.y - 12, tw + 8, 24, 4) : ctx.rect(s.x + 12, s.y - 12, tw + 8, 24);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(txt, s.x + 16, s.y);
+            }
+        }
     }
 
     _grid(data) {
@@ -159,11 +177,34 @@ F1.Renderer = class Renderer {
 
     _barriers(track) {
         const ctx = this.ctx; ctx.strokeStyle = this.C.barrier; ctx.lineWidth = Math.max(3, 4 * this.scale);
-        let inB = false; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierLeft) { const w = p.widthLeft + (p.surfaceWidthLeft ?? 10); const s = this.w2s(p.x - p.nx * w, p.y - p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
-        ctx.stroke(); inB = false; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i]; if (p.barrierRight) { const w = p.widthRight + (p.surfaceWidthRight ?? 10); const s = this.w2s(p.x + p.nx * w, p.y + p.ny * w); inB ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); inB = true; } else inB = false; }
-        ctx.stroke();
+        let i = 0;
+        while (i < track.length - 1) {
+            const hasL = track[i].barrierLeft, hasR = track[i].barrierRight;
+            if (!hasL && !hasR) { i++; continue; }
+            
+            let j = i;
+            while (j < track.length - 1 && track[j].barrierLeft === hasL && track[j].barrierRight === hasR) j++;
+            
+            if (hasL) {
+                ctx.beginPath();
+                for (let k = i; k <= Math.min(j, track.length - 1); k++) {
+                    const p = track[k], w = p.widthLeft + (p.surfaceWidthLeft ?? 10);
+                    const s = this.w2s(p.x - p.nx * w, p.y - p.ny * w);
+                    k === i ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
+                }
+                ctx.stroke();
+            }
+            if (hasR) {
+                ctx.beginPath();
+                for (let k = i; k <= Math.min(j, track.length - 1); k++) {
+                    const p = track[k], w = p.widthRight + (p.surfaceWidthRight ?? 10);
+                    const s = this.w2s(p.x + p.nx * w, p.y + p.ny * w);
+                    k === i ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
+                }
+                ctx.stroke();
+            }
+            i = j;
+        }
     }
 
     /* Straight Mode - red dashes close to track edge using strips.png */
@@ -433,32 +474,7 @@ F1.Renderer = class Renderer {
         if (pit.length > 4) { const mid = pit[Math.floor(pit.length / 2)], s = this.w2s(mid.x, mid.y); ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(10, 12 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PIT LANE', s.x, s.y); }
     }
 
-    _garages(data, sel) {
-        const ctx = this.ctx;
-        data.garages.forEach(g => {
-            ctx.save(); const s = this.w2s(g.x, g.y); ctx.translate(s.x, s.y); ctx.rotate((g.rotation || 0) * Math.PI / 180);
-            const w = g.width * this.scale, h = g.height * this.scale;
-            ctx.fillStyle = g.color || '#555'; ctx.globalAlpha = 0.7; ctx.fillRect(-w / 2, -h / 2, w, h); ctx.globalAlpha = 1;
-            const isSel = sel && sel.type === 'garage' && sel.id === g.id;
-            ctx.strokeStyle = isSel ? '#00ff88' : '#aaa'; ctx.lineWidth = isSel ? 2 : 1; ctx.strokeRect(-w / 2, -h / 2, w, h);
-            ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(6, 7 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(g.teamName || 'Garage', 0, 0); ctx.restore();
-        });
-    }
 
-    _grandstands(data, sel) {
-        const ctx = this.ctx;
-        data.grandstands.forEach((gs, idx) => {
-            ctx.save(); const s = this.w2s(gs.x, gs.y); ctx.translate(s.x, s.y); ctx.rotate(gs.rotation * Math.PI / 180);
-            const w = gs.width * this.scale, h = gs.height * this.scale;
-            ctx.fillStyle = '#555'; ctx.fillRect(-w / 2, -h / 2, w, h);
-            ctx.fillStyle = this.C.gsRoof[idx % this.C.gsRoof.length]; ctx.fillRect(-w / 2, -h / 2, w, h * 0.35);
-            const isSel = sel && sel.type === 'grandstand' && sel.id === gs.id;
-            ctx.strokeStyle = isSel ? '#00ff88' : '#888'; ctx.lineWidth = isSel ? 2 : 1; ctx.strokeRect(-w / 2, -h / 2, w, h);
-            ctx.fillStyle = '#fff'; ctx.font = `${Math.max(7, 8 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('GRANDSTAND', 0, h * .15); ctx.restore();
-        });
-    }
 
     _drawRotHandle(cx, cy, rad, dist) {
         const ctx = this.ctx;
@@ -471,12 +487,7 @@ F1.Renderer = class Renderer {
 
     _rotationHandles(data, editor, sel) {
         if (!sel) return;
-        if (sel.type === 'grandstand' || sel.type === 'garage') {
-            const obj = sel.type === 'grandstand' ? data.getGrandstandById(sel.id) : data.getGarageById(sel.id);
-            if (!obj) return;
-            const s = this.w2s(obj.x, obj.y);
-            this._drawRotHandle(s.x, s.y, (obj.rotation || 0) * Math.PI / 180, ((obj.height || 16) * this.scale / 2) + 20);
-        } else if (sel.type === 'zone') {
+        if (sel.type === 'zone') {
             const zone = data.getZoneById(sel.id);
             if (!zone) return;
             const zt = F1.ZONE_TYPES.find(z => z.key === zone.type);

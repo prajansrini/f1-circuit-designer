@@ -79,7 +79,14 @@ body {
     position: relative;
 }
 
-.top-left,
+.top-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
 .top-center,
 .top-right {
     display: flex;
@@ -136,6 +143,81 @@ body {
     outline: none;
     border-color: var(--f1-red);
     box-shadow: 0 0 0 2px var(--f1-red-glow);
+}
+
+.project-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+}
+
+.project-tabs::-webkit-scrollbar {
+    height: 8px;
+}
+.project-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+.project-tabs::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    border: 2px solid var(--bg-panel); /* Adds "padding" to thumb */
+}
+.project-tabs::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.project-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    max-width: 150px;
+    flex-shrink: 0;
+}
+
+.project-tab-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-tab:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+}
+
+.project-tab.active {
+    background: rgba(225, 6, 0, 0.15);
+    border-color: var(--f1-red);
+    color: #fff;
+    box-shadow: 0 0 10px var(--f1-red-glow);
+}
+
+.project-tab-close {
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.6;
+    padding-left: 4px;
+    transition: opacity 0.2s;
+}
+
+.project-tab-close:hover {
+    opacity: 1;
+    color: var(--f1-red);
 }
 
 .top-btn {
