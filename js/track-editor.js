@@ -103,11 +103,7 @@ F1.TrackEditor = class TrackEditor {
         for (const p of this.data.controlPoints) { const d = Math.hypot(p.x - wx, p.y - wy); if (d < bestD) { bestD = d; best = p; } }
         return best;
     }
-    findNearestGrandstand(wx, wy, maxDist) {
-        let best = null, bestD = maxDist;
-        for (const g of this.data.grandstands) { const d = Math.hypot(g.x - wx, g.y - wy); if (d < bestD) { bestD = d; best = g; } }
-        return best;
-    }
+
     findNearestPitPoint(wx, wy, maxDist) {
         let best = null, bestD = maxDist;
         for (const p of this.data.pitLane.points) { const d = Math.hypot(p.x - wx, p.y - wy); if (d < bestD) { bestD = d; best = p; } }
@@ -115,7 +111,9 @@ F1.TrackEditor = class TrackEditor {
     }
     findNearestZone(wx, wy, maxDist) {
         let best = null, bestD = maxDist;
+        const tp = this.findNearestTrackPoint(wx, wy);
         for (const z of this.data.zones) {
+            if (z.type === 'straight_mode') continue;
             const pos = this.getZoneWorldPos(z);
             if (!pos) continue;
             const d = Math.hypot(pos.x - wx, pos.y - wy);

@@ -34,9 +34,7 @@ F1.CircuitData = class CircuitData {
         this.startNodeId = null;
         this.gridSize = 50;
         this.pitLane = { points: [], width: 8 };
-        this.grandstands = [];
         this.zones = [];
-        this.garages = [];
         this.turnMarkers = []; // User-placed turn numbers
         this.sectorLabels = [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
@@ -49,9 +47,20 @@ F1.CircuitData = class CircuitData {
         this._redoStack = [];
     }
     _genId() { return this._nextId++; }
-    snapshot() { this._undoStack.push(JSON.stringify(this._serialize())); if (this._undoStack.length > 80) this._undoStack.shift(); this._redoStack = []; }
+    snapshot() { this._undoStack.push(JSON.stringify(this._serialize())); if (this._undoStack.length > 80) this._undoStack.shift(); this._redoStack = []; if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('circuit-changed')); }
     undo() { if (!this._undoStack.length) return; this._redoStack.push(JSON.stringify(this._serialize())); this._deserialize(JSON.parse(this._undoStack.pop())); }
     redo() { if (!this._redoStack.length) return; this._undoStack.push(JSON.stringify(this._serialize())); this._deserialize(JSON.parse(this._redoStack.pop())); }
+
+    getLogicalNodeIndex(ptId) {
+        const rawIdx = this.controlPoints.findIndex(p => p.id === ptId);
+        if (rawIdx === -1) return -1;
+        if (!this.startNodeId || !this.isClosed) return rawIdx + 1;
+        const startIdx = this.controlPoints.findIndex(p => p.id === this.startNodeId);
+        if (startIdx === -1) return rawIdx + 1;
+        let logicalIdx = rawIdx - startIdx;
+        if (logicalIdx < 0) logicalIdx += this.controlPoints.length;
+        return logicalIdx + 1;
+    }
 
     insertControlPoint(x, y, index) {
         const pt = {
@@ -112,10 +121,10 @@ F1.CircuitData = class CircuitData {
     addPitLanePoint(x, y) { const pt = { id: this._genId(), x, y }; this.pitLane.points.push(pt); return pt; }
     clearPitLane() { this.pitLane.points = []; }
 
-    addGrandstand(x, y) { const gs = { id: this._genId(), x, y, width: 90, height: 22, rotation: 0 }; this.grandstands.push(gs); return gs; }
-    removeGrandstand(id) { this.grandstands = this.grandstands.filter(g => g.id !== id); }
-    getGrandstandById(id) { return this.grandstands.find(g => g.id === id) || null; }
+    getTurnMarkerById(id) { return this.turnMarkers.find(t => t.id === id) || null; }
 
+    addPitLanePoint(x, y) { const pt = { id: this._genId(), x, y }; this.pitLane.points.push(pt); return pt; }
+    clearPitLane() { this.pitLane.points = []; }
     addZone(type, segIndex, t, labelOffsetX, labelOffsetY) {
         const zt = F1.ZONE_TYPES.find(z => z.key === type);
         if (zt && !zt.multi) { this.zones = this.zones.filter(z => z.type !== type); }
@@ -140,131 +149,79 @@ F1.CircuitData = class CircuitData {
     removeZone(id) { this.zones = this.zones.filter(z => z.id !== id); }
     getZoneById(id) { return this.zones.find(z => z.id === id) || null; }
 
-    addGarage(x, y) {
-        const colors = ['#e10600', '#00d2be', '#0600ef', '#ff8700', '#006f62', '#2b4562', '#b6babd', '#52e252', '#4682b4', '#900020'];
-        const g = { id: this._genId(), x, y, width: 30, height: 16, rotation: 0, teamName: `Team ${this.garages.length + 1}`, color: colors[this.garages.length % 10] };
-        this.garages.push(g); return g;
-    }
-    removeGarage(id) { this.garages = this.garages.filter(g => g.id !== id); }
-    getGarageById(id) { return this.garages.find(g => g.id === id) || null; }
 
     reverseTrack() {
-        if (this.controlPoints.length < 2) return;
+        if (!this.controlPoints || this.controlPoints.length < 2) return;
+        this.snapshot();
+        
         const N = this.controlPoints.length;
 
         // 0. Pre-calculate mapping for overlap inversions
         const oldOverlaps = [...(this.overlapInversions || [])];
-        const oldSegToCpId = [];
+        const oldSegToCpId = {};
         for (let i = 0; i < N; i++) {
-            oldSegToCpId.push(this.controlPoints[(i + 1) % N].id);
+            oldSegToCpId[i] = this.controlPoints[i].id;
         }
 
-        // --- Helper: Catmull-Rom interpolation for world-position computation ---
-        const crInterp = (p0, p1, p2, p3, t) => {
-            const t2 = t * t, t3 = t2 * t;
-            return {
-                x: .5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-                y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
-            };
-        };
-        const getWorldPos = (pts, segIdx, t) => {
-            const n = pts.length;
-            const segs = this.isClosed ? n : n - 1;
-            const i = Math.max(0, Math.min(segIdx, segs - 1));
-            const p1 = pts[i], p2 = pts[(i + 1) % n];
-            let p0, p3;
-            if (this.isClosed) {
-                p0 = pts[(i - 1 + n) % n]; p3 = pts[(i + 2) % n];
-            } else {
-                p0 = i > 0 ? pts[i - 1] : { x: 2 * pts[0].x - pts[1].x, y: 2 * pts[0].y - pts[1].y };
-                p3 = i < n - 2 ? pts[i + 2] : { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
-            }
-            return crInterp(p0, p1, p2, p3, t);
-        };
-
-        // --- Save world positions of all zones and turn markers BEFORE reversal ---
-        const zoneWorldPositions = this.zones.map(z => {
-            const startPos = getWorldPos(this.controlPoints, z.segIndex, z.t);
-            let endPos = null;
-            if (z.endSegIndex !== undefined) {
-                endPos = getWorldPos(this.controlPoints, z.endSegIndex, z.endT);
-            }
-            return { startPos, endPos };
-        });
-        const tmWorldPositions = this.turnMarkers.map(tm => {
-            return getWorldPos(this.controlPoints, tm.segIndex, tm.t);
-        });
-
-        // Store old sectors before reversing
-        const oldSectors = this.controlPoints.map(cp => cp.sector);
-
-        // 1. Reverse the control points array
-        this.controlPoints.reverse();
-
-        // 2. Swap L/R attributes and Sectors
+        // 1. Shift edge properties (Surfaces, Barriers, Sectors) and swap point properties (Widths)
+        const newEdgeProps = new Array(N);
         for (let i = 0; i < N; i++) {
+            let nextIdx = (i + 1) % N;
+            
             const cp = this.controlPoints[i];
-            const tmpWidth = cp.widthLeft; cp.widthLeft = cp.widthRight; cp.widthRight = tmpWidth;
-            const tmpSurf = cp.surfaceLeft; cp.surfaceLeft = cp.surfaceRight; cp.surfaceRight = tmpSurf;
-            const tmpSWidth = cp.surfaceWidthLeft; cp.surfaceWidthLeft = cp.surfaceWidthRight; cp.surfaceWidthRight = tmpSWidth;
-            const tmpBarr = cp.barrierLeft; cp.barrierLeft = cp.barrierRight; cp.barrierRight = tmpBarr;
-
-            const oldIdx = N - 1 - i;
-            let prevOldIdx = oldIdx - 1;
-            if (prevOldIdx < 0) {
-                if (this.isClosed) prevOldIdx += N;
-                else prevOldIdx = 0;
-            }
-
-            let s = oldSectors[prevOldIdx];
+            let s = cp.sector;
             if (s === 1) s = 3;
             else if (s === 3) s = 1;
-            cp.sector = s;
+            
+            newEdgeProps[nextIdx] = {
+                surfaceLeft: cp.surfaceRight,
+                surfaceRight: cp.surfaceLeft,
+                barrierLeft: cp.barrierRight,
+                barrierRight: cp.barrierLeft,
+                sector: s
+            };
+        }
+        
+        for (let i = 0; i < N; i++) {
+            const cp = this.controlPoints[i];
+            // Point properties: Swap L/R in place (they stay at the same physical node)
+            const tmpWidth = cp.widthLeft; cp.widthLeft = cp.widthRight; cp.widthRight = tmpWidth;
+            const tmpSWidth = cp.surfaceWidthLeft; cp.surfaceWidthLeft = cp.surfaceWidthRight; cp.surfaceWidthRight = tmpSWidth;
+            
+            // Edge properties: Apply the shifted properties
+            Object.assign(cp, newEdgeProps[i]);
         }
 
-        // 3. Cyclically shift to preserve the Start Node's position (if closed) — do this BEFORE zone re-projection
+        // 2. Reverse the control points array
+        this.controlPoints.reverse();
+
+        // 3. Cyclically shift to preserve the Start Node's position (if closed)
+        let shiftOffset = 0;
         if (this.isClosed && this.startNodeId) {
             const currentStartIdx = this.controlPoints.findIndex(p => p.id === this.startNodeId);
             if (currentStartIdx !== -1 && currentStartIdx !== 0) {
                 this.controlPoints = this.controlPoints.slice(currentStartIdx).concat(this.controlPoints.slice(0, currentStartIdx));
+                shiftOffset = currentStartIdx;
             }
         }
 
-        // --- Helper: project a world position onto the (now-reversed) track to find new segIndex + t ---
-        const projectOntoTrack = (wx, wy) => {
-            const pts = this.controlPoints;
-            const n = pts.length;
-            const segs = this.isClosed ? n : n - 1;
-            let bestDist = Infinity, bestSeg = 0, bestT = 0;
-            const steps = 20; // sub-steps per segment for accuracy
-            for (let seg = 0; seg < segs; seg++) {
-                for (let j = 0; j <= steps; j++) {
-                    const t = j / steps;
-                    const pos = getWorldPos(pts, seg, t);
-                    const d = Math.hypot(pos.x - wx, pos.y - wy);
-                    if (d < bestDist) { bestDist = d; bestSeg = seg; bestT = t; }
-                }
+        // Exact mathematical mapping for zones and turn markers
+        const mapSegAndT = (segIndex, t) => {
+            let newSeg = (this.isClosed && segIndex === N - 1) ? N - 1 : N - 2 - segIndex;
+            let newT = 1 - t;
+            if (this.isClosed && shiftOffset > 0) {
+                newSeg = (newSeg - shiftOffset + N) % N;
             }
-            // Refine with binary search around bestT
-            let lo = Math.max(0, bestT - 1 / steps), hi = Math.min(1, bestT + 1 / steps);
-            for (let iter = 0; iter < 10; iter++) {
-                const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-                const p1 = getWorldPos(pts, bestSeg, m1), p2 = getWorldPos(pts, bestSeg, m2);
-                const d1 = Math.hypot(p1.x - wx, p1.y - wy), d2 = Math.hypot(p2.x - wx, p2.y - wy);
-                if (d1 < d2) hi = m2; else lo = m1;
-            }
-            bestT = (lo + hi) / 2;
-            return { segIndex: bestSeg, t: bestT };
+            return { segIndex: newSeg, t: newT };
         };
 
-        // 4. Re-project zones onto the reversed track
-        this.zones.forEach((z, idx) => {
-            const saved = zoneWorldPositions[idx];
-            const newStart = projectOntoTrack(saved.startPos.x, saved.startPos.y);
-            if (saved.endPos) {
-                // For range-based zones (like Straight Mode Zone), the old end becomes the new start,
-                // and the old start becomes the new end in the reversed winding order.
-                const newEnd = projectOntoTrack(saved.endPos.x, saved.endPos.y);
+        // 4. Re-map zones onto the reversed track
+        this.zones.forEach((z) => {
+            const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
+            const newStart = mapSegAndT(z.segIndex, z.t);
+            
+            if (zt && zt.range && z.endSegIndex !== undefined) {
+                const newEnd = mapSegAndT(z.endSegIndex, z.endT);
                 z.segIndex = newEnd.segIndex;
                 z.t = newEnd.t;
                 z.endSegIndex = newStart.segIndex;
@@ -272,14 +229,19 @@ F1.CircuitData = class CircuitData {
             } else {
                 z.segIndex = newStart.segIndex;
                 z.t = newStart.t;
+                if (z.endSegIndex !== undefined) {
+                    const newEnd = mapSegAndT(z.endSegIndex, z.endT);
+                    // Just remap end, don't swap them since the primary anchor must stay at the start
+                    z.endSegIndex = newEnd.segIndex;
+                    z.endT = newEnd.t;
+                }
             }
             z.side = z.side === 'left' ? 'right' : 'left';
         });
 
-        // 5. Re-project turn markers onto the reversed track
-        this.turnMarkers.forEach((tm, idx) => {
-            const saved = tmWorldPositions[idx];
-            const newPos = projectOntoTrack(saved.x, saved.y);
+        // 5. Re-map turn markers onto the reversed track
+        this.turnMarkers.forEach((tm) => {
+            const newPos = mapSegAndT(tm.segIndex, tm.t);
             tm.segIndex = newPos.segIndex;
             tm.t = newPos.t;
             tm.side = tm.side === 'left' ? 'right' : 'left';
@@ -302,9 +264,9 @@ F1.CircuitData = class CircuitData {
         }
     }
 
-    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), grandstands: JSON.parse(JSON.stringify(this.grandstands)), zones: JSON.parse(JSON.stringify(this.zones)), garages: JSON.parse(JSON.stringify(this.garages)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), _nextId: this._nextId }; }
+    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), zones: JSON.parse(JSON.stringify(this.zones)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), _nextId: this._nextId }; }
     _deserialize(d) {
-        this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.grandstands = d.grandstands; this.zones = d.zones || []; this.garages = d.garages || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
+        this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.zones = d.zones || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
@@ -313,7 +275,7 @@ F1.CircuitData = class CircuitData {
     toJSON() { return JSON.stringify(this._serialize()); }
     fromJSON(json) { this._deserialize(JSON.parse(json)); this._undoStack = []; this._redoStack = []; }
     clear() {
-        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.namePos = { x: 20, y: 16 }; this.pitLane = { points: [], width: 8 }; this.grandstands = []; this.zones = []; this.garages = []; this.turnMarkers = []; this.sectorLabels = [
+        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.namePos = { x: 20, y: 16 }; this.pitLane = { points: [], width: 8 }; this.zones = []; this.turnMarkers = []; this.sectorLabels = [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }

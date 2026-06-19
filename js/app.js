@@ -5,13 +5,40 @@ window.F1 = window.F1 || {};
 
 F1.App = class App {
     constructor() {
-        this.data = new F1.CircuitData();
+        this.projects = [];
+        this.currentProjectIndex = 0;
+        
+        try {
+            const saved = localStorage.getItem('f1_circuit_projects');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.projects && Array.isArray(parsed.projects) && parsed.projects.length > 0) {
+                    this.projects = parsed.projects.map(pData => {
+                        const pd = new F1.CircuitData();
+                        pd.fromJSON(JSON.stringify(pData));
+                        return pd;
+                    });
+                    this.currentProjectIndex = parsed.currentIndex || 0;
+                    if (this.currentProjectIndex >= this.projects.length) this.currentProjectIndex = 0;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load projects from storage', e);
+        }
+
+        if (this.projects.length === 0) {
+            this.projects.push(new F1.CircuitData());
+        }
+
+        this.data = this.projects[this.currentProjectIndex];
         this.editor = new F1.TrackEditor(this.data);
         this.canvas = document.getElementById('main-canvas');
         this.renderer = new F1.Renderer(this.canvas);
         this.previewCanvas = document.getElementById('preview-canvas');
         this.preview = new F1.PreviewRenderer(this.previewCanvas);
         this.uiManager = new F1.UIManager(this);
+        
+        window.addEventListener('circuit-changed', () => this._saveProjectsToStorage());
 
         this.tools = {
             select: new F1.Tools.SelectTool(this),
@@ -22,10 +49,8 @@ F1.App = class App {
             sector: new F1.Tools.SectorTool(this),
             turn: new F1.Tools.TurnTool(this),
             pitlane: new F1.Tools.PitLaneTool(this),
-            grandstand: new F1.Tools.GrandstandTool(this),
             zone: new F1.Tools.ZoneTool(this),
             straightMode: new F1.Tools.StraightModeTool(this),
-            garage: new F1.Tools.GarageTool(this),
             eraser: new F1.Tools.EraserTool(this),
             scale: new F1.Tools.ScaleTool(this),
             help: new F1.Tools.BaseTool(this)
@@ -48,6 +73,11 @@ F1.App = class App {
         this._initTopBar();
         this._initGenerateBtn();
         this._initHelp();
+        
+        this._renderProjectTabs();
+        const nameInput = document.getElementById('circuit-name');
+        if (nameInput) nameInput.value = this.data.name || '';
+        
         this.setTool('draw');
         this._renderLoop();
         setTimeout(() => this._renderPreview(), 100);
@@ -132,6 +162,85 @@ F1.App = class App {
 
     _renderPreview() { this.preview.resize(); this.preview.render(this.data, this.editor); }
 
+    _saveProjectsToStorage() {
+        if (this._saveTimer) clearTimeout(this._saveTimer);
+        this._saveTimer = setTimeout(() => {
+            const data = {
+                currentIndex: this.currentProjectIndex,
+                projects: this.projects.map(p => p._serialize())
+            };
+            try { localStorage.setItem('f1_circuit_projects', JSON.stringify(data)); }
+            catch (e) { console.error('Failed to save to localStorage', e); }
+        }, 500);
+    }
+
+    newProject() {
+        const p = new F1.CircuitData();
+        this.projects.push(p);
+        this.switchProject(this.projects.length - 1);
+    }
+
+    duplicateProject() {
+        const newProj = new F1.CircuitData();
+        newProj.fromJSON(this.data.toJSON());
+        newProj.name = (this.data.name || 'Untitled Circuit') + ' Copy';
+        this.projects.push(newProj);
+        this.switchProject(this.projects.length - 1);
+    }
+
+    switchProject(index) {
+        if (index < 0 || index >= this.projects.length) return;
+        this.currentProjectIndex = index;
+        this.data = this.projects[index];
+        this.editor = new F1.TrackEditor(this.data);
+        this.setSelection(null);
+        const nameInput = document.getElementById('circuit-name');
+        if (nameInput) nameInput.value = this.data.name || '';
+        this._renderProjectTabs();
+        if (this.activeTool && this.activeTool.activate) this.activeTool.activate();
+        this.requestRender();
+        this.uiManager.updateProperties();
+        this._saveProjectsToStorage();
+    }
+
+    closeProject(index) {
+        this.projects.splice(index, 1);
+        if (this.projects.length === 0) {
+            this.projects.push(new F1.CircuitData());
+            this.switchProject(0);
+        } else {
+            let nextIndex = this.currentProjectIndex;
+            if (index < nextIndex) nextIndex--;
+            else if (index === nextIndex && nextIndex >= this.projects.length) nextIndex = this.projects.length - 1;
+            this.switchProject(nextIndex);
+        }
+    }
+
+    _renderProjectTabs() {
+        const container = document.getElementById('project-tabs');
+        if (!container) return;
+        container.innerHTML = '';
+        this.projects.forEach((p, i) => {
+            const t = document.createElement('div');
+            t.className = 'project-tab' + (i === this.currentProjectIndex ? ' active' : '');
+            t.title = p.name || 'Untitled Circuit';
+            t.onclick = () => this.switchProject(i);
+            
+            const n = document.createElement('span');
+            n.className = 'project-tab-name';
+            n.textContent = p.name || 'Untitled Circuit';
+            t.appendChild(n);
+            
+            const c = document.createElement('div');
+            c.className = 'project-tab-close';
+            c.textContent = '×';
+            c.onclick = (e) => { e.stopPropagation(); this.closeProject(i); };
+            t.appendChild(c);
+            
+            container.appendChild(t);
+        });
+    }
+
     _initEvents() {
         const canvas = this.canvas;
         let isSpaceDown = false;
@@ -159,9 +268,11 @@ F1.App = class App {
             if (this._isPanning) { this.renderer.pan(e.clientX - this._panStart.x, e.clientY - this._panStart.y); this._panStart = { x: e.clientX, y: e.clientY }; this.requestRender(); return; }
             const w = this.renderer.s2w(sx, sy); this.activeTool.onMouseMove(w.x, w.y, e); this.uiManager.updateStatusBar(w.x, w.y);
         });
-        canvas.addEventListener('mouseup', e => {
+        window.addEventListener('mouseup', e => {
             if (this._isPanning) { this._isPanning = false; canvas.style.cursor = this.activeTool.getCursor(); return; }
-            const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); this.activeTool.onMouseUp(w.x, w.y, e);
+            const r = canvas.getBoundingClientRect(); 
+            const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); 
+            this.activeTool.onMouseUp(w.x, w.y, e);
         });
         canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); this.uiManager.updateStatusBar(); }, { passive: false });
         canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -174,8 +285,9 @@ F1.App = class App {
         pCanvas.addEventListener('mousemove', e => {
             if (isPreviewPanning) { this.preview.pan(e.clientX - previewPanStart.x, e.clientY - previewPanStart.y); previewPanStart = { x: e.clientX, y: e.clientY }; this._renderPreview(); return; }
         });
-        pCanvas.addEventListener('mouseup', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
-        pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
+        window.addEventListener('mouseup', e => {
+            if (isPreviewPanning) { isPreviewPanning = false; pCanvas.style.cursor = 'default'; }
+        });pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
         pCanvas.addEventListener('wheel', e => { e.preventDefault(); const r = pCanvas.getBoundingClientRect(); this.preview.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this._renderPreview(); }, { passive: false });
         pCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -190,16 +302,24 @@ F1.App = class App {
         document.addEventListener('keydown', e => {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (e.key === 'Escape') { this.setTool('select'); return; }
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this._renderPreview(); return; }
-            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-                e.preventDefault();
-                const cn = document.getElementById('circuit-name');
-                if (cn) { cn.focus(); cn.select(); }
-                return;
+            if (e.ctrlKey || e.metaKey) {
+                const key = e.key.toLowerCase();
+                if (key === 'm') { e.preventDefault(); this._renderPreview(); return; }
+                if (key === 's') { e.preventDefault(); document.getElementById('btn-save').click(); return; }
+                if (key === 'o') { e.preventDefault(); document.getElementById('btn-load').click(); return; }
+                if (key === 'i') { e.preventDefault(); document.getElementById('btn-download-map').click(); return; }
+                if (key === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
+                if (key === 'd') { e.preventDefault(); document.getElementById('btn-duplicate-project').click(); return; }
+                if (key === '/') {
+                    e.preventDefault();
+                    const cn = document.getElementById('circuit-name');
+                    if (cn) { cn.focus(); cn.select(); }
+                    return;
+                }
+                if (key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
+                if (key === 'y' || (e.shiftKey && key === 'z')) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
-            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', g: 'garage', l: 'grandstand', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
+            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'f') {
                 if (hoveredCanvas === 'editor') {
@@ -227,26 +347,39 @@ F1.App = class App {
             // Circle click opens native color picker
             if (circle) circle.addEventListener('click', () => picker.click());
             // Native picker change syncs to hex + circle + applies
-            const sync = (color) => {
-                if (hex) hex.value = color.toUpperCase();
+            const sync = (color, fromHex = false) => {
+                if (hex && !fromHex) hex.value = color.toUpperCase();
                 if (circle) circle.style.background = color;
-                picker.value = color;
+                if (picker.value !== color.toLowerCase()) picker.value = color;
                 applyFn(color);
             };
             picker.addEventListener('input', (e) => sync(e.target.value));
             picker.addEventListener('change', (e) => sync(e.target.value));
+            
+            const parseHex = (val) => {
+                let v = val.trim();
+                if (!v.startsWith('#')) v = '#' + v;
+                if (/^#[0-9a-fA-F]{3}$/.test(v)) {
+                    return '#' + v[1]+v[1] + v[2]+v[2] + v[3]+v[3];
+                }
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
+                return null;
+            };
+
             // Hex text input
             if (hex) {
                 hex.addEventListener('change', (e) => {
-                    let v = e.target.value.trim();
-                    if (!v.startsWith('#')) v = '#' + v;
-                    if (/^#[0-9a-fA-F]{6}$/.test(v)) sync(v);
-                    else e.target.value = picker.value.toUpperCase();
+                    let c = parseHex(e.target.value);
+                    if (c) {
+                        e.target.value = c.toUpperCase();
+                        sync(c, true);
+                    } else {
+                        e.target.value = picker.value.toUpperCase();
+                    }
                 });
                 hex.addEventListener('input', (e) => {
-                    let v = e.target.value.trim();
-                    if (!v.startsWith('#')) v = '#' + v;
-                    if (/^#[0-9a-fA-F]{6}$/.test(v)) sync(v);
+                    let c = parseHex(e.target.value);
+                    if (c) sync(c, true);
                 });
             }
         };
@@ -278,8 +411,18 @@ F1.App = class App {
     }
 
     _initTopBar() {
-        document.getElementById('btn-undo').addEventListener('click', () => { this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); });
-        document.getElementById('btn-redo').addEventListener('click', () => { this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); });
+        document.getElementById('btn-new-project').addEventListener('click', () => { this.newProject(); });
+        document.getElementById('btn-duplicate-project').addEventListener('click', () => { this.duplicateProject(); });
+        
+        document.getElementById('circuit-name').addEventListener('input', (e) => {
+            this.data.name = e.target.value;
+            this._renderProjectTabs();
+            this.requestRender();
+            this._saveProjectsToStorage();
+        });
+
+        document.getElementById('btn-undo').addEventListener('click', () => { this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); this._saveProjectsToStorage(); });
+        document.getElementById('btn-redo').addEventListener('click', () => { this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); this._saveProjectsToStorage(); });
         document.getElementById('btn-save').addEventListener('click', () => {
             const name = document.getElementById('circuit-name').value || 'Untitled Circuit'; 
             this.data.name = name;

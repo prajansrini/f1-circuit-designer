@@ -64,8 +64,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         this._startFinish(ctx, track, data, tf, editor);
         if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
-        if (this.layers.garages) this._garages(ctx, data, tf);
-        if (this.layers.grandstands) this._grandstands(ctx, data, tf);
+
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
         if (this.layers.sectors) this._sectorLabels(ctx, track, data, tf);
         if (this.layers.zones) this._zones(ctx, data, editor, tf);
@@ -449,24 +448,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
     }
 
-    _garages(ctx, data, tf) {
-        data.garages.forEach(g => {
-            const s = tf.toScreen(g.x, g.y); ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((g.rotation || 0) * Math.PI / 180);
-            const w = g.width * tf.scale, h = g.height * tf.scale;
-            ctx.fillStyle = g.color || '#555'; ctx.globalAlpha = 0.7; ctx.fillRect(-w / 2, -h / 2, w, h); ctx.globalAlpha = 1;
-            ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.strokeRect(-w / 2, -h / 2, w, h);
-            ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(5, 6 * tf.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(g.teamName || '', 0, 0); ctx.restore();
-        });
-    }
 
-    _grandstands(ctx, data, tf) {
-        data.grandstands.forEach(gs => {
-            const s = tf.toScreen(gs.x, gs.y); ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(gs.rotation * Math.PI / 180);
-            const w = gs.width * tf.scale, h = gs.height * tf.scale;
-            ctx.fillStyle = 'rgba(85,85,85,0.7)'; ctx.fillRect(-w / 2, -h / 2, w, h); ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.strokeRect(-w / 2, -h / 2, w, h); ctx.restore();
-        });
-    }
 
     /* Turn markers on the SIDE of the track (user-placed, like reference image) */
     _turnMarkers(ctx, data, editor, track, tf) {

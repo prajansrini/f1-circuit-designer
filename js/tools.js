@@ -25,6 +25,40 @@ class SelectTool extends BaseTool {
     constructor(app) { super(app); this.dragging = null; this.rotatingObj = null; }
     getCursor() { return this.dragging || this.rotatingObj ? 'grabbing' : 'default'; }
 
+    _hitZoneStripsOrLabel(wx, wy) {
+        let best = null, bestD = 30 / this.renderer.scale;
+        const track = this.editor.getInterpolatedTrack();
+        for (const zone of this.data.zones) {
+            const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
+            const isRange = (zt && zt.range) || zone.type === 'straight_mode';
+            
+            if (isRange) {
+                const si = zone.segIndex * this.editor.resolution + Math.floor(zone.t * this.editor.resolution);
+                const ei = zone.endSegIndex * this.editor.resolution + Math.floor(zone.endT * this.editor.resolution);
+                
+                const checkPath = (start, end) => {
+                    for (let i = start; i <= end; i++) {
+                        if (i < 0 || i >= track.length) continue;
+                        const p = track[i];
+                        const sgn = zone.side === 'left' ? -1 : 1;
+                        const w = sgn < 0 ? p.widthLeft : p.widthRight;
+                        const sw = zone.stripWidth || (zone.type === 'straight_mode' ? 5 : 2);
+                        const offset = w + 6 + sw;
+                        const ox = p.x + p.nx * offset * sgn;
+                        const oy = p.y + p.ny * offset * sgn;
+                        const d = Math.hypot(ox - wx, oy - wy);
+                        if (d < bestD) { bestD = d; best = zone; }
+                    }
+                };
+                
+                if (si <= ei) checkPath(si, ei);
+                else if (this.data.isClosed) { checkPath(si, track.length - 1); checkPath(0, ei); }
+                else checkPath(ei, si);
+            }
+        }
+        return best;
+    }
+
     _getOutsideSgn(p) {
         if (this.data.controlPoints.length === 0) return 1;
         const cx = this.data.controlPoints.reduce((sum, cp) => sum + cp.x, 0) / this.data.controlPoints.length;
@@ -241,21 +275,37 @@ class SelectTool extends BaseTool {
             }
         }
 
-        // 7. Grandstands
-        const gs = this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale);
-        if (gs) { this.data.snapshot(); this.app.setSelection({ type: 'grandstand', id: gs.id }); this.dragging = { type: 'grandstand', obj: gs }; return; }
 
-        // 8. Garages
-        let bestG = null, bestGD = 30 / this.renderer.scale;
-        for (const g of this.data.garages) { const d = Math.hypot(g.x - wx, g.y - wy); if (d < bestGD) { bestGD = d; bestG = g; } }
-        if (bestG) { this.data.snapshot(); this.app.setSelection({ type: 'garage', id: bestG.id }); this.dragging = { type: 'garage', obj: bestG }; return; }
 
         // 9. Pit lane points
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
         if (pp) { this.data.snapshot(); this.app.setSelection({ type: 'pit', id: pp.id }); this.dragging = { type: 'pit', obj: pp }; return; }
 
+        // 9b. Run-off and barriers
+        const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+        if (trackPt.point) {
+            const p = trackPt.point;
+            const pt = this.data.controlPoints[p.segIndex];
+            const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+            const isL = sd < 0;
+            const d = Math.abs(sd);
+            
+            if (pt) {
+                const w = isL ? p.widthLeft : p.widthRight;
+                const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) {
+                    this.data.snapshot();
+                    this.app.setSelection({ type: 'barrier', id: pt.id, side: isL ? 'left' : 'right' }); return;
+                } else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) {
+                    this.data.snapshot();
+                    this.app.setSelection({ type: 'runoff', id: pt.id, side: isL ? 'left' : 'right' }); return;
+                }
+            }
+        }
+
         // 10. Click near track to select zones generally
-        const zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
+        let zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
+        if (!zone) zone = this._hitZoneStripsOrLabel(wx, wy);
         if (zone) { this.app.setSelection({ type: 'zone', id: zone.id }); return; }
 
         this.app.setSelection(null);
@@ -298,6 +348,10 @@ class SelectTool extends BaseTool {
                 const anchor = this.dragging.anchor;
                 obj.labelOffsetX = (wx - this.dragging.dragOffsetX) - anchor.x;
                 obj.labelOffsetY = (wy - this.dragging.dragOffsetY) - anchor.y;
+                const zx = document.getElementById('prop-zx');
+                const zy = document.getElementById('prop-zy');
+                if (zx) zx.value = Math.round(obj.labelOffsetX);
+                if (zy) zy.value = Math.round(obj.labelOffsetY);
             }
             else if (type === 'sector_label') {
                 const anchor = this.dragging.anchor;
@@ -327,6 +381,8 @@ class SelectTool extends BaseTool {
         } else {
             // Check if hovering over any selectable element for move cursor
             let overElement = false;
+            if (this._hitZoneStripsOrLabel(wx, wy)) overElement = true;
+            
             const track = this.editor.getInterpolatedTrack();
             for (const zone of this.data.zones) {
                 const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
@@ -349,22 +405,35 @@ class SelectTool extends BaseTool {
                 for (const tm of this.data.turnMarkers) {
                     const idx = tm.segIndex * this.editor.resolution + Math.floor(tm.t * this.editor.resolution);
                     const p = track[Math.min(idx, track.length - 1)]; if (!p) continue;
-                    const sgn = this._getOutsideSgn(p);
-                    const w = sgn > 0 ? p.widthLeft : p.widthRight;
-                    const sw = sgn > 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
+                    const actualSgn = tm.side === 'left' ? -1 : 1;
+                    const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
+                    const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
                     const offset = w + sw + 13;
-                    const tmx = p.x + p.nx * offset * sgn, tmy = p.y + p.ny * offset * sgn;
+                    const tmx = p.x + p.nx * offset * actualSgn, tmy = p.y + p.ny * offset * actualSgn;
                     if (Math.hypot(wx - tmx, wy - tmy) < 15 / this.renderer.scale) { overElement = true; break; }
                 }
             }
             if (!overElement) {
-                for (const g of this.data.garages) { if (Math.hypot(g.x - wx, g.y - wy) < 30 / this.renderer.scale) { overElement = true; break; } }
+                const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+                if (trackPt.point) {
+                    const p = trackPt.point;
+                    const pt = this.data.controlPoints[p.segIndex];
+                    const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+                    const isL = sd < 0;
+                    const d = Math.abs(sd);
+                    if (pt) {
+                        const w = isL ? p.widthLeft : p.widthRight;
+                        const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                        if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) {
+                            overElement = true;
+                        } else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) {
+                            overElement = true;
+                        }
+                    }
+                }
             }
-            if (!overElement) {
-                const gs = this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale);
-                if (gs) overElement = true;
-            }
-            this.app.canvas.style.cursor = overElement ? 'move' : 'default';
+
+            this.app.canvas.style.cursor = overElement ? 'pointer' : 'default';
         }
         this.app.requestRender();
     }
@@ -414,9 +483,7 @@ class SelectTool extends BaseTool {
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.app.selection) {
             this.data.snapshot(); const s = this.app.selection;
             if (s.type === 'cp') this.data.removeControlPoint(s.id);
-            else if (s.type === 'grandstand') this.data.removeGrandstand(s.id);
             else if (s.type === 'zone') this.data.removeZone(s.id);
-            else if (s.type === 'garage') this.data.removeGarage(s.id);
             else if (s.type === 'turn') this.data.removeTurnMarker(s.id);
             else if (s.type === 'pit') { this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== s.id); }
             this.app.setSelection(null); this.app.requestRender();
@@ -652,8 +719,41 @@ class SurfacePainterTool extends BaseTool {
         }
         this.app.requestRender();
     }
-    onMouseDown(wx, wy) { this.data.snapshot(); this.painting = true; this._apply(wx, wy); }
-    onMouseMove(wx, wy) { if (this.painting) this._apply(wx, wy); }
+    onMouseDown(wx, wy) { 
+        // 1. Try to select an existing run-off/barrier first
+        const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+        if (trackPt.point) {
+            const p = trackPt.point;
+            const pt = this.data.controlPoints[p.segIndex];
+            const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+            const isL = sd < 0;
+            const d = Math.abs(sd);
+            
+            if (pt) {
+                const w = isL ? p.widthLeft : p.widthRight;
+                const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) {
+                    this.app.setSelection({ type: 'barrier', id: pt.id, side: isL ? 'left' : 'right' }); 
+                    this.painting = false;
+                    return;
+                } else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) {
+                    this.app.setSelection({ type: 'runoff', id: pt.id, side: isL ? 'left' : 'right' }); 
+                    this.painting = false;
+                    return;
+                }
+            }
+        }
+
+        // 2. Otherwise start painting
+        this.data.snapshot(); 
+        this.painting = true; 
+        this._apply(wx, wy); 
+    }
+    onMouseMove(wx, wy) { 
+        this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+        this.app.requestRender();
+        if (this.painting) this._apply(wx, wy); 
+    }
     onMouseUp() { this.painting = false; }
 }
 
@@ -761,6 +861,8 @@ class SectorTool extends BaseTool {
             const rotObj = this._hitRotationHandle(wx, wy);
             const ex = this._hitExisting(wx, wy);
             const cp = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+            this.app.hoverPoint = cp;
+            this.app.requestRender();
             this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : (cp ? 'crosshair' : 'pointer'));
         }
     }
@@ -932,10 +1034,19 @@ class ZoneTool extends BaseTool {
                     const p = track[i];
                     if (!p) continue;
                     const w = sgn < 0 ? p.widthLeft : p.widthRight;
-                    const offset = w + 4;
-                    const zx = p.x + p.nx * offset * sgn;
-                    const zy = p.y + p.ny * offset * sgn;
+                    const sw = zone.stripWidth || (zone.type === 'straight_mode' ? 5 : 2);
+                    
+                    const stripOffset = w + 6 + sw;
+                    const zx = p.x + p.nx * stripOffset * sgn;
+                    const zy = p.y + p.ny * stripOffset * sgn;
                     if (Math.hypot(wx - zx, wy - zy) < hitThresh) return { type: 'zone_path', obj: zone };
+                    
+                    if (zone.showLabel !== false) {
+                        const textOffset = stripOffset + sw + 12;
+                        const tx = p.x + p.nx * textOffset * sgn;
+                        const ty = p.y + p.ny * textOffset * sgn;
+                        if (Math.hypot(wx - tx, wy - ty) < hitThresh) return { type: 'zone_path', obj: zone };
+                    }
                 }
             } else {
                 if (this.constructor.name === 'StraightModeTool') continue;
@@ -1222,15 +1333,12 @@ class EraserTool extends BaseTool {
     _checkHover(wx, wy) {
         let h = false;
         if (this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale)) h = true;
-        else if (this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale)) h = true;
+
         else if (this._hitZone(wx, wy)) h = true;
         else if (this._hitTurnMarker(wx, wy)) h = true;
         else if (this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale)) h = true;
         else if (this._hitPitLanePath(wx, wy)) h = true;
-        else {
-            let bestGD = 30 / this.renderer.scale;
-            for (const g of this.data.garages) { if (Math.hypot(g.x - wx, g.y - wy) < bestGD) { h = true; break; } }
-        }
+
         if (!h) {
             const trackPt = this.editor.findNearestTrackPoint(wx, wy);
             if (trackPt.point) {
@@ -1256,15 +1364,12 @@ class EraserTool extends BaseTool {
     onMouseDown(wx, wy) {
         const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
         if (cp) { this.data.snapshot(); this.data.removeControlPoint(cp.id); this.app.requestRender(); return; }
-        const gs = this.editor.findNearestGrandstand(wx, wy, 50 / this.renderer.scale);
-        if (gs) { this.data.snapshot(); this.data.removeGrandstand(gs.id); this.app.requestRender(); return; }
+
         const zone = this._hitZone(wx, wy);
         if (zone) { this.data.snapshot(); this.data.removeZone(zone.id); this.app.requestRender(); return; }
         const tm = this._hitTurnMarker(wx, wy);
         if (tm) { this.data.snapshot(); this.data.removeTurnMarker(tm.id); this.app.requestRender(); return; }
-        let bestG = null, bestGD = 30 / this.renderer.scale;
-        for (const g of this.data.garages) { const d = Math.hypot(g.x - wx, g.y - wy); if (d < bestGD) { bestGD = d; bestG = g; } }
-        if (bestG) { this.data.snapshot(); this.data.removeGarage(bestG.id); this.app.requestRender(); return; }
+
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
         if (pp) { this.data.snapshot(); this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== pp.id); this.app.requestRender(); return; }
         if (this._hitPitLanePath(wx, wy)) { this.data.snapshot(); this.data.clearPitLane(); this.app.requestRender(); return; }
