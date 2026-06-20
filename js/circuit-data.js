@@ -62,10 +62,91 @@ F1.CircuitData = class CircuitData {
         return logicalIdx + 1;
     }
 
+
+    _getWorldPos(pts, segIdx, t) {
+        const n = pts.length;
+        if (n < 2) return { x: 0, y: 0 };
+        const segs = this.isClosed ? n : n - 1;
+        const i = Math.max(0, Math.min(segIdx, segs - 1));
+        const p1 = pts[i], p2 = pts[(i + 1) % n];
+        let p0, p3;
+        if (this.isClosed) {
+            p0 = pts[(i - 1 + n) % n]; p3 = pts[(i + 2) % n];
+        } else {
+            p0 = i > 0 ? pts[i - 1] : { x: 2 * pts[0].x - pts[1].x, y: 2 * pts[0].y - pts[1].y };
+            p3 = i < n - 2 ? pts[i + 2] : { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
+        }
+        const t2 = t * t, t3 = t2 * t;
+        return {
+            x: .5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+            y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        };
+    }
+
+    _projectOntoTrack(wx, wy) {
+        const pts = this.controlPoints;
+        const n = pts.length;
+        if (n < 2) return { segIndex: 0, t: 0 };
+        const segs = this.isClosed ? n : n - 1;
+        let bestDist = Infinity, bestSeg = 0, bestT = 0;
+        const steps = 20; 
+        for (let seg = 0; seg < segs; seg++) {
+            for (let j = 0; j <= steps; j++) {
+                const t = j / steps;
+                const pos = this._getWorldPos(pts, seg, t);
+                const d = Math.hypot(pos.x - wx, pos.y - wy);
+                if (d < bestDist) { bestDist = d; bestSeg = seg; bestT = t; }
+            }
+        }
+        let lo = Math.max(0, bestT - 1 / steps), hi = Math.min(1, bestT + 1 / steps);
+        for (let iter = 0; iter < 10; iter++) {
+            const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+            const p1 = this._getWorldPos(pts, bestSeg, m1), p2 = this._getWorldPos(pts, bestSeg, m2);
+            const d1 = Math.hypot(p1.x - wx, p1.y - wy), d2 = Math.hypot(p2.x - wx, p2.y - wy);
+            if (d1 < d2) hi = m2; else lo = m1;
+        }
+        bestT = (lo + hi) / 2;
+        return { segIndex: bestSeg, t: bestT };
+    }
+
+    _saveZoneWorldPositions() {
+        return {
+            zones: this.zones.map(z => ({
+                startPos: this._getWorldPos(this.controlPoints, z.segIndex, z.t),
+                endPos: z.endSegIndex !== undefined ? this._getWorldPos(this.controlPoints, z.endSegIndex, z.endT) : null
+            })),
+            turnMarkers: this.turnMarkers.map(tm => this._getWorldPos(this.controlPoints, tm.segIndex, tm.t))
+        };
+    }
+
+    _restoreZoneWorldPositions(saved) {
+        this.zones.forEach((z, idx) => {
+            const s = saved.zones[idx];
+            if (!s) return;
+            const newStart = this._projectOntoTrack(s.startPos.x, s.startPos.y);
+            z.segIndex = newStart.segIndex;
+            z.t = newStart.t;
+            if (s.endPos) {
+                const newEnd = this._projectOntoTrack(s.endPos.x, s.endPos.y);
+                z.endSegIndex = newEnd.segIndex;
+                z.endT = newEnd.t;
+            }
+        });
+        this.turnMarkers.forEach((tm, idx) => {
+            const s = saved.turnMarkers[idx];
+            if (!s) return;
+            const newPos = this._projectOntoTrack(s.x, s.y);
+            tm.segIndex = newPos.segIndex;
+            tm.t = newPos.t;
+        });
+    }
+
     insertControlPoint(x, y, index) {
+        const saved = this._saveZoneWorldPositions();
         const pt = {
             id: this._genId(), x, y, widthLeft: 12, widthRight: 12,
-            surfaceLeft: 'grass', surfaceRight: 'grass', surfaceWidthLeft: 10, surfaceWidthRight: 10,
+            surfaceLeft: 'grass', surfaceRight: 'grass',
+            surfaceWidthLeft: 10, surfaceWidthRight: 10,
             barrierLeft: false, barrierRight: false, sector: 0
         };
         let prev = null;
@@ -84,24 +165,22 @@ F1.CircuitData = class CircuitData {
         }
         this.controlPoints.splice(index, 0, pt);
         if (this.startNodeId === null) this.startNodeId = pt.id;
-        this._shiftIndices(index, 1);
+        
+        this._restoreZoneWorldPositions(saved);
         return pt;
     }
+
     addControlPoint(x, y) { return this.insertControlPoint(x, y, this.controlPoints.length); }
+    
     removeControlPoint(id) {
         const index = this.controlPoints.findIndex(p => p.id === id);
         if (index === -1) return;
+        const saved = this._saveZoneWorldPositions();
         this.controlPoints.splice(index, 1);
         if (this.controlPoints.length < 3) this.isClosed = false;
-        this._shiftIndices(index, -1);
+        this._restoreZoneWorldPositions(saved);
     }
-    _shiftIndices(index, amount) {
-        this.turnMarkers.forEach(tm => { if (tm.segIndex >= index) tm.segIndex = Math.max(0, tm.segIndex + amount); });
-        this.zones.forEach(z => {
-            if (z.segIndex >= index) z.segIndex = Math.max(0, z.segIndex + amount);
-            if (z.range && z.endSegIndex >= index) z.endSegIndex = Math.max(0, z.endSegIndex + amount);
-        });
-    }
+
     getPointById(id) { return this.controlPoints.find(p => p.id === id) || null; }
 
     closeTrack() {

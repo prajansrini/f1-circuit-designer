@@ -22,17 +22,17 @@ F1.PreviewRenderer = class PreviewRenderer {
 
         // Preload image assets
         this.chequeredImg = new Image();
-        this.chequeredImg.src = 'resources/chequered.png';
+        this.chequeredImg.src = 'resources/chequered.svg';
         this.arrowImg = new Image();
         this.arrowImg.src = 'resources/arrow.png';
         this.stripsImg = new Image();
-        this.stripsImg.src = 'resources/strips.png';
+        this.stripsImg.src = 'resources/strips.svg';
         this.userScale = 1; this.userOx = 0; this.userOy = 0;
     }
     zoom(d, sx, sy) {
         const oldScale = this.userScale;
         this.userScale *= (d > 0 ? 0.92 : 1.08);
-        this.userScale = Math.max(0.1, Math.min(10, this.userScale));
+        this.userScale = Math.max(0.01, Math.min(50, this.userScale));
         const ratio = this.userScale / oldScale;
         this.userOx = sx - this.canvas.width / 2 - (sx - this.canvas.width / 2 - this.userOx) * ratio;
         this.userOy = sy - this.canvas.height / 2 - (sy - this.canvas.height / 2 - this.userOy) * ratio;
@@ -59,10 +59,10 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (this.layers.track) { 
             this._trackBase(ctx, track, tf); 
             this._sectorEdges(ctx, track, tf, data); 
+            if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
             this._renderIntersections(ctx, track, data, tf);
         }
         this._startFinish(ctx, track, data, tf, editor);
-        if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
 
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
@@ -89,12 +89,12 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
     _trackBase(ctx, track, tf) {
-        ctx.strokeStyle = '#111111'; ctx.lineWidth = Math.max(16, 20 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#111111'; ctx.lineWidth = 40 * tf.scale; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = tf.toScreen(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
 
     _sectorEdges(ctx, track, tf, data) {
-        const lw = Math.max(4, 5 * tf.scale);
+        const lw = 7.5 * tf.scale;
         let currentSec = -1;
         let pathStarted = false;
         ctx.lineWidth = lw; ctx.lineCap = 'round';
@@ -148,15 +148,15 @@ F1.PreviewRenderer = class PreviewRenderer {
             }
 
             if (subTrack.length > 1) {
-                const lwBase = Math.max(16, 20 * tf.scale);
-                const lwSectors = Math.max(4, 5 * tf.scale);
+                const lwBase = 40 * tf.scale;
+                const lwSectors = 7.5 * tf.scale;
                 
                 ctx.lineCap = 'butt';
                 ctx.lineJoin = 'round';
                 
                 // Draw base background color to mask out bottom track
                 ctx.strokeStyle = this.bgColor || '#0f1a0f';
-                ctx.lineWidth = lwBase + 2;
+                ctx.lineWidth = lwBase + 4;
                 ctx.beginPath();
                 subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
                 ctx.stroke();
@@ -206,6 +206,11 @@ F1.PreviewRenderer = class PreviewRenderer {
             const sw = zone.stripWidth || 5;
             const targetGap = spacing * 5;
 
+            // Track radius is exactly 20 world units (drawn as 40 * tf.scale line width).
+            // We want a 4px screen gap to the strip. The strip extends inwards by 'sw' world units.
+            // Therefore, the center should be at: 20 + 4px gap + sw.
+            const stripOffsetWorld = 20 + 4 / tf.scale + sw;
+
             let stripPoints = [];
             let currentDist = 0;
             let prevP = null;
@@ -213,9 +218,8 @@ F1.PreviewRenderer = class PreviewRenderer {
             const addStripPoints = (startIdx, endIdx, sideSign) => {
                 for (let i = startIdx; i <= endIdx; i++) {
                     const p = track[i];
-                    const offset = 16 + sw;
-                    const ox = p.x + p.nx * offset * sideSign;
-                    const oy = p.y + p.ny * offset * sideSign;
+                    const ox = p.x + p.nx * stripOffsetWorld * sideSign;
+                    const oy = p.y + p.ny * stripOffsetWorld * sideSign;
 
                     if (!prevP) {
                         stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
@@ -296,11 +300,15 @@ F1.PreviewRenderer = class PreviewRenderer {
             if (zone.showLabel !== false) {
                 const sgn = zone.side === 'left' ? -1 : 1;
                 let pathPts = [];
+                
+                // Text needs to be outside the strips. Outer edge of strip is at stripOffsetWorld + sw.
+                // Text height is roughly 11 screen pixels (font size 11 * tf.scale).
+                const textOffsetWorld = stripOffsetWorld + sw + 4 / tf.scale + 11 / 2;
+
                 const buildPath = (startIdx, endIdx) => {
                     for (let i = startIdx; i <= endIdx; i++) {
                         const p = track[i];
-                        const offset = 16 + sw + sw + 12;
-                        pathPts.push({ x: p.x + p.nx * offset * sgn, y: p.y + p.ny * offset * sgn });
+                        pathPts.push({ x: p.x + p.nx * textOffsetWorld * sgn, y: p.y + p.ny * textOffsetWorld * sgn });
                     }
                 };
                 if (si <= ei) { buildPath(si, ei); }
@@ -317,8 +325,8 @@ F1.PreviewRenderer = class PreviewRenderer {
                     }
                     const totalLen = cumLen[cumLen.length - 1];
 
-                    const fontSizeScreen = (zone.labelFontSize || 10);
-                    // Use the constant screen font size for measurement
+                    const fontSizeScreen = (zone.labelFontSize || 11) * tf.scale;
+                    // Use the scaled screen font size for measurement
                     ctx.font = `bold ${fontSizeScreen}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
                     
@@ -367,7 +375,7 @@ F1.PreviewRenderer = class PreviewRenderer {
                         ctx.save();
                         ctx.translate(s.x, s.y);
                         ctx.rotate(pt.angle);
-                        // Draw with constant screen size
+                        // Draw with scaled screen size
                         ctx.font = `bold ${fontSizeScreen}px Outfit`;
                         ctx.fillText(text[c], 0, 0);
                         ctx.restore();
@@ -378,7 +386,6 @@ F1.PreviewRenderer = class PreviewRenderer {
         });
     }
 
-    /* Checkered flag spanning track + arrow next to it using preloaded PNGs */
     _startFinish(ctx, track, data, tf, editor) {
         if (track.length < 4) return;
         let p = track[0], p2 = track[1];
@@ -394,30 +401,33 @@ F1.PreviewRenderer = class PreviewRenderer {
 
         // Checkered flag spanning track width, aligned with direction
         if (this.layers.chequeredFlag !== false) {
-            const l = tf.toScreen(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft);
-            const r = tf.toScreen(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight);
-
             if (this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
                 ctx.save();
                 const s = tf.toScreen(p.x, p.y);
                 ctx.translate(s.x, s.y);
                 ctx.rotate(angle + Math.PI / 2);
-                const tw = (p.widthLeft + p.widthRight) * tf.scale;
-                const th = 8 * tf.scale;
+                const tw = 40 * tf.scale;
+                const th = 14 * tf.scale;
                 ctx.drawImage(this.chequeredImg, -tw / 2, -th / 2, tw, th);
                 ctx.restore();
             } else {
                 // Procedural checkered fallback
-                const dx = r.x - l.x, dy = r.y - l.y, len = Math.hypot(dx, dy);
-                if (len > 2) {
-                    const ux = dx / len, uy = dy / len, px = -uy, py = ux;
-                    const checks = Math.max(6, Math.round(len / 4)), cw = len / checks;
-                    const ch = Math.max(3, 5 * tf.scale);
-                    for (let row = 0; row < 2; row++)for (let col = 0; col < checks; col++) {
+                ctx.save();
+                const s = tf.toScreen(p.x, p.y);
+                ctx.translate(s.x, s.y);
+                ctx.rotate(angle + Math.PI / 2);
+                const tw = 40 * tf.scale;
+                const th = 14 * tf.scale;
+                const checks = 8;
+                const cw = tw / checks;
+                const ch = th / 2;
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < checks; col++) {
                         ctx.fillStyle = (row + col) % 2 === 0 ? '#fff' : '#000';
-                        ctx.fillRect(l.x + ux * col * cw + px * row * ch, l.y + uy * col * cw + py * row * ch, cw + .5, ch + .5);
+                        ctx.fillRect(-tw / 2 + col * cw, -th / 2 + row * ch, cw + 0.5, ch + 0.5);
                     }
                 }
+                ctx.restore();
             }
         }
 
@@ -427,9 +437,9 @@ F1.PreviewRenderer = class PreviewRenderer {
             const s2 = tf.toScreen(p.x, p.y);
             ctx.translate(s2.x, s2.y);
             ctx.rotate(angle);
-            ctx.translate(13 * tf.scale, 0); // 4px flag half + 6px gap + 3px arrow base
+            ctx.translate(19 * tf.scale, 0); // 7px flag half + 8px gap + 4px arrow base
 
-            const svgScale = (16 * tf.scale) / 24;
+            const svgScale = tf.scale;
             ctx.scale(svgScale, svgScale);
             ctx.rotate(Math.PI / 4); // point it forward
             ctx.translate(-12, -12); // center the 24x24 SVG
@@ -457,24 +467,23 @@ F1.PreviewRenderer = class PreviewRenderer {
             const p = track[Math.min(idx, track.length - 1)];
             if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
-            const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sf = Math.max(0.9, tf.scale);
-            const circleRadiusPx = 11 * sf;
+            const sf = tf.scale;
+            const circleRadiusPx = 15 * sf;
             const sCenter = tf.toScreen(p.x, p.y);
-            // Constant 7 pixel gap from the visual road edge
-            const distPx = w * tf.scale + circleRadiusPx + 7;
+            // Visual road edge is 20 * tf.scale (since total width is 40 * tf.scale). Add 8px gap.
+            const distPx = 20 * tf.scale + circleRadiusPx + 8 * sf;
             const s = { x: sCenter.x + p.nx * distPx * actualSgn, y: sCenter.y + p.ny * distPx * actualSgn };
 
             ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
             ctx.beginPath(); ctx.arc(0, 0, circleRadiusPx, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff'; ctx.fill();
-            ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = '#000'; ctx.font = `bold ${10 * sf}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 2.0; ctx.stroke();
+            ctx.fillStyle = '#000'; ctx.font = `bold ${13 * sf}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(tm.label, 0, 0);
             if (tm.name) {
-                ctx.fillStyle = '#333'; ctx.font = `normal ${8 * sf}px Outfit`;
+                ctx.fillStyle = '#333'; ctx.font = `normal ${10 * sf}px Outfit`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(tm.name.toUpperCase(), 0, -16 * sf);
+                ctx.fillText(tm.name.toUpperCase(), 0, -20 * sf);
             }
             ctx.restore();
         });
@@ -494,14 +503,14 @@ F1.PreviewRenderer = class PreviewRenderer {
 
             // Label container
             const text = `SECTOR ${sl.sector}`;
-            const sf = Math.max(0.9, tf.scale);
-            ctx.font = `bold ${8 * sf}px Outfit`;
-            const tw = ctx.measureText(text).width + 10 * sf, th = 13 * sf;
+            const sf = tf.scale;
+            ctx.font = `bold ${14 * sf}px Outfit`;
+            const tw = ctx.measureText(text).width + 18 * sf, th = 22 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
-            ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.lineWidth = 2.0; ctx.stroke();
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
             ctx.restore();
         });
@@ -521,22 +530,22 @@ F1.PreviewRenderer = class PreviewRenderer {
             ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, ly); ctx.lineTo(lx, ly); ctx.stroke();
 
             // Draw anchor circle on track ON TOP of the line
-            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * tf.scale, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(s.x, s.y, 9.5 * tf.scale, 0, Math.PI * 2);
             ctx.fillStyle = zt.color; ctx.fill();
             if (zone.type === 'overtake_activation') {
-                ctx.beginPath(); ctx.arc(s.x, s.y, 2 * tf.scale, 0, Math.PI * 2);
+                ctx.beginPath(); ctx.arc(s.x, s.y, 4 * tf.scale, 0, Math.PI * 2);
                 ctx.fillStyle = '#181818'; ctx.fill();
             } else {
-                ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+                ctx.strokeStyle = '#111'; ctx.lineWidth = 2.0; ctx.stroke();
             }
 
             // Label container
-            const sf = Math.max(0.9, tf.scale);
-            ctx.font = `bold ${10 * sf}px Outfit`;
+            const sf = tf.scale;
+            ctx.font = `bold ${13 * sf}px Outfit`;
             const text = (zone.label || zt.label || '').toUpperCase();
             const lines = text.split('\n');
-            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16 * sf;
-            const th = lines.length * 16 * sf + 6 * sf;
+            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * sf;
+            const th = lines.length * 18 * sf + 8 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = zt.color; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
@@ -544,7 +553,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             if (lines.length === 1) {
                 ctx.fillText(text, 0, 0);
             } else {
-                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 14 * sf));
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 18 * sf));
             }
             ctx.restore();
         });
