@@ -281,7 +281,12 @@ class SelectTool extends BaseTool {
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
         if (pp) { this.data.snapshot(); this.app.setSelection({ type: 'pit', id: pp.id }); this.dragging = { type: 'pit', obj: pp }; return; }
 
-        // 9b. Run-off and barriers
+        // 9b. Click near track to select zones generally (Highest priority along edge)
+        let zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
+        if (!zone && this._hitZoneStripsOrLabel) zone = this._hitZoneStripsOrLabel(wx, wy);
+        if (zone) { this.app.setSelection({ type: 'zone', id: zone.id }); return; }
+
+        // 10. Run-off and barriers
         const trackPt = this.editor.findNearestTrackPoint(wx, wy);
         if (trackPt.point) {
             const p = trackPt.point;
@@ -302,11 +307,6 @@ class SelectTool extends BaseTool {
                 }
             }
         }
-
-        // 10. Click near track to select zones generally
-        let zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
-        if (!zone) zone = this._hitZoneStripsOrLabel(wx, wy);
-        if (zone) { this.app.setSelection({ type: 'zone', id: zone.id }); return; }
 
         this.app.setSelection(null);
     }
@@ -687,7 +687,7 @@ class WidthTool extends BaseTool {
                 if (this.side === 'right' || this.side === 'both') this.dragging.widthRight = nw;
             }
             this.app.uiManager.updateProperties(); this.app.requestRender();
-        } else { this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale); this.app.requestRender(); }
+        } else { this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale); this.app.requestRender(); }
     }
     onMouseUp() { this.dragging = null; }
 }
@@ -750,7 +750,7 @@ class SurfacePainterTool extends BaseTool {
         this._apply(wx, wy); 
     }
     onMouseMove(wx, wy) { 
-        this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+        this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale);
         this.app.requestRender();
         if (this.painting) this._apply(wx, wy); 
     }
@@ -860,7 +860,7 @@ class SectorTool extends BaseTool {
         else {
             const rotObj = this._hitRotationHandle(wx, wy);
             const ex = this._hitExisting(wx, wy);
-            const cp = this.editor.findNearestControlPoint(wx, wy, 25 / this.renderer.scale);
+            const cp = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale);
             this.app.hoverPoint = cp;
             this.app.requestRender();
             this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : (cp ? 'crosshair' : 'pointer'));
@@ -1460,7 +1460,7 @@ class EraserTool extends BaseTool {
     }
 
     onMouseMove(wx, wy) {
-        const cp = this.editor.findNearestControlPoint(wx, wy, 15 / this.renderer.scale);
+        const cp = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale);
         this.app.hoverPoint = cp || null;
 
         this.hoverErasable = this._checkHover(wx, wy);

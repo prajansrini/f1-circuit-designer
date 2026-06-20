@@ -199,11 +199,13 @@ F1.App = class App {
         this._renderProjectTabs();
         if (this.activeTool && this.activeTool.activate) this.activeTool.activate();
         this.requestRender();
+        this._renderPreview();
         this.uiManager.updateProperties();
         this._saveProjectsToStorage();
     }
 
     closeProject(index) {
+        if (!confirm("Are you sure you want to close this circuit? Make sure you have saved your work!")) return;
         this.projects.splice(index, 1);
         if (this.projects.length === 0) {
             this.projects.push(new F1.CircuitData());
@@ -308,7 +310,6 @@ F1.App = class App {
                 if (key === 's') { e.preventDefault(); document.getElementById('btn-save').click(); return; }
                 if (key === 'o') { e.preventDefault(); document.getElementById('btn-load').click(); return; }
                 if (key === 'i') { e.preventDefault(); document.getElementById('btn-download-map').click(); return; }
-                if (key === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
                 if (key === 'd') { e.preventDefault(); document.getElementById('btn-duplicate-project').click(); return; }
                 if (key === '/') {
                     e.preventDefault();
@@ -319,6 +320,7 @@ F1.App = class App {
                 if (key === 'z') { e.preventDefault(); this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); return; }
                 if (key === 'y' || (e.shiftKey && key === 'z')) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             }
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
             const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'f') {
@@ -447,6 +449,12 @@ F1.App = class App {
                 reader.onload = (event) => {
                     try {
                         const json = event.target.result;
+                        
+                        // If the current tab has a circuit, open a new tab for the loaded file
+                        if (this.data.controlPoints && this.data.controlPoints.length > 0) {
+                            this.newProject();
+                        }
+                        
                         this.data.fromJSON(json);
                         document.getElementById('circuit-name').value = this.data.name || 'Untitled Circuit';
                         this.setSelection(null);
@@ -485,139 +493,42 @@ F1.App = class App {
         });
     }
     _initHelp() {
-        const loadExample = (name, pts, zones = [], turns = []) => {
-            this.data.snapshot();
-            this.data.clear();
-            this.data.name = name;
-            document.getElementById('circuit-name').value = name;
-            pts.forEach((p, i) => {
-                const cp = this.data.addControlPoint(p.x, p.y);
-                if (p.sector !== undefined) cp.sector = p.sector;
-                cp.widthLeft = p.widthLeft !== undefined ? p.widthLeft : 12;
-                cp.widthRight = p.widthRight !== undefined ? p.widthRight : 12;
-            });
-            if (pts.length >= 3) this.data.closeTrack();
-
-            zones.forEach(z => {
-                this.data.zones.push({
-                    id: this.data._genId(),
-                    type: z.type,
-                    segIndex: z.segIndex,
-                    t: z.t,
-                    endSegIndex: z.endSegIndex !== undefined ? z.endSegIndex : z.segIndex,
-                    endT: z.endT !== undefined ? z.endT : z.t,
-                    side: z.side || 'left',
-                    labelOffsetX: z.labelOffsetX !== undefined ? z.labelOffsetX : (z.type === 'straight_mode' ? 0 : (z.side === 'left' ? -40 : 40)),
-                    labelOffsetY: z.labelOffsetY !== undefined ? z.labelOffsetY : -30
-                });
-            });
-
-            turns.forEach(t => {
-                this.data.turnMarkers.push({
-                    id: this.data._genId(),
-                    segIndex: t.segIndex,
-                    t: t.t,
-                    label: t.num.toString(),
-                    side: t.side || 'right'
-                });
-            });
-            this.renderer.fitToScreen(this.data, this.editor);
-            this.setSelection(null);
-            this.requestRender();
-            this._renderPreview();
-            this.uiManager.updateProperties();
-            this.setStatus(`Loaded example: ${name}`);
+        const loadExample = async (name, url) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const jsonStr = await response.text();
+                
+                // If the current tab has a circuit, open a new tab for the loaded example
+                if (this.data.controlPoints && this.data.controlPoints.length > 0) {
+                    this.newProject();
+                }
+                
+                this.data.snapshot();
+                this.data.fromJSON(jsonStr);
+                this.data.name = name;
+                document.getElementById('circuit-name').value = name;
+                
+                this.renderer.fitToScreen(this.data, this.editor);
+                this.setSelection(null);
+                this.requestRender();
+                this._renderPreview();
+                this.uiManager.updateProperties();
+                this.setStatus(`Loaded example: ${name}`);
+            } catch (err) {
+                console.error("Failed to load example:", err);
+                this.setStatus("Error loading example.");
+            }
         };
 
         document.addEventListener('click', (e) => {
             const ovalBtn = e.target.closest('#example-map-oval');
             const techBtn = e.target.closest('#example-map-technical');
-            const streetBtn = e.target.closest('#example-map-street');
 
             if (ovalBtn) {
-                loadExample('Example 1', [
-                    { x: -200, y: -100, sector: 1, widthLeft: 15, widthRight: 15 },
-                    { x: 200, y: -100, sector: 1, widthLeft: 15, widthRight: 15 },
-                    { x: 250, y: -50, sector: 2, widthLeft: 15, widthRight: 15 },
-                    { x: 250, y: 50, sector: 2, widthLeft: 15, widthRight: 15 },
-                    { x: 200, y: 100, sector: 2, widthLeft: 15, widthRight: 15 },
-                    { x: -200, y: 100, sector: 3, widthLeft: 15, widthRight: 15 },
-                    { x: -250, y: 50, sector: 3, widthLeft: 15, widthRight: 15 },
-                    { x: -250, y: -50, sector: 3, widthLeft: 15, widthRight: 15 },
-                ], [], [
-                    { segIndex: 2, t: 0.1, num: 1, side: 'right' },
-                    { segIndex: 3, t: 0.8, num: 2, side: 'right' },
-                    { segIndex: 6, t: 0.1, num: 3, side: 'right' },
-                    { segIndex: 7, t: 0.8, num: 4, side: 'right' }
-                ]);
+                loadExample('Example 1', 'resources/example_1.json');
             } else if (techBtn) {
-                loadExample('Example 2', [
-                    { x: 0, y: -180, sector: 1 },
-                    { x: 200, y: -180, sector: 1 },
-                    { x: 280, y: -120, sector: 1 },
-                    { x: 300, y: -30, sector: 2 },
-                    { x: 250, y: 50, sector: 2 },
-                    { x: 150, y: 80, sector: 2 },
-                    { x: 100, y: 150, sector: 2 },
-                    { x: 0, y: 180, sector: 3 },
-                    { x: -150, y: 140, sector: 3 },
-                    { x: -200, y: 60, sector: 3 },
-                    { x: -280, y: -20, sector: 3 },
-                    { x: -200, y: -120, sector: 3 },
-                    { x: -100, y: -180, sector: 3 },
-                ], [
-                    { type: 'straight_mode', segIndex: 11, t: 0.5, endSegIndex: 1, endT: 0.5, side: 'left' },
-                    { type: 'overtake_detection', segIndex: 10, t: 0.5, side: 'right' },
-                    { type: 'overtake_activation', segIndex: 12, t: 0.5, side: 'right' },
-                    { type: 'speed_trap', segIndex: 1, t: 0.5, side: 'left' }
-                ], [
-                    { segIndex: 2, t: 0.1, num: 1, side: 'left' },
-                    { segIndex: 3, t: 0.1, num: 2, side: 'left' },
-                    { segIndex: 4, t: 0.1, num: 3, side: 'right' },
-                    { segIndex: 5, t: 0.1, num: 4, side: 'left' },
-                    { segIndex: 6, t: 0.1, num: 5, side: 'left' },
-                    { segIndex: 8, t: 0.1, num: 6, side: 'right' },
-                    { segIndex: 9, t: 0.1, num: 7, side: 'left' },
-                    { segIndex: 10, t: 0.1, num: 8, side: 'left' },
-                    { segIndex: 11, t: 0.1, num: 9, side: 'right' }
-                ]);
-            } else if (streetBtn) {
-                loadExample('Example 3', [
-                    { x: -50, y: -200, sector: 1, widthLeft: 10, widthRight: 10 },
-                    { x: 150, y: -200, sector: 1, widthLeft: 10, widthRight: 10 },
-                    { x: 200, y: -150, sector: 1, widthLeft: 10, widthRight: 10 },
-                    { x: 200, y: -50, sector: 1, widthLeft: 10, widthRight: 10 },
-                    { x: 250, y: 0, sector: 2, widthLeft: 10, widthRight: 10 },
-                    { x: 200, y: 60, sector: 2, widthLeft: 10, widthRight: 10 },
-                    { x: 100, y: 40, sector: 2, widthLeft: 10, widthRight: 10 },
-                    { x: 50, y: 100, sector: 2, widthLeft: 10, widthRight: 10 },
-                    { x: -50, y: 120, sector: 3, widthLeft: 10, widthRight: 10 },
-                    { x: -150, y: 80, sector: 3, widthLeft: 10, widthRight: 10 },
-                    { x: -200, y: 0, sector: 3, widthLeft: 10, widthRight: 10 },
-                    { x: -200, y: -100, sector: 3, widthLeft: 10, widthRight: 10 },
-                    { x: -150, y: -180, sector: 3, widthLeft: 10, widthRight: 10 },
-                ], [
-                    { type: 'straight_mode', segIndex: 11, t: 0.5, endSegIndex: 1, endT: 0.5, side: 'left' },
-                    { type: 'overtake_detection', segIndex: 10, t: 0.8, side: 'right' },
-                    { type: 'overtake_activation', segIndex: 12, t: 0.5, side: 'right' },
-                    { type: 'speed_trap', segIndex: 1, t: 0.5, side: 'left' },
-
-                    { type: 'straight_mode', segIndex: 2, t: 0.8, endSegIndex: 4, endT: 0.2, side: 'left' },
-                    { type: 'overtake_detection', segIndex: 1, t: 0.8, side: 'right' },
-                    { type: 'overtake_activation', segIndex: 3, t: 0.2, side: 'right' }
-                ], [
-                    { segIndex: 2, t: 0.1, num: 1, side: 'left' },
-                    { segIndex: 3, t: 0.1, num: 2, side: 'left' },
-                    { segIndex: 4, t: 0.1, num: 3, side: 'left' },
-                    { segIndex: 5, t: 0.1, num: 4, side: 'right' },
-                    { segIndex: 6, t: 0.1, num: 5, side: 'left' },
-                    { segIndex: 7, t: 0.1, num: 6, side: 'left' },
-                    { segIndex: 8, t: 0.1, num: 7, side: 'right' },
-                    { segIndex: 9, t: 0.1, num: 8, side: 'left' },
-                    { segIndex: 10, t: 0.1, num: 9, side: 'right' },
-                    { segIndex: 11, t: 0.1, num: 10, side: 'left' },
-                    { segIndex: 12, t: 0.1, num: 11, side: 'left' }
-                ]);
+                loadExample('Example 2', 'resources/example_2.json');
             }
         });
         
@@ -748,7 +659,7 @@ F1.App = class App {
         this.exportPreview.bgColor = oldBg;
     }
 
-    _doExport() {
+    async _doExport() {
         const fmt = document.getElementById('export-format').value;
         const W = parseInt(document.getElementById('export-w').value) || 1920;
         const H = parseInt(document.getElementById('export-h').value) || 1080;
@@ -757,7 +668,7 @@ F1.App = class App {
         
         if (fmt === 'svg') {
             const exporter = new F1.SVGExporter(this.preview.bgColor, this.preview.infoColor, this.preview.nameColor);
-            const svgStr = exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.customNamePos);
+            const svgStr = await exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.customNamePos);
             const blob = new Blob([svgStr], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = `${name}.svg`; a.click();

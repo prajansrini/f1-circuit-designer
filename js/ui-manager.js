@@ -1338,7 +1338,6 @@ F1.UIManager = class UIManager {
                 <div style="font-size: 11px; color: #aaa; margin-bottom: 8px;">Load an example circuit to explore the app:</div>
                 <button class="prop-btn example-map-btn" id="example-map-oval" style="width:100%; margin-bottom:4px; font-size:11px;">Example 1</button>
                 <button class="prop-btn example-map-btn" id="example-map-technical" style="width:100%; margin-bottom:4px; font-size:11px;">Example 2</button>
-                <button class="prop-btn example-map-btn" id="example-map-street" style="width:100%; margin-bottom:8px; font-size:11px;">Example 3</button>
             </div>
 
             <div class="prop-group help-guide" style="margin-top:15px; border-top:1px solid #333; padding-top:15px; max-height: 50vh; overflow-y: auto; padding-right: 5px;">

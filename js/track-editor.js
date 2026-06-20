@@ -113,7 +113,67 @@ F1.TrackEditor = class TrackEditor {
         let best = null, bestD = maxDist;
         const tp = this.findNearestTrackPoint(wx, wy);
         for (const z of this.data.zones) {
-            if (z.type === 'straight_mode') continue;
+            if (z.type === 'straight_mode') {
+                if (tp && tp.index >= 0) {
+                    const res = this.resolution;
+                    let startIdx = z.segIndex * res + Math.floor(z.t * res);
+                    let endIdx = (z.endSegIndex !== undefined ? z.endSegIndex : z.segIndex) * res + Math.floor((z.endT !== undefined ? z.endT : z.t) * res);
+                    
+                    let inside = false;
+                    if (startIdx <= endIdx) {
+                        inside = (tp.index >= startIdx && tp.index <= endIdx);
+                    } else if (this.data.isClosed) {
+                        inside = (tp.index >= startIdx || tp.index <= endIdx);
+                    } else {
+                        inside = (tp.index >= endIdx && tp.index <= startIdx);
+                    }
+                    
+                    if (inside) {
+                        const p = tp.point;
+                        const dx = wx - p.x, dy = wy - p.y;
+                        const dot = dx * p.nx + dy * p.ny; 
+                        const isRightSide = dot > 0;
+                        if ((z.side === 'left' && !isRightSide) || ((z.side === 'right' || !z.side) && isRightSide)) {
+                            const absDist = Math.abs(dot);
+                            const w = (z.side === 'left') ? p.widthLeft : p.widthRight;
+                            
+                            // Strips hit bounds (strips are centered at w + sw and are sw * 0.6 thick)
+                            const sw = z.stripWidth || 5;
+                            let isHit = (absDist >= w + sw - 2 && absDist <= w + sw + 2);
+                            
+                            // Text hit bounds (roughly middle 30% of the zone, distance w+10 to w+25)
+                            if (!isHit && absDist >= w + 10 && absDist <= w + 25) {
+                                // Calculate total indices in zone
+                                let totalIndices = endIdx - startIdx;
+                                if (totalIndices < 0 && this.data.isClosed) {
+                                    totalIndices = (this.getInterpolatedTrack().length - startIdx) + endIdx;
+                                }
+                                
+                                // Calculate how far tp.index is into the zone
+                                let cur = tp.index - startIdx;
+                                if (cur < 0 && this.data.isClosed) {
+                                    cur = (this.getInterpolatedTrack().length - startIdx) + tp.index;
+                                }
+                                
+                                const ratio = cur / (totalIndices || 1);
+                                if (ratio >= 0.3 && ratio <= 0.7) {
+                                    isHit = true;
+                                }
+                            }
+                            
+                            if (isHit) {
+                                // Set pseudoDist to 0 so it guarantees a hit regardless of zoom-dependent maxDist
+                                const pseudoDist = 0; 
+                                if (pseudoDist < bestD) {
+                                    bestD = pseudoDist;
+                                    best = z;
+                                }
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
             const pos = this.getZoneWorldPos(z);
             if (!pos) continue;
             const d = Math.hypot(pos.x - wx, pos.y - wy);

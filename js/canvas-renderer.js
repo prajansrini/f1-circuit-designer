@@ -26,11 +26,11 @@ F1.Renderer = class Renderer {
 
         // Preload image assets
         this.chequeredImg = new Image();
-        this.chequeredImg.src = 'resources/chequered.png';
+        this.chequeredImg.src = 'resources/chequered.svg';
         this.arrowImg = new Image();
         this.arrowImg.src = 'resources/arrow.png';
         this.stripsImg = new Image();
-        this.stripsImg.src = 'resources/strips.png';
+        this.stripsImg.src = 'resources/strips.svg';
 
         this.resize();
     }
@@ -208,7 +208,7 @@ F1.Renderer = class Renderer {
     }
 
     /* Straight Mode - red dashes close to track edge using strips.png */
-    _straightModeZones(data, editor, track, sel) {
+    _straightModeZones(data, editor, track, sel, ixRange = null) {
         const ctx = this.ctx;
         const firstSMZ = data.zones.find(z => z.type === 'straight_mode');
         data.zones.filter(z => { const zt = F1.ZONE_TYPES.find(t => t.key === z.type); return zt && zt.range; }).forEach(zone => {
@@ -226,13 +226,17 @@ F1.Renderer = class Renderer {
                 for (let i = startIdx; i <= endIdx; i++) {
                     const p = track[i];
                     const w = sideSign < 0 ? p.widthLeft : p.widthRight;
-                    const offset = w + 6 + sw;
+                    // The drawing center is placed such that the closest edge of the strip has a 4px screen gap.
+                    // The strip is drawn from -L_half to +L_half relative to the center.
+                    // When taper = 1.0, L_half = sw. So the strip extends inward by sw.
+                    // Therefore, the center should be at: road edge (w) + 4px gap + sw.
+                    const offset = w + 4 / this.scale + sw;
                     const ox = p.x + p.nx * offset * sideSign;
                     const oy = p.y + p.ny * offset * sideSign;
 
                     if (!prevP) {
-                        stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
-                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                        stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny, trackIndex: i });
+                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny, trackIndex: i };
                         currentDist = 0;
                         continue;
                     }
@@ -252,10 +256,10 @@ F1.Renderer = class Renderer {
                             let exactNy = prevP.ny + (p.ny - prevP.ny) * t;
                             if (isNaN(exactNx) || isNaN(exactNy)) { exactNx = p.nx; exactNy = p.ny; }
 
-                            stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy });
+                            stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy, trackIndex: i });
 
                             currentDist = 0;
-                            prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy };
+                            prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy, trackIndex: i };
                             dx = ox - prevP.x;
                             dy = oy - prevP.y;
                             d = Math.hypot(dx, dy);
@@ -263,7 +267,7 @@ F1.Renderer = class Renderer {
                         }
                         currentDist += d;
                     }
-                    prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                    prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny, trackIndex: i };
                 }
             };
 
@@ -283,16 +287,29 @@ F1.Renderer = class Renderer {
                 const n = stripPoints.length;
                 for (let idx = 0; idx < n; idx++) {
                     const sp = stripPoints[idx];
+
+                    if (ixRange) {
+                        let actualI = sp.trackIndex;
+                        if (actualI < 0) actualI += track.length;
+                        if (actualI >= track.length) actualI -= track.length;
+                        
+                        let inRange = false;
+                        for (let k = ixRange.start; k <= ixRange.end; k++) {
+                            let actualK = k;
+                            if (actualK < 0) actualK += track.length;
+                            if (actualK >= track.length) actualK -= track.length;
+                            if (actualI === actualK) { inRange = true; break; }
+                        }
+                        if (!inRange) continue;
+                    }
+
                     // Only first and last strips are full length, rest are 35%
                     const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
                     const L_half = sw * taper;
 
                     const s = this.w2s(sp.x, sp.y);
-                    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny, sp.nx));
+                    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(Math.atan2(sp.ny * sideSign, sp.nx * sideSign));
 
-                    // sp is at offset = w + 6 + sw
-                    // Inner edge should be at -sw relative to sp
-                    // So we shift the drawing center by -(sw - L_half)
                     const shiftX = -(sw - L_half) * this.scale;
                     const len = L_half * 2 * this.scale;
                     const thick = sw * 0.6 * this.scale; // Constant thickness
@@ -312,7 +329,7 @@ F1.Renderer = class Renderer {
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
 
             // Text-on-path label: render only if this zone has showLabel
-            if (zone.showLabel !== false) {
+            if (zone.showLabel !== false && !ixRange) {
                 const sgn = zone.side === 'left' ? -1 : 1;
                 // Build path points along the offset curve for text placement
                 let pathPts = [];
@@ -320,7 +337,8 @@ F1.Renderer = class Renderer {
                     for (let i = startIdx; i <= endIdx; i++) {
                         const p = track[i];
                         const w = sgn < 0 ? p.widthLeft : p.widthRight;
-                        const offset = w + 6 + (zone.stripWidth || 5) + (zone.stripWidth || 5) + 12;
+                        const sw = zone.stripWidth || 5;
+                        const offset = w + sw * 2 + 8 / this.scale + 5.5;
                         pathPts.push({ x: p.x + p.nx * offset * sgn, y: p.y + p.ny * offset * sgn });
                     }
                 };
@@ -328,8 +346,11 @@ F1.Renderer = class Renderer {
                 else if (data.isClosed) { buildPath(si, track.length - 1); buildPath(0, ei); }
                 else { buildPath(ei, si); }
 
-                // Flip: reverse the path so text reads the opposite direction
-                if (zone.labelFlipped) { pathPts.reverse(); }
+                // Flip: auto-flip text to always be upright, user can override
+                const autoFlip = pathPts.length > 1 && (pathPts[pathPts.length - 1].x < pathPts[0].x);
+                let shouldFlip = autoFlip;
+                if (zone.labelFlipped) { shouldFlip = !shouldFlip; }
+                if (shouldFlip) { pathPts.reverse(); }
 
                 if (pathPts.length > 1) {
                     // Compute cumulative arc-length along the path
@@ -339,23 +360,25 @@ F1.Renderer = class Renderer {
                     }
                     const totalLen = cumLen[cumLen.length - 1];
 
-                    const sf = Math.max(0.9, this.scale);
+                    const sf = this.scale;
                     const fontSize = (zone.labelFontSize || 10) * sf;
                     ctx.font = `bold ${fontSize}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
-                    // Measure each character width
-                    const charWidths = [];
-                    let totalTextW = 0;
+                    
+                    // Measure each character width and convert to world distance
+                    const charWidthsWorld = [];
+                    let totalTextWWorld = 0;
                     for (let c = 0; c < text.length; c++) {
-                        const cw = ctx.measureText(text[c]).width;
-                        charWidths.push(cw);
-                        totalTextW += cw;
+                        const cwScreen = ctx.measureText(text[c]).width;
+                        const cwWorld = cwScreen / sf;
+                        charWidthsWorld.push(cwWorld);
+                        totalTextWWorld += cwWorld;
                     }
-                    const charGap = 1 * sf; // small gap between chars
-                    totalTextW += charGap * (text.length - 1);
+                    const charGapWorld = 1 / sf; // small gap between chars in world units
+                    totalTextWWorld += charGapWorld * (text.length - 1);
 
-                    // Center text along path
-                    let startOffset = (totalLen - totalTextW) / 2;
+                    // Center text along path (all in world coordinates)
+                    let startOffset = (totalLen - totalTextWWorld) / 2;
                     if (startOffset < 0) startOffset = 0;
 
                     // Helper: get position + angle at a given arc-length distance
@@ -384,7 +407,7 @@ F1.Renderer = class Renderer {
                     ctx.fillStyle = '#ff1801';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     for (let c = 0; c < text.length; c++) {
-                        const charMid = curDist + charWidths[c] / 2;
+                        const charMid = curDist + charWidthsWorld[c] / 2;
                         const pt = getPointAt(charMid);
                         const s = this.w2s(pt.x, pt.y);
                         ctx.save();
@@ -393,7 +416,7 @@ F1.Renderer = class Renderer {
                         ctx.font = `bold ${fontSize}px Outfit`;
                         ctx.fillText(text[c], 0, 0);
                         ctx.restore();
-                        curDist += charWidths[c] + charGap;
+                        curDist += charWidthsWorld[c] + charGapWorld;
                     }
                 }
             }
@@ -471,7 +494,7 @@ F1.Renderer = class Renderer {
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x - (pit[i].nx || 0) * w, pit[i].y - (pit[i].ny || 0) * w); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
         ctx.strokeStyle = this.C.pitLine; ctx.lineWidth = Math.max(1, 1.5 * this.scale); ctx.setLineDash([6 * this.scale, 6 * this.scale]);
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
-        if (pit.length > 4) { const mid = pit[Math.floor(pit.length / 2)], s = this.w2s(mid.x, mid.y); ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(10, 12 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PIT LANE', s.x, s.y); }
+        if (pit.length > 4) { const mid = pit[Math.floor(pit.length / 2)], s = this.w2s(mid.x, mid.y); ctx.fillStyle = '#fff'; ctx.font = `bold ${12 * this.scale}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PIT LANE', s.x, s.y); }
     }
 
 
@@ -495,11 +518,11 @@ F1.Renderer = class Renderer {
                 const pos = editor.getZoneWorldPos(zone); if (!pos) return;
                 const s = this.w2s(pos.x, pos.y);
                 const lx = s.x + zone.labelOffsetX * this.scale, ly = s.y + zone.labelOffsetY * this.scale;
-                const sf = Math.max(0.9, this.scale);
+                const sf = this.scale;
                 const text = zone.label ? zone.label.toUpperCase() : '';
                 const lines = text.split('\n');
                 const th = lines.length * 16 * sf + 6 * sf;
-                const hd = th / 2 + 20;
+                const hd = th / 2 + 20 * this.scale;
                 this._drawRotHandle(lx, ly, (zone.rotation || 0) * Math.PI / 180, hd);
             }
 
@@ -509,9 +532,9 @@ F1.Renderer = class Renderer {
             const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return;
             const mid = pts[Math.floor(pts.length / 2)]; const sMid = this.w2s(mid.x, mid.y);
             const lx = sMid.x + sl.labelOffsetX * this.scale, ly = sMid.y + sl.labelOffsetY * this.scale;
-            const sf = Math.max(0.9, this.scale);
+            const sf = this.scale;
             const th = 22 * sf;
-            const hd = th / 2 + 20;
+            const hd = th / 2 + 20 * this.scale;
             this._drawRotHandle(lx, ly, (sl.rotation || 0) * Math.PI / 180, hd);
         } else if (sel.type === 'turn') {
             const tm = data.getTurnMarkerById(sel.id); if (!tm) return;
@@ -520,11 +543,11 @@ F1.Renderer = class Renderer {
             const p = track[Math.min(idx, track.length - 1)]; if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw2 = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft ?? 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight ?? 10) : 0);
-            const wx = p.x + p.nx * (w + sw2 + 13) * actualSgn;
-            const wy = p.y + p.ny * (w + sw2 + 13) * actualSgn;
+            const offset = w + 23; // 15px radius + 8px gap
+            const wx = p.x + p.nx * offset * actualSgn;
+            const wy = p.y + p.ny * offset * actualSgn;
             const s = this.w2s(wx, wy);
-            this._drawRotHandle(s.x, s.y, (tm.rotation || 0) * Math.PI / 180, 22);
+            this._drawRotHandle(s.x, s.y, (tm.rotation || 0) * Math.PI / 180, 22 * this.scale);
         }
     }
 
@@ -582,7 +605,7 @@ F1.Renderer = class Renderer {
 
             // Rotatable label
             const isSel = sel && sel.type === 'zone' && sel.id === zone.id;
-            const sf = Math.max(0.9, this.scale);
+            const sf = this.scale;
             ctx.font = `bold ${10 * sf}px Outfit`;
             const text = (zone.label || zt.label || '').toUpperCase();
             const lines = text.split('\n');
@@ -617,7 +640,7 @@ F1.Renderer = class Renderer {
 
             // Rotatable label container
             const text = `SECTOR ${sl.sector}`;
-            const sf = Math.max(0.9, this.scale);
+            const sf = this.scale;
             ctx.font = `bold ${10 * sf}px Outfit`;
             const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
             const isSel = sel && sel.type === 'sector_label' && sel.sector === sl.sector;
@@ -640,21 +663,20 @@ F1.Renderer = class Renderer {
             if (!p) return;
             const actualSgn = tm.side === 'left' ? -1 : 1;
             const w = actualSgn < 0 ? p.widthLeft : p.widthRight;
-            const sw = actualSgn < 0 ? ((p.surfaceLeft || p.barrierLeft) ? (p.surfaceWidthLeft || 10) : 0) : ((p.surfaceRight || p.barrierRight) ? (p.surfaceWidthRight || 10) : 0);
-            const offset = w + sw + 13;
+            const offset = w + 23; // 15px radius + 8px gap
             const wx = p.x + p.nx * offset * actualSgn;
             const wy = p.y + p.ny * offset * actualSgn;
             const s = this.w2s(wx, wy);
 
             const isSel = sel && sel.type === 'turn' && sel.id === tm.id;
             ctx.save(); ctx.translate(s.x, s.y); ctx.rotate((tm.rotation || 0) * Math.PI / 180);
-            ctx.beginPath(); ctx.arc(0, 0, 11 * this.scale, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(0, 0, 15 * this.scale, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff'; ctx.fill();
-            ctx.strokeStyle = isSel ? '#00ff88' : '#000000'; ctx.lineWidth = isSel ? 2.5 : 1.5; ctx.stroke();
-            ctx.fillStyle = '#000'; ctx.font = `bold ${Math.max(10, 11 * this.scale)}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.strokeStyle = isSel ? '#00ff88' : '#000000'; ctx.lineWidth = isSel ? 2.5 : 2.0; ctx.stroke();
+            ctx.fillStyle = '#000'; ctx.font = `bold ${13 * this.scale}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(tm.label, 0, 0);
             if (tm.name) {
-                ctx.fillStyle = '#fff'; ctx.font = `normal ${Math.max(8, 9 * this.scale)}px Outfit`;
+                ctx.fillStyle = '#fff'; ctx.font = `normal ${9 * this.scale}px Outfit`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(tm.name.toUpperCase(), 0, -16 * this.scale);
             }
@@ -727,13 +749,11 @@ F1.Renderer = class Renderer {
             }
             
             if (subTrack.length > 1) {
-                // Ensure proper caps for the redrawn segment to blend in
-                this.ctx.lineCap = 'butt';
                 this._surfaces(subTrack); 
                 this._trackSurface(subTrack); 
                 this._sectorStripes(subTrack, data, this._getTrackOutsideSgn(track));
                 this._barriers(subTrack);
-                this.ctx.lineCap = 'round';
+                this._straightModeZones(data, editor, track, sel, { start, end });
             }
         });
     }
