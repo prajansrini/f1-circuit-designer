@@ -7,7 +7,7 @@ F1.App = class App {
     constructor() {
         this.projects = [];
         this.currentProjectIndex = 0;
-        
+
         try {
             const saved = localStorage.getItem('f1_circuit_projects');
             if (saved) {
@@ -37,7 +37,7 @@ F1.App = class App {
         this.previewCanvas = document.getElementById('preview-canvas');
         this.preview = new F1.PreviewRenderer(this.previewCanvas);
         this.uiManager = new F1.UIManager(this);
-        
+
         window.addEventListener('circuit-changed', () => this._saveProjectsToStorage());
 
         this.tools = {
@@ -51,6 +51,7 @@ F1.App = class App {
             pitlane: new F1.Tools.PitLaneTool(this),
             zone: new F1.Tools.ZoneTool(this),
             straightMode: new F1.Tools.StraightModeTool(this),
+            analysis: new F1.Tools.BaseTool(this),
             eraser: new F1.Tools.EraserTool(this),
             scale: new F1.Tools.ScaleTool(this),
             help: new F1.Tools.BaseTool(this)
@@ -73,11 +74,11 @@ F1.App = class App {
         this._initTopBar();
         this._initGenerateBtn();
         this._initHelp();
-        
+
         this._renderProjectTabs();
         const nameInput = document.getElementById('circuit-name');
         if (nameInput) nameInput.value = this.data.name || '';
-        
+
         this.setTool('draw');
         this._renderLoop();
         setTimeout(() => this._renderPreview(), 100);
@@ -89,13 +90,13 @@ F1.App = class App {
         this.activeTool = this.tools[name];
         this.activeTool.activate();
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
-        
+
         if (name !== 'scale' && this.rulerMode) {
             this.rulerMode = false;
             this.activeRuler = null;
             this.rulers = [];
         }
-        
+
         this.canvas.style.cursor = this.activeTool.getCursor();
         this.uiManager.updateProperties();
         this.requestRender();
@@ -108,7 +109,7 @@ F1.App = class App {
     _updateIntersections() {
         const track = this.editor.getInterpolatedTrack();
         const intersections = [];
-        
+
         function intersect(p1, p2, p3, p4) {
             if (Math.min(p1.x, p2.x) > Math.max(p3.x, p4.x) || Math.max(p1.x, p2.x) < Math.min(p3.x, p4.x) ||
                 Math.min(p1.y, p2.y) > Math.max(p3.y, p4.y) || Math.max(p1.y, p2.y) < Math.min(p3.y, p4.y)) return false;
@@ -116,19 +117,36 @@ F1.App = class App {
             return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
         }
 
-        const skip = 10;
-        
+        const minCrossDist = 40;
+        const duplicateThreshold = 10;
+
         for (let i = 0; i < track.length - 1; i++) {
-            for (let j = i + skip; j < track.length - 1; j++) {
+            for (let j = i + minCrossDist; j < track.length - 1; j++) {
                 if (this.data.isClosed) {
                     const dist = Math.min(j - i, track.length - (j - i));
-                    if (dist < skip) continue;
+                    if (dist < minCrossDist) continue;
                 }
-                
-                if (intersect(track[i], track[i+1], track[j], track[j+1])) {
-                    const cx = (track[i].x + track[i+1].x + track[j].x + track[j+1].x) / 4;
-                    const cy = (track[i].y + track[i+1].y + track[j].y + track[j+1].y) / 4;
-                    const isDuplicate = intersections.some(ix => Math.hypot(ix.x - cx, ix.y - cy) < 50);
+
+                if (intersect(track[i], track[i + 1], track[j], track[j + 1])) {
+                    // Angle filter: reject near-parallel scrapes (< 10 degrees)
+                    const dx1 = track[i + 1].x - track[i].x, dy1 = track[i + 1].y - track[i].y;
+                    const dx2 = track[j + 1].x - track[j].x, dy2 = track[j + 1].y - track[j].y;
+                    const len1 = Math.hypot(dx1, dy1) || 1, len2 = Math.hypot(dx2, dy2) || 1;
+                    const dot = Math.abs((dx1 * dx2 + dy1 * dy2) / (len1 * len2));
+                    const angleDeg = Math.acos(Math.min(1, dot)) * 180 / Math.PI;
+                    if (angleDeg < 10) continue; // not a real crossing, just parallel scrape
+
+                    const cx = (track[i].x + track[i + 1].x + track[j].x + track[j + 1].x) / 4;
+                    const cy = (track[i].y + track[i + 1].y + track[j].y + track[j + 1].y) / 4;
+                    // Two intersections are duplicates only if both their A and B crossing indices
+                    // are extremely close to an existing one (within `skip` steps). Pure world-space
+                    // distance is unreliable for dense circuits where two distinct crossings happen
+                    // to be physically close together.
+                    const isDuplicate = intersections.some(ix => {
+                        const closeA = Math.abs(ix.trackIdxA - i) < duplicateThreshold && Math.abs(ix.trackIdxB - j) < duplicateThreshold;
+                        const closeB = Math.abs(ix.trackIdxA - j) < duplicateThreshold && Math.abs(ix.trackIdxB - i) < duplicateThreshold;
+                        return closeA || closeB;
+                    });
                     if (!isDuplicate) {
                         intersections.push({
                             id: intersections.length + 1,
@@ -147,20 +165,22 @@ F1.App = class App {
             counts[baseKey] = (counts[baseKey] || 0) + 1;
             ix.key = `${baseKey}-${counts[baseKey] - 1}`;
         });
-        
+
         this.intersections = intersections;
     }
 
     _renderLoop() {
-        if (this._needsRender) { 
-            if (['draw', 'node'].includes(this.activeToolName)) this._updateIntersections();
-            this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName); 
-            this._needsRender = false; 
+        if (this._needsRender) {
+            // Always recalculate intersections so bridges dynamically follow node movement
+            // regardless of which tool (select, draw, node, width…) is active.
+            this._updateIntersections();
+            this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName);
+            this._needsRender = false;
         }
         requestAnimationFrame(() => this._renderLoop());
     }
 
-    _renderPreview() { this.preview.resize(); this.preview.render(this.data, this.editor); }
+    _renderPreview() { this._updateIntersections(); this.preview.resize(); this.preview.render(this.data, this.editor); }
 
     _saveProjectsToStorage() {
         if (this._saveTimer) clearTimeout(this._saveTimer);
@@ -227,18 +247,18 @@ F1.App = class App {
             t.className = 'project-tab' + (i === this.currentProjectIndex ? ' active' : '');
             t.title = p.name || 'Untitled Circuit';
             t.onclick = () => this.switchProject(i);
-            
+
             const n = document.createElement('span');
             n.className = 'project-tab-name';
             n.textContent = p.name || 'Untitled Circuit';
             t.appendChild(n);
-            
+
             const c = document.createElement('div');
             c.className = 'project-tab-close';
             c.textContent = '×';
             c.onclick = (e) => { e.stopPropagation(); this.closeProject(i); };
             t.appendChild(c);
-            
+
             container.appendChild(t);
         });
     }
@@ -268,12 +288,15 @@ F1.App = class App {
         canvas.addEventListener('mousemove', e => {
             const r = canvas.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
             if (this._isPanning) { this.renderer.pan(e.clientX - this._panStart.x, e.clientY - this._panStart.y); this._panStart = { x: e.clientX, y: e.clientY }; this.requestRender(); return; }
-            const w = this.renderer.s2w(sx, sy); this.activeTool.onMouseMove(w.x, w.y, e); this.uiManager.updateStatusBar(w.x, w.y);
+            const w = this.renderer.s2w(sx, sy); this.activeTool.onMouseMove(w.x, w.y, e);
+            // Always keep intersections fresh so bridges follow geometry changes from any tool
+            this._updateIntersections();
+            this.uiManager.updateStatusBar(w.x, w.y);
         });
         window.addEventListener('mouseup', e => {
             if (this._isPanning) { this._isPanning = false; canvas.style.cursor = this.activeTool.getCursor(); return; }
-            const r = canvas.getBoundingClientRect(); 
-            const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top); 
+            const r = canvas.getBoundingClientRect();
+            const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top);
             this.activeTool.onMouseUp(w.x, w.y, e);
         });
         canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); this.renderer.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this.requestRender(); this.uiManager.updateStatusBar(); }, { passive: false });
@@ -289,7 +312,7 @@ F1.App = class App {
         });
         window.addEventListener('mouseup', e => {
             if (isPreviewPanning) { isPreviewPanning = false; pCanvas.style.cursor = 'default'; }
-        });pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
+        }); pCanvas.addEventListener('mouseleave', () => { isPreviewPanning = false; pCanvas.style.cursor = 'default'; });
         pCanvas.addEventListener('wheel', e => { e.preventDefault(); const r = pCanvas.getBoundingClientRect(); this.preview.zoom(e.deltaY, e.clientX - r.left, e.clientY - r.top); this._renderPreview(); }, { passive: false });
         pCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -309,7 +332,7 @@ F1.App = class App {
                 if (key === 'm') { e.preventDefault(); this._renderPreview(); return; }
                 if (key === 's') { e.preventDefault(); document.getElementById('btn-save').click(); return; }
                 if (key === 'o') { e.preventDefault(); document.getElementById('btn-load').click(); return; }
-                if (key === 'i') { e.preventDefault(); document.getElementById('btn-download-map').click(); return; }
+                if (key === 'i') { e.preventDefault(); this._openExportModal(); return; }
                 if (key === 'd') { e.preventDefault(); document.getElementById('btn-duplicate-project').click(); return; }
                 if (key === '/') {
                     e.preventDefault();
@@ -323,13 +346,24 @@ F1.App = class App {
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
             const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
-            if (e.key.toLowerCase() === 'f') {
-                if (hoveredCanvas === 'editor') {
+            if (e.key.toLowerCase() === 'a') {
+                if (document.getElementById('export-modal').style.display === 'flex') {
+                    document.getElementById('btn-export-fit').click();
+                } else if (hoveredCanvas === 'editor') {
                     this.renderer.fitToScreen(this.data, this.editor);
                     this.requestRender();
                 } else {
                     this.preview.fitToScreen(this.data, this.editor);
                     this._renderPreview();
+                }
+                return;
+            }
+            if (e.key.toLowerCase() === 'f') {
+                if (document.getElementById('export-modal').style.display === 'flex') return;
+                if (hoveredCanvas === 'editor') {
+                    document.getElementById('btn-full-editor').click();
+                } else {
+                    document.getElementById('btn-full-preview').click();
                 }
                 return;
             }
@@ -357,12 +391,12 @@ F1.App = class App {
             };
             picker.addEventListener('input', (e) => sync(e.target.value));
             picker.addEventListener('change', (e) => sync(e.target.value));
-            
+
             const parseHex = (val) => {
                 let v = val.trim();
                 if (!v.startsWith('#')) v = '#' + v;
                 if (/^#[0-9a-fA-F]{3}$/.test(v)) {
-                    return '#' + v[1]+v[1] + v[2]+v[2] + v[3]+v[3];
+                    return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
                 }
                 if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
                 return null;
@@ -415,7 +449,7 @@ F1.App = class App {
     _initTopBar() {
         document.getElementById('btn-new-project').addEventListener('click', () => { this.newProject(); });
         document.getElementById('btn-duplicate-project').addEventListener('click', () => { this.duplicateProject(); });
-        
+
         document.getElementById('circuit-name').addEventListener('input', (e) => {
             this.data.name = e.target.value;
             this._renderProjectTabs();
@@ -426,7 +460,7 @@ F1.App = class App {
         document.getElementById('btn-undo').addEventListener('click', () => { this.data.undo(); this.requestRender(); this.uiManager.updateProperties(); this._saveProjectsToStorage(); });
         document.getElementById('btn-redo').addEventListener('click', () => { this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); this._saveProjectsToStorage(); });
         document.getElementById('btn-save').addEventListener('click', () => {
-            const name = document.getElementById('circuit-name').value || 'Untitled Circuit'; 
+            const name = document.getElementById('circuit-name').value || 'Untitled Circuit';
             this.data.name = name;
             const jsonStr = this.data.toJSON();
             const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -449,12 +483,12 @@ F1.App = class App {
                 reader.onload = (event) => {
                     try {
                         const json = event.target.result;
-                        
+
                         // If the current tab has a circuit, open a new tab for the loaded file
                         if (this.data.controlPoints && this.data.controlPoints.length > 0) {
                             this.newProject();
                         }
-                        
+
                         this.data.fromJSON(json);
                         document.getElementById('circuit-name').value = this.data.name || 'Untitled Circuit';
                         this.setSelection(null);
@@ -488,8 +522,35 @@ F1.App = class App {
             document.getElementById('preview-container').classList.add('pulse');
             setTimeout(() => document.getElementById('preview-container').classList.remove('pulse'), 600);
         });
-        document.getElementById('btn-download-map').addEventListener('click', () => {
-            this._openExportModal();
+
+        const workspace = document.getElementById('workspace');
+
+        document.getElementById('btn-full-editor').addEventListener('click', () => {
+            if (workspace.classList.contains('full-editor')) {
+                workspace.classList.remove('full-editor');
+                document.getElementById('btn-full-editor').querySelector('span').innerText = 'Full View';
+            } else {
+                workspace.classList.add('full-editor');
+                workspace.classList.remove('full-preview');
+                document.getElementById('btn-full-editor').querySelector('span').innerText = 'Split View';
+                document.getElementById('btn-full-preview').querySelector('span').innerText = 'Full View';
+            }
+            this.renderer.resize(); this.requestRender();
+            this.preview.resize(); this._renderPreview();
+        });
+
+        document.getElementById('btn-full-preview').addEventListener('click', () => {
+            if (workspace.classList.contains('full-preview')) {
+                workspace.classList.remove('full-preview');
+                document.getElementById('btn-full-preview').querySelector('span').innerText = 'Full View';
+            } else {
+                workspace.classList.add('full-preview');
+                workspace.classList.remove('full-editor');
+                document.getElementById('btn-full-preview').querySelector('span').innerText = 'Split View';
+                document.getElementById('btn-full-editor').querySelector('span').innerText = 'Full View';
+            }
+            this.renderer.resize(); this.requestRender();
+            this.preview.resize(); this._renderPreview();
         });
     }
     _initHelp() {
@@ -498,17 +559,17 @@ F1.App = class App {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const jsonStr = await response.text();
-                
+
                 // If the current tab has a circuit, open a new tab for the loaded example
                 if (this.data.controlPoints && this.data.controlPoints.length > 0) {
                     this.newProject();
                 }
-                
+
                 this.data.snapshot();
                 this.data.fromJSON(jsonStr);
                 this.data.name = name;
                 document.getElementById('circuit-name').value = name;
-                
+
                 this.renderer.fitToScreen(this.data, this.editor);
                 this.setSelection(null);
                 this.requestRender();
@@ -531,7 +592,7 @@ F1.App = class App {
                 loadExample('Example 2', 'resources/example_2.json');
             }
         });
-        
+
         this._initExportModal();
     }
 
@@ -539,68 +600,270 @@ F1.App = class App {
         const c = document.getElementById('export-preview-canvas');
         if (!c) return;
         this.exportPreview = new F1.PreviewRenderer(c);
-        
+
         let isDragging = false, lastX, lastY, draggingText = false;
         c.addEventListener('wheel', e => {
             e.preventDefault();
             const rect = c.getBoundingClientRect();
             const ratioX = c.width / c.clientWidth;
             const ratioY = c.height / c.clientHeight;
-            this.exportPreview.zoom(e.deltaY, (e.clientX - rect.left) * ratioX, (e.clientY - rect.top) * ratioY);
+            const sx = (e.clientX - rect.left) * ratioX;
+            const sy = (e.clientY - rect.top) * ratioY;
+            if (document.querySelector('input[name="export-source"]:checked').value === 'editor') {
+                if (this.exportCanvasRenderer) this.exportCanvasRenderer.zoom(e.deltaY, sx, sy);
+            } else {
+                this.exportPreview.zoom(e.deltaY, sx, sy);
+            }
             this._renderExportPreview();
         });
+        let draggingLegend = false;
         c.addEventListener('mousedown', e => {
             const rect = c.getBoundingClientRect();
             const ratioX = c.width / c.clientWidth;
             const ratioY = c.height / c.clientHeight;
             const cx = (e.clientX - rect.left) * ratioX;
             const cy = (e.clientY - rect.top) * ratioY;
-            
-            // Hit test for text (approximate bounding box)
-            const px = this.exportPreview.customNamePos ? this.exportPreview.customNamePos.x : (this.data.namePos ? this.data.namePos.x : 20);
-            const py = this.exportPreview.customNamePos ? this.exportPreview.customNamePos.y : (this.data.namePos ? this.data.namePos.y : 16);
+
+            const txtSet = this.exportPreview.textSettings || { x: 0, y: 0, scale: 1 };
+            const legSet = this.exportPreview.legendSettings || { x: 0, y: 0, scale: 1 };
+
+            // Text bounding box approx
+            const px = (this.data.namePos ? this.data.namePos.x : 20) + txtSet.x;
+            const py = (this.data.namePos ? this.data.namePos.y : 16) + txtSet.y;
+
+            // Legend bounding box approx (starts bottom left by default usually, but we'll say top left of the drawn box)
+            // It will be drawn at x: 20 + legSet.x, y: H - 150 + legSet.y
+            const lx = 20 + legSet.x;
+            const ly = c.height - 150 + legSet.y;
+
             if (cx >= px - 10 && cx <= px + 300 && cy >= py - 10 && cy <= py + 100) {
                 draggingText = true;
+            } else if (legSet.scale > 0 && cx >= lx - 10 && cx <= lx + 150 && cy >= ly - 10 && cy <= ly + 150) {
+                draggingLegend = true;
             } else {
                 isDragging = true;
             }
             lastX = e.clientX; lastY = e.clientY;
         });
         window.addEventListener('mousemove', e => {
-            if (!isDragging && !draggingText) return;
+            if (!isDragging && !draggingText && !draggingLegend) return;
             const rect = c.getBoundingClientRect();
             const ratioX = c.width / c.clientWidth;
             const ratioY = c.height / c.clientHeight;
             const dx = (e.clientX - lastX) * ratioX;
             const dy = (e.clientY - lastY) * ratioY;
             lastX = e.clientX; lastY = e.clientY;
-            
+
             if (draggingText) {
-                if (!this.exportPreview.customNamePos) {
-                    this.exportPreview.customNamePos = { 
-                        x: this.data.namePos ? this.data.namePos.x : 20, 
-                        y: this.data.namePos ? this.data.namePos.y : 16 
-                    };
-                }
-                this.exportPreview.customNamePos.x += dx;
-                this.exportPreview.customNamePos.y += dy;
+                let elX = document.getElementById('export-text-x');
+                let elY = document.getElementById('export-text-y');
+                elX.value = parseInt(elX.value) + dx;
+                elY.value = parseInt(elY.value) + dy;
+                elX.dispatchEvent(new Event('input'));
+            } else if (draggingLegend) {
+                let elX = document.getElementById('export-legend-x');
+                let elY = document.getElementById('export-legend-y');
+                elX.value = parseInt(elX.value) + dx;
+                elY.value = parseInt(elY.value) + dy;
+                elX.dispatchEvent(new Event('input'));
             } else {
-                this.exportPreview.pan(dx, dy);
+                if (document.querySelector('input[name="export-source"]:checked').value === 'editor') {
+                    this.exportCanvasRenderer.pan(dx, dy);
+                } else {
+                    this.exportPreview.pan(dx, dy);
+                }
+                this._renderExportPreview();
             }
-            this._renderExportPreview();
         });
-        window.addEventListener('mouseup', () => { isDragging = false; draggingText = false; });
+        window.addEventListener('mouseup', () => { isDragging = false; draggingText = false; draggingLegend = false; });
 
         document.getElementById('btn-close-export').onclick = () => document.getElementById('export-modal').style.display = 'none';
-        document.getElementById('btn-export-fit').onclick = () => { this.exportPreview.fitToScreen(); this._renderExportPreview(); };
-        
+        document.getElementById('export-modal').addEventListener('mousedown', (e) => {
+            if (e.target.id === 'export-modal') document.getElementById('export-modal').style.display = 'none';
+        });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('export-modal').style.display === 'flex') {
+                document.getElementById('export-modal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('btn-export-fit').onclick = () => {
+            if (document.querySelector('input[name="export-source"]:checked').value === 'editor') {
+                this.exportCanvasRenderer.fitToScreen(this.data);
+            } else {
+                this.exportPreview.fitToScreen();
+            }
+            this._renderExportPreview();
+        };
+
+        const doZoom = (delta) => {
+            if (document.querySelector('input[name="export-source"]:checked').value === 'editor') {
+                this.exportCanvasRenderer.zoom(delta, c.width / 2, c.height / 2);
+            } else {
+                this.exportPreview.zoom(delta, c.width / 2, c.height / 2);
+            }
+            this._renderExportPreview();
+        };
+
+        document.getElementById('btn-export-zoom-in').onclick = () => doZoom(-100);
+        document.getElementById('btn-export-zoom-out').onclick = () => doZoom(100);
+
         document.getElementById('btn-do-export').onclick = () => this._doExport();
-        
+
         const resync = () => this._renderExportPreview();
-        document.getElementById('export-w').addEventListener('change', resync);
-        document.getElementById('export-h').addEventListener('change', resync);
+        document.getElementById('export-aspect-w').addEventListener('change', resync);
+        document.getElementById('export-aspect-h').addEventListener('change', resync);
+        document.getElementById('export-res').addEventListener('change', resync);
         document.getElementById('export-transparent').addEventListener('change', resync);
-        
+        document.getElementById('export-bg-color').addEventListener('input', resync);
+
+        this.exportStates = { preview: null, editor: null };
+        this.exportActiveMode = 'preview';
+
+        const getUI = () => ({
+            aspectW: document.getElementById('export-aspect-w').value,
+            aspectH: document.getElementById('export-aspect-h').value,
+            res: document.getElementById('export-res').value,
+            transparent: document.getElementById('export-transparent').checked,
+            bgColor: document.getElementById('export-bg-color').value,
+            nameColor: document.getElementById('export-name-color').value,
+            infoColor: document.getElementById('export-info-color').value,
+            textScale: document.getElementById('export-text-scale').value,
+            textX: document.getElementById('export-text-x').value,
+            textY: document.getElementById('export-text-y').value,
+            legScale: document.getElementById('export-legend-scale').value,
+            legX: document.getElementById('export-legend-x').value,
+            legY: document.getElementById('export-legend-y').value,
+            showGrid: document.getElementById('export-show-grid').checked,
+            gridOpacity: document.getElementById('export-grid-opacity').value,
+            layers: Array.from(document.querySelectorAll('.export-layer-cb')).map(cb => ({ id: cb.dataset.layer, checked: cb.checked })),
+            previewState: { scale: this.exportPreview.userScale, ox: this.exportPreview.userOx, oy: this.exportPreview.userOy },
+            editorState: this.exportCanvasRenderer ? { scale: this.exportCanvasRenderer.scale, ox: this.exportCanvasRenderer.ox, oy: this.exportCanvasRenderer.oy } : null
+        });
+
+        const setUI = (s) => {
+            if (!s) return;
+            if (s.aspectW) document.getElementById('export-aspect-w').value = s.aspectW;
+            if (s.aspectH) document.getElementById('export-aspect-h').value = s.aspectH;
+            if (s.res) document.getElementById('export-res').value = s.res;
+            document.getElementById('export-transparent').checked = s.transparent;
+            document.getElementById('export-bg-color').value = s.bgColor;
+            document.getElementById('export-name-color').value = s.nameColor;
+            document.getElementById('export-info-color').value = s.infoColor;
+            document.getElementById('export-text-scale').value = s.textScale;
+            document.getElementById('export-text-x').value = s.textX;
+            document.getElementById('export-text-y').value = s.textY;
+            document.getElementById('export-legend-scale').value = s.legScale;
+            document.getElementById('export-legend-x').value = s.legX;
+            document.getElementById('export-legend-y').value = s.legY;
+            document.getElementById('export-show-grid').checked = s.showGrid;
+            if (s.gridOpacity !== undefined) document.getElementById('export-grid-opacity').value = s.gridOpacity;
+            s.layers.forEach(l => {
+                const cb = document.querySelector(`.export-layer-cb[data-layer="${l.id}"]`);
+                if (cb) cb.checked = l.checked;
+                this.exportPreview.layers[l.id] = l.checked;
+            });
+            if (s.previewState) {
+                this.exportPreview.userScale = s.previewState.scale;
+                this.exportPreview.userOx = s.previewState.ox;
+                this.exportPreview.userOy = s.previewState.oy;
+            }
+            if (s.editorState) {
+                this.exportCanvasRenderer.scale = s.editorState.scale;
+                this.exportCanvasRenderer.ox = s.editorState.ox;
+                this.exportCanvasRenderer.oy = s.editorState.oy;
+            }
+            syncSettings();
+        };
+
+        // Export Source Toggling
+        document.querySelectorAll('input[name="export-source"]').forEach(r => {
+            r.addEventListener('change', (e) => {
+                if (this.exportStates && this.exportActiveMode) this.exportStates[this.exportActiveMode] = getUI();
+                this.exportActiveMode = e.target.value;
+                const isEditor = this.exportActiveMode === 'editor';
+
+                document.getElementById('export-editor-controls').style.display = isEditor ? 'block' : 'none';
+
+                if (this.exportStates[this.exportActiveMode]) {
+                    setUI(this.exportStates[this.exportActiveMode]);
+                } else {
+                    if (isEditor) {
+                        const s = getUI();
+                        s.bgColor = this.renderer.C.bg;
+                        setUI(s);
+                    }
+                }
+
+                if (isEditor) {
+                    if (!this.exportCanvasRenderer) {
+                        this.exportCanvasRenderer = new F1.Renderer(c);
+                        this.exportCanvasRenderer.fitToScreen(this.data);
+                    }
+                } else {
+                    // Preview fits on change if needed, but keeping current zoom is usually better
+                }
+                this._renderExportPreview();
+            });
+        });
+
+        // Map Layers Toggling
+        document.querySelectorAll('.export-layer-cb').forEach(cb => {
+            cb.addEventListener('change', e => {
+                this.exportPreview.layers[e.target.dataset.layer] = e.target.checked;
+                this._renderExportPreview();
+            });
+        });
+        document.getElementById('export-show-grid').addEventListener('change', resync);
+
+        // Text & Legend Sliders Sync
+        const syncSettings = () => {
+            this.exportPreview.nameColor = document.getElementById('export-name-color').value;
+            this.exportPreview.infoColor = document.getElementById('export-info-color').value;
+            let ts = parseFloat(document.getElementById('export-text-scale').value);
+            if (isNaN(ts) || ts < 0) { ts = 0; document.getElementById('export-text-scale').value = 0; }
+            let ls = parseFloat(document.getElementById('export-legend-scale').value);
+            if (isNaN(ls) || ls < 0) { ls = 0; document.getElementById('export-legend-scale').value = 0; }
+
+            this.exportPreview.textSettings = {
+                scale: ts,
+                x: parseInt(document.getElementById('export-text-x').value) || 0,
+                y: parseInt(document.getElementById('export-text-y').value) || 0
+            };
+            this.exportPreview.legendSettings = {
+                scale: ls,
+                x: parseInt(document.getElementById('export-legend-x').value) || 0,
+                y: parseInt(document.getElementById('export-legend-y').value) || 0
+            };
+            document.getElementById('export-grid-opacity-val').innerText = document.getElementById('export-grid-opacity').value;
+            this._renderExportPreview();
+        };
+
+        document.getElementById('export-text-scale-range').addEventListener('input', e => { document.getElementById('export-text-scale').value = e.target.value; syncSettings(); });
+        document.getElementById('export-text-scale').addEventListener('input', e => { document.getElementById('export-text-scale-range').value = e.target.value; syncSettings(); });
+        document.getElementById('export-legend-scale-range').addEventListener('input', e => { document.getElementById('export-legend-scale').value = e.target.value; syncSettings(); });
+        document.getElementById('export-legend-scale').addEventListener('input', e => { document.getElementById('export-legend-scale-range').value = e.target.value; syncSettings(); });
+
+        ['export-text-x', 'export-text-y', 'export-legend-x', 'export-legend-y', 'export-name-color', 'export-info-color', 'export-grid-opacity'].forEach(id => {
+            document.getElementById(id).addEventListener('input', syncSettings);
+        });
+
+        document.getElementById('btn-export-text-reset').onclick = () => {
+            document.getElementById('export-text-scale').value = 1;
+            document.getElementById('export-text-scale-range').value = 1;
+            document.getElementById('export-text-x').value = 0;
+            document.getElementById('export-text-y').value = 0;
+            syncSettings();
+        };
+
+        document.getElementById('btn-export-legend-reset').onclick = () => {
+            document.getElementById('export-legend-scale').value = 1;
+            document.getElementById('export-legend-scale-range').value = 1;
+            document.getElementById('export-legend-x').value = 0;
+            document.getElementById('export-legend-y').value = 0;
+            syncSettings();
+        };
+
         // Handle window resize for export modal
         window.addEventListener('resize', () => {
             if (document.getElementById('export-modal').style.display === 'flex') {
@@ -612,28 +875,54 @@ F1.App = class App {
     _openExportModal() {
         document.getElementById('export-modal').style.display = 'flex';
         this.data.name = document.getElementById('circuit-name').value || 'Untitled Circuit';
-        
+        document.querySelector('input[name="export-source"][value="preview"]').checked = true;
+        document.getElementById('export-editor-controls').style.display = 'none';
+
+        this.exportStates = { preview: null, editor: null };
+        this.exportActiveMode = 'preview';
+
         // Sync layers and styles
         Object.assign(this.exportPreview.layers, this.preview.layers);
         this.exportPreview.bgColor = this.preview.bgColor;
+        document.getElementById('export-bg-color').value = this.preview.bgColor;
         this.exportPreview.infoColor = this.preview.infoColor;
         this.exportPreview.nameColor = this.preview.nameColor;
+        document.getElementById('export-info-color').value = this.preview.infoColor;
+        document.getElementById('export-name-color').value = this.preview.nameColor;
         this.exportPreview.customNamePos = null; // Reset text position for export
-        
+
+        // Force checkboxes to match preview.layers
+        document.querySelectorAll('.export-layer-cb').forEach(cb => {
+            cb.checked = this.preview.layers[cb.dataset.layer] !== false;
+        });
+
         this.exportPreview.fitToScreen();
+        if (!this.exportCanvasRenderer) {
+            this.exportCanvasRenderer = new F1.Renderer(document.getElementById('export-preview-canvas'));
+        }
+        this.exportCanvasRenderer.fitToScreen(this.data);
+
+        // Reset export states to clear any saved zoom
+        this.exportStates = { preview: null, editor: null };
+
         this._renderExportPreview();
     }
 
     _renderExportPreview() {
         const wrap = document.getElementById('export-preview-wrapper');
-        const W = document.getElementById('export-w').value || 1920;
-        const H = document.getElementById('export-h').value || 1080;
+        const aspectW = parseFloat(document.getElementById('export-aspect-w').value) || 16;
+        const aspectH = parseFloat(document.getElementById('export-aspect-h').value) || 9;
+        const aspectRatio = aspectW / aspectH;
+        const W = Math.max(1, parseInt(document.getElementById('export-res').value) || 3840);
+        const H = Math.max(1, Math.round(W / aspectRatio));
         const transparent = document.getElementById('export-transparent').checked;
-        
+        const bgColor = document.getElementById('export-bg-color').value;
+        const isEditor = document.querySelector('input[name="export-source"]:checked').value === 'editor';
+
         // Fit canvas aspect ratio inside wrapper
         const wrapRatio = wrap.clientWidth / wrap.clientHeight;
-        const expRatio = W / H;
-        
+        const expRatio = (W > 0 && H > 0) ? (W / H) : 1;
+
         let cw, ch;
         if (wrapRatio > expRatio) {
             ch = wrap.clientHeight - 40;
@@ -642,58 +931,128 @@ F1.App = class App {
             cw = wrap.clientWidth - 40;
             ch = cw / expRatio;
         }
-        
+
         const c = this.exportPreview.canvas;
         c.style.width = cw + 'px';
         c.style.height = ch + 'px';
         c.width = W;
         c.height = H;
-        
-        // Force background override if transparent
-        const oldBg = this.exportPreview.bgColor;
-        if (transparent) this.exportPreview.bgColor = 'rgba(0,0,0,0)';
-        
-        this.exportPreview.render(this.data, this.editor);
-        
-        // Restore
-        this.exportPreview.bgColor = oldBg;
+
+        if (isEditor) {
+            if (!this.exportCanvasRenderer) this.exportCanvasRenderer = new F1.Renderer(c);
+            this.exportCanvasRenderer.C.bg = transparent ? 'rgba(0,0,0,0)' : bgColor;
+            this.exportCanvasRenderer.showGrid = document.getElementById('export-show-grid').checked;
+            this.exportCanvasRenderer.gridOpacity = parseFloat(document.getElementById('export-grid-opacity').value);
+            this.exportCanvasRenderer.layers = this.exportPreview.layers; // pass layers filter
+            this.exportCanvasRenderer.render(this.data, this.editor);
+
+            // Draw Map Texts on top of Editor View!
+            if (this.exportPreview.layers.name !== false) this.exportPreview._name(c.getContext('2d'), this.data, W, H);
+            if (this.exportPreview.layers.info !== false) this.exportPreview._info(c.getContext('2d'), this.data, this.editor, W, H);
+        } else {
+            // Force background override if transparent
+            const oldBg = this.exportPreview.bgColor;
+            this.exportPreview.bgColor = transparent ? 'rgba(0,0,0,0)' : bgColor;
+
+            this.exportPreview.render(this.data, this.editor);
+
+            // Restore
+            this.exportPreview.bgColor = oldBg;
+        }
     }
 
     async _doExport() {
         const fmt = document.getElementById('export-format').value;
-        const W = parseInt(document.getElementById('export-w').value) || 1920;
-        const H = parseInt(document.getElementById('export-h').value) || 1080;
+        const aspectW = parseFloat(document.getElementById('export-aspect-w').value) || 16;
+        const aspectH = parseFloat(document.getElementById('export-aspect-h').value) || 9;
+        const aspectRatio = aspectW / aspectH;
+        const W = parseInt(document.getElementById('export-res').value) || 3840;
+        const H = Math.round(W / aspectRatio);
         const transparent = document.getElementById('export-transparent').checked;
+        const isEditor = document.querySelector('input[name="export-source"]:checked').value === 'editor';
         const name = (this.data.name || 'circuit').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        
+
         if (fmt === 'svg') {
-            const exporter = new F1.SVGExporter(this.preview.bgColor, this.preview.infoColor, this.preview.nameColor);
-            const svgStr = await exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.customNamePos);
-            const blob = new Blob([svgStr], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `${name}.svg`; a.click();
-            URL.revokeObjectURL(url);
-            this.setStatus(`Exported ${name}.svg`);
+            if (isEditor) {
+                alert('SVG format is only supported for Map View. Please select PNG or JPEG from the format dropdown for the Editor View.');
+                return;
+            }
+            try {
+                const exporter = new F1.SVGExporter(this.exportPreview.bgColor, this.exportPreview.infoColor, this.exportPreview.nameColor);
+                Object.assign(exporter.layers, this.exportPreview.layers);
+                const svgStr = await exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.textSettings, this.exportPreview.legendSettings);
+                const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `${name}.svg`; a.click();
+                URL.revokeObjectURL(url);
+                this.setStatus(`Exported ${name}.svg`);
+            } catch (e) {
+                console.error(e);
+                alert('SVG Export Failed: ' + e.message);
+            }
         } else {
-            // Render full res to canvas
-            const c = document.createElement('canvas'); c.width = W; c.height = H;
-            const pr = new F1.PreviewRenderer(c);
-            Object.assign(pr.layers, this.preview.layers);
-            pr.bgColor = transparent && fmt !== 'jpg' ? 'rgba(0,0,0,0)' : this.preview.bgColor;
-            pr.infoColor = this.preview.infoColor;
-            pr.nameColor = this.preview.nameColor;
-            pr.userScale = this.exportPreview.userScale;
-            pr.userOx = this.exportPreview.userOx;
-            pr.userOy = this.exportPreview.userOy;
-            
-            pr.render(this.data, this.editor);
-            
-            const mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
-            const url = c.toDataURL(mime, 0.95);
-            const a = document.createElement('a'); a.href = url; a.download = `${name}.${fmt}`; a.click();
-            this.setStatus(`Exported ${name}.${fmt}`);
+            try {
+                // Render full res to canvas
+                const c = document.createElement('canvas'); c.width = W; c.height = H;
+
+                if (isEditor) {
+                    const cr = new F1.Renderer(c);
+                    const bgColor = document.getElementById('export-bg-color').value;
+                    cr.C.bg = transparent && fmt !== 'jpg' ? 'rgba(0,0,0,0)' : bgColor;
+                    cr.showGrid = document.getElementById('export-show-grid').checked;
+                    cr.gridOpacity = parseFloat(document.getElementById('export-grid-opacity').value);
+                    const ratio = W / this.exportCanvasRenderer.canvas.width;
+                    cr.scale = this.exportCanvasRenderer.scale * ratio;
+                    cr.ox = this.exportCanvasRenderer.ox;
+                    cr.oy = this.exportCanvasRenderer.oy;
+                    cr.layers = this.exportPreview.layers;
+                    cr.render(this.data, this.editor);
+
+                    // Draw Map Texts on top of Editor View!
+                    if (this.exportPreview.layers.name !== false) {
+                        const ctx2d = c.getContext('2d');
+                        ctx2d.save();
+                        ctx2d.scale(ratio, ratio);
+                        this.exportPreview._name(ctx2d, this.data, W / ratio, H / ratio);
+                        ctx2d.restore();
+                    }
+                    if (this.exportPreview.layers.info !== false) {
+                        const ctx2d = c.getContext('2d');
+                        ctx2d.save();
+                        ctx2d.scale(ratio, ratio);
+                        this.exportPreview._info(ctx2d, this.data, this.editor, W / ratio, H / ratio);
+                        ctx2d.restore();
+                    }
+                } else {
+                    const pr = new F1.PreviewRenderer(c);
+                    Object.assign(pr.layers, this.exportPreview.layers);
+                    const bgColor = document.getElementById('export-bg-color').value;
+                    pr.bgColor = transparent && fmt !== 'jpg' ? 'rgba(0,0,0,0)' : bgColor;
+                    pr.infoColor = this.exportPreview.infoColor;
+                    pr.nameColor = this.exportPreview.nameColor;
+
+                    const ratio = W / this.exportPreview.canvas.width;
+                    pr.userScale = this.exportPreview.userScale * ratio;
+                    pr.userOx = this.exportPreview.userOx;
+                    pr.userOy = this.exportPreview.userOy;
+
+                    pr.textSettings = this.exportPreview.textSettings;
+                    pr.legendSettings = this.exportPreview.legendSettings;
+                    pr.exportRatio = ratio;
+
+                    pr.render(this.data, this.editor);
+                }
+
+                const mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
+                const url = c.toDataURL(mime, 0.95);
+                const a = document.createElement('a'); a.href = url; a.download = `${name}.${fmt}`; a.click();
+                this.setStatus(`Exported ${name}.${fmt}`);
+            } catch (e) {
+                console.error(e);
+                alert('Export Failed: ' + e.message);
+            }
         }
-        
+
         document.getElementById('export-modal').style.display = 'none';
     }
 };

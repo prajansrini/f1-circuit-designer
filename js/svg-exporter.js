@@ -5,6 +5,7 @@ F1.SVGExporter = class SVGExporter {
         this.bgColor = bgColor;
         this.infoColor = infoColor;
         this.nameColor = nameColor;
+        this.layers = {};
     }
 
     _getBounds(track, data) {
@@ -33,7 +34,7 @@ F1.SVGExporter = class SVGExporter {
         }
     }
 
-    async export(data, editor, W, H, transparent, customNamePos = null) {
+    async export(data, editor, W, H, transparent, textSettings = null, legendSettings = null) {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) return '';
 
@@ -85,169 +86,210 @@ F1.SVGExporter = class SVGExporter {
             pathStr += 'Z';
         }
 
-        // Track Edges and Base
-        svg += `<path d="${pathStr}" fill="none" stroke="#ffffff" stroke-width="${43 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
-        svg += `<path d="${pathStr}" fill="none" stroke="#111111" stroke-width="${40 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+        if (this.layers.track !== false) {
+            // Track Edges and Base
+            svg += `<path d="${pathStr}" fill="none" stroke="#ffffff" stroke-width="${43 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+            svg += `<path d="${pathStr}" fill="none" stroke="#111111" stroke-width="${40 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+        }
+
+        const sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
 
         // Sectors
-        const sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
-        const slw = Math.max(6, 6 * scale);
-        let currentSector = -1;
-        let sectorPath = "";
-        for (let i = 0; i < track.length; i++) {
-            const p = track[i];
-            const sec = p.sector;
-            if (sec === 0) continue;
-            
-            const s = ts(p.x, p.y);
-            if (sec !== currentSector) {
-                if (sectorPath !== "") {
-                    svg += `<path d="${sectorPath}" fill="none" stroke="${sectorColors[currentSector] || '#555'}" stroke-width="${slw}" stroke-linecap="round" stroke-linejoin="round" />`;
+        if (this.layers.sectors !== false && this.layers.track !== false) {
+            const slw = Math.max(6, 6 * scale);
+            let currentSector = -1;
+            let sectorPath = "";
+            for (let i = 0; i < track.length; i++) {
+                const p = track[i];
+                const sec = p.sector;
+                if (sec === 0) continue;
+
+                const s = ts(p.x, p.y);
+                if (sec !== currentSector) {
+                    if (sectorPath !== "") {
+                        svg += `<path d="${sectorPath}" fill="none" stroke="${sectorColors[currentSector] || '#555'}" stroke-width="${slw}" stroke-linecap="round" stroke-linejoin="round" />`;
+                    }
+                    currentSector = sec;
+
+                    // Start new path slightly before this point by connecting from previous if possible
+                    let startS = s;
+                    if (i > 0) {
+                        startS = ts(track[i - 1].x, track[i - 1].y);
+                    }
+                    sectorPath = `M ${startS.x} ${startS.y} L ${s.x} ${s.y} `;
+                } else {
+                    sectorPath += `L ${s.x} ${s.y} `;
                 }
-                currentSector = sec;
-                
-                // Start new path slightly before this point by connecting from previous if possible
-                let startS = s;
-                if (i > 0) {
-                    startS = ts(track[i-1].x, track[i-1].y);
-                }
-                sectorPath = `M ${startS.x} ${startS.y} L ${s.x} ${s.y} `;
-            } else {
-                sectorPath += `L ${s.x} ${s.y} `;
             }
-        }
-        if (sectorPath !== "") {
-            svg += `<path d="${sectorPath}" fill="none" stroke="${sectorColors[currentSector] || '#555'}" stroke-width="${slw}" stroke-linecap="round" stroke-linejoin="round" />`;
+            if (sectorPath !== "") {
+                svg += `<path d="${sectorPath}" fill="none" stroke="${sectorColors[currentSector] || '#555'}" stroke-width="${slw}" stroke-linecap="round" stroke-linejoin="round" />`;
+            }
         }
 
         // Overlaps/Bridges moved below SMZ
         // Straight Mode Zones (Red Dashes and Text)
-        data.zones.filter(z => z.type === 'straight_mode').forEach(zone => {
-            const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
-            const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
-            if (si === undefined || ei === undefined) return;
+        if (this.layers.straightMode !== false) {
+            data.zones.filter(z => z.type === 'straight_mode').forEach(zone => {
+                const si = zone.segIndex * editor.resolution + Math.floor(zone.t * editor.resolution);
+                const ei = zone.endSegIndex * editor.resolution + Math.floor(zone.endT * editor.resolution);
+                if (si === undefined || ei === undefined) return;
 
-            const spacing = zone.stripSpacing || 2;
-            const sw = zone.stripWidth || 5;
-            const targetGap = spacing * 5;
-            const stripOffsetWorld = 20 + 4 / scale + sw;
-            const sideSign = zone.side === 'left' ? -1 : 1;
+                const spacing = zone.stripSpacing || 2;
+                const sw = zone.stripWidth || 5;
+                const targetGap = spacing * 5;
+                const stripOffsetWorld = 20 + 4 / scale + sw;
+                const sideSign = zone.side === 'left' ? -1 : 1;
 
-            let stripPoints = [];
-            let currentDist = 0;
-            let prevP = null;
+                let stripPoints = [];
+                let currentDist = 0;
+                let prevP = null;
 
-            const addStripPoints = (startIdx, endIdx) => {
-                for (let i = startIdx; i <= endIdx; i++) {
-                    const p = track[i];
-                    const ox = p.x + p.nx * stripOffsetWorld * sideSign;
-                    const oy = p.y + p.ny * stripOffsetWorld * sideSign;
-
-                    if (!prevP) {
-                        stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
-                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
-                        currentDist = 0;
-                        continue;
-                    }
-
-                    let dx = ox - prevP.x;
-                    let dy = oy - prevP.y;
-                    let d = Math.hypot(dx, dy);
-
-                    if (d > 0.0001) {
-                        while (currentDist + d >= targetGap) {
-                            const needed = targetGap - currentDist;
-                            const t = needed / d;
-                            const exactX = prevP.x + dx * t;
-                            const exactY = prevP.y + dy * t;
-                            let exactNx = prevP.nx + (p.nx - prevP.nx) * t;
-                            let exactNy = prevP.ny + (p.ny - prevP.ny) * t;
-                            if (isNaN(exactNx) || isNaN(exactNy)) { exactNx = p.nx; exactNy = p.ny; }
-                            
-                            stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy });
-                            currentDist = 0;
-                            prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy };
-                            dx = ox - prevP.x;
-                            dy = oy - prevP.y;
-                            d = Math.hypot(dx, dy);
-                            if (d < 0.0001) break;
-                        }
-                        currentDist += d;
-                    }
-                    prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
-                }
-            };
-
-            if (si <= ei) { addStripPoints(si, ei); }
-            else if (data.isClosed) { addStripPoints(si, track.length - 1); addStripPoints(0, ei); }
-            else { addStripPoints(ei, si); }
-
-            const n = stripPoints.length;
-            for (let idx = 0; idx < n; idx++) {
-                const sp = stripPoints[idx];
-                const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
-                const L_half = sw * taper;
-                const s = ts(sp.x, sp.y);
-                const angle = Math.atan2(sp.ny * sideSign, sp.nx * sideSign) * 180 / Math.PI;
-
-                const shiftX = -(sw - L_half) * scale;
-                const len = L_half * 2 * scale;
-                const thick = sw * 0.6 * scale;
-                
-                svg += `<g transform="translate(${s.x}, ${s.y}) rotate(${angle})">`;
-                if (stripsURI) {
-                    svg += `<image href="${stripsURI}" x="${shiftX - len/2}" y="${-thick/2}" width="${len}" height="${thick}" preserveAspectRatio="none" />`;
-                } else {
-                    svg += `<rect x="${shiftX - len/2}" y="${-thick/2}" width="${len}" height="${thick}" fill="#ff1801" />`;
-                }
-                svg += `</g>`;
-            }
-
-            // Text Label
-            if (zone.showLabel !== false) {
-                const textOffsetWorld = stripOffsetWorld + sw + 4 / scale + 11 / 2;
-                let pathPts = [];
-                const buildPathPts = (startIdx, endIdx) => {
+                const addStripPoints = (startIdx, endIdx) => {
                     for (let i = startIdx; i <= endIdx; i++) {
                         const p = track[i];
-                        pathPts.push({
-                            x: p.x + p.nx * textOffsetWorld * sideSign,
-                            y: p.y + p.ny * textOffsetWorld * sideSign
-                        });
+                        const ox = p.x + p.nx * stripOffsetWorld * sideSign;
+                        const oy = p.y + p.ny * stripOffsetWorld * sideSign;
+
+                        if (!prevP) {
+                            stripPoints.push({ x: ox, y: oy, nx: p.nx, ny: p.ny });
+                            prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
+                            currentDist = 0;
+                            continue;
+                        }
+
+                        let dx = ox - prevP.x;
+                        let dy = oy - prevP.y;
+                        let d = Math.hypot(dx, dy);
+
+                        if (d > 0.0001) {
+                            while (currentDist + d >= targetGap) {
+                                const needed = targetGap - currentDist;
+                                const t = needed / d;
+                                const exactX = prevP.x + dx * t;
+                                const exactY = prevP.y + dy * t;
+                                let exactNx = prevP.nx + (p.nx - prevP.nx) * t;
+                                let exactNy = prevP.ny + (p.ny - prevP.ny) * t;
+                                if (isNaN(exactNx) || isNaN(exactNy)) { exactNx = p.nx; exactNy = p.ny; }
+
+                                stripPoints.push({ x: exactX, y: exactY, nx: exactNx, ny: exactNy });
+                                currentDist = 0;
+                                prevP = { x: exactX, y: exactY, nx: exactNx, ny: exactNy };
+                                dx = ox - prevP.x;
+                                dy = oy - prevP.y;
+                                d = Math.hypot(dx, dy);
+                                if (d < 0.0001) break;
+                            }
+                            currentDist += d;
+                        }
+                        prevP = { x: ox, y: oy, nx: p.nx, ny: p.ny };
                     }
                 };
-                if (si <= ei) { buildPathPts(si, ei); }
-                else if (data.isClosed) { buildPathPts(si, track.length - 1); buildPathPts(0, ei); }
-                else { buildPathPts(ei, si); }
 
-                const autoFlip = pathPts.length > 1 && (pathPts[pathPts.length - 1].x < pathPts[0].x);
-                let shouldFlip = autoFlip;
-                if (zone.labelFlipped) { shouldFlip = !shouldFlip; }
-                if (shouldFlip) { pathPts.reverse(); }
+                if (si <= ei) { addStripPoints(si, ei); }
+                else if (data.isClosed) { addStripPoints(si, track.length - 1); addStripPoints(0, ei); }
+                else { addStripPoints(ei, si); }
 
-                if (pathPts.length > 2) {
-                    let dPath = `M ${ts(pathPts[0].x, pathPts[0].y).x} ${ts(pathPts[0].x, pathPts[0].y).y} `;
-                    let totalLen = 0;
-                    for (let i = 1; i < pathPts.length; i++) {
-                        const s = ts(pathPts[i].x, pathPts[i].y);
-                        dPath += `L ${s.x} ${s.y} `;
-                        totalLen += Math.hypot(pathPts[i].x - pathPts[i-1].x, pathPts[i].y - pathPts[i-1].y) * scale;
+                const n = stripPoints.length;
+                for (let idx = 0; idx < n; idx++) {
+                    const sp = stripPoints[idx];
+                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
+                    const L_half = sw * taper;
+                    const s = ts(sp.x, sp.y);
+                    const angle = Math.atan2(sp.ny * sideSign, sp.nx * sideSign) * 180 / Math.PI;
+
+                    const shiftX = -(sw - L_half) * scale;
+                    const len = L_half * 2 * scale;
+                    const thick = sw * 0.6 * scale;
+
+                    svg += `<g transform="translate(${s.x}, ${s.y}) rotate(${angle})">`;
+                    if (stripsURI) {
+                        svg += `<image href="${stripsURI}" x="${shiftX - len / 2}" y="${-thick / 2}" width="${len}" height="${thick}" preserveAspectRatio="none" />`;
+                    } else {
+                        svg += `<rect x="${shiftX - len / 2}" y="${-thick / 2}" width="${len}" height="${thick}" fill="#ff1801" />`;
                     }
-                    const textId = `smz_path_${zone.id || Math.random().toString(36).substr(2, 9)}`;
-                    svg += `<defs><path id="${textId}" d="${dPath}" fill="none" /></defs>`;
-                    const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
-                    const labelText = (zone.label || zt.label || '').toUpperCase();
-                    // Rough estimate of text width to center it
-                    // The text-anchor="middle" with startOffset="50%" perfectly centers it on the path!
-                    svg += `<text fill="#ff1801" font-family="Outfit" font-size="${11 * scale}" font-weight="bold" letter-spacing="${3 * scale}">`;
-                    svg += `<textPath href="#${textId}" startOffset="50%" text-anchor="middle" method="align">${labelText}</textPath>`;
-                    svg += `</text>`;
+                    svg += `</g>`;
                 }
-            }
-        });
+
+                // Text Label
+                if (zone.showLabel !== false) {
+                    const textOffsetWorld = stripOffsetWorld + sw + 4 / scale + 11 / 2;
+                    let pathPts = [];
+                    const buildPathPts = (startIdx, endIdx) => {
+                        for (let i = startIdx; i <= endIdx; i++) {
+                            const p = track[i];
+                            pathPts.push({
+                                x: p.x + p.nx * textOffsetWorld * sideSign,
+                                y: p.y + p.ny * textOffsetWorld * sideSign
+                            });
+                        }
+                    };
+                    if (si <= ei) { buildPathPts(si, ei); }
+                    else if (data.isClosed) { buildPathPts(si, track.length - 1); buildPathPts(0, ei); }
+                    else { buildPathPts(ei, si); }
+
+                    const autoFlip = pathPts.length > 1 && (pathPts[pathPts.length - 1].x < pathPts[0].x);
+                    let shouldFlip = autoFlip;
+                    if (zone.labelFlipped) { shouldFlip = !shouldFlip; }
+                    if (shouldFlip) { pathPts.reverse(); }
+
+                    if (pathPts.length > 1) {
+                        let cumLen = [0];
+                        for (let i = 1; i < pathPts.length; i++) {
+                            cumLen.push(cumLen[i - 1] + Math.hypot(pathPts[i].x - pathPts[i - 1].x, pathPts[i].y - pathPts[i - 1].y));
+                        }
+                        const totalLen = cumLen[cumLen.length - 1];
+
+                        const fontSize = (zone.labelFontSize || 10);
+                        const zt = F1.ZONE_TYPES.find(t => t.key === zone.type);
+                        const text = (zone.label || zt.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
+
+                        // We can't measure text accurately without DOM in string builder, 
+                        // so we estimate character width. For Outfit bold, char width is approx 0.65 * fontSize
+                        const charWidthWorld = fontSize * 0.65;
+                        const charGapWorld = 1.0;
+                        const totalTextWWorld = text.length * charWidthWorld + (text.length - 1) * charGapWorld;
+
+                        let startOffset = (totalLen - totalTextWWorld) / 2;
+                        if (startOffset < 0) startOffset = 0;
+
+                        const getPointAt = (dist) => {
+                            if (dist <= 0) return { x: pathPts[0].x, y: pathPts[0].y, angle: Math.atan2(pathPts[1].y - pathPts[0].y, pathPts[1].x - pathPts[0].x) };
+                            if (dist >= totalLen) {
+                                const last = pathPts.length - 1;
+                                return { x: pathPts[last].x, y: pathPts[last].y, angle: Math.atan2(pathPts[last].y - pathPts[last - 1].y, pathPts[last].x - pathPts[last - 1].x) };
+                            }
+                            for (let i = 1; i < cumLen.length; i++) {
+                                if (cumLen[i] >= dist) {
+                                    const segLen = cumLen[i] - cumLen[i - 1];
+                                    const t = segLen > 0 ? (dist - cumLen[i - 1]) / segLen : 0;
+                                    return {
+                                        x: pathPts[i - 1].x + (pathPts[i].x - pathPts[i - 1].x) * t,
+                                        y: pathPts[i - 1].y + (pathPts[i].y - pathPts[i - 1].y) * t,
+                                        angle: Math.atan2(pathPts[i].y - pathPts[i - 1].y, pathPts[i].x - pathPts[i - 1].x)
+                                    };
+                                }
+                            }
+                            return { x: pathPts[0].x, y: pathPts[0].y, angle: 0 };
+                        };
+
+                        let curDist = startOffset;
+                        for (let c = 0; c < text.length; c++) {
+                            const charMid = curDist + charWidthWorld / 2;
+                            const pt = getPointAt(charMid);
+                            const s = ts(pt.x, pt.y);
+                            const angleDeg = pt.angle * 180 / Math.PI;
+
+                            svg += `<text x="0" y="0" fill="#ff1801" font-family="Outfit" font-size="${fontSize * scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="translate(${s.x}, ${s.y}) rotate(${angleDeg})">${text[c]}</text>`;
+
+                            curDist += charWidthWorld + charGapWorld;
+                        }
+                    }
+                }
+            });
+        }
 
         // Overlaps/Bridges (simplified fallback for SVG to match renderer)
-        if (window.app && window.app.intersections) {
+        if (this.layers.track !== false && window.app && window.app.intersections) {
             window.app.intersections.forEach(ix => {
                 const key = ix.key;
                 const legacyKey = `${ix.cpA}-${ix.cpB}`;
@@ -306,54 +348,73 @@ F1.SVGExporter = class SVGExporter {
             });
         }
 
+        // Pit Lane
+        if (this.layers.pitLane !== false) {
+            const pit = editor.getInterpolatedPitLane();
+            if (pit && pit.length >= 2) {
+                let pitPath = `M ${ts(pit[0].x, pit[0].y).x} ${ts(pit[0].x, pit[0].y).y} `;
+                for (let i = 1; i < pit.length; i++) {
+                    const s = ts(pit[i].x, pit[i].y);
+                    pitPath += `L ${s.x} ${s.y} `;
+                }
+                svg += `<path d="${pitPath}" fill="none" stroke="#222" stroke-width="${4 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+            }
+        }
+
         // Start/Finish Line & Arrow
         const startPoint = track[0];
         const sStart = ts(startPoint.x, startPoint.y);
         const sn = { x: startPoint.nx, y: startPoint.ny };
         const angle = Math.atan2(sn.y, sn.x) * 180 / Math.PI;
-        
-        svg += `<g transform="translate(${sStart.x}, ${sStart.y}) rotate(${angle})">`;
-        const size = 30 * scale;
-        if (chequeredURI) {
-            svg += `<image href="${chequeredURI}" x="${-size/2}" y="${-40*scale}" width="${size}" height="${80*scale}" preserveAspectRatio="none" />`;
-        } else {
-            // Fallback just in case
-            svg += `<rect x="${-size/2}" y="${-40*scale}" width="${size}" height="${80*scale}" fill="url(#chequered)" />`;
+
+        if (this.layers.chequeredFlag !== false || this.layers.direction !== false) {
+            svg += `<g transform="translate(${sStart.x}, ${sStart.y}) rotate(${angle})">`;
+
+            if (this.layers.chequeredFlag !== false) {
+                const size = 30 * scale;
+                if (chequeredURI) {
+                    svg += `<image href="${chequeredURI}" x="${-size / 2}" y="${-40 * scale}" width="${size}" height="${80 * scale}" preserveAspectRatio="none" />`;
+                } else {
+                    svg += `<rect x="${-size / 2}" y="${-40 * scale}" width="${size}" height="${80 * scale}" fill="url(#chequered)" />`;
+                }
+            }
+
+            if (this.layers.direction !== false) {
+                const ax = 35 * scale;
+                const ay = 0;
+                svg += `<g transform="translate(${ax}, ${ay}) rotate(90) scale(${scale}) translate(-12, -12)">`;
+                svg += `<use href="#track_arrow" />`;
+                svg += `</g>`;
+            }
+
+            svg += `</g>`;
         }
-        
-        // Arrow (translated slightly like in preview-renderer)
-        const ax = 35 * scale;
-        const ay = 0;
-        // The arrow SVG in preview uses a fixed coordinate Path2D roughly 24x24 in size, so we'll just scale and translate it
-        // The preview renderer draws it at `ctx.translate(cx, cy); ctx.scale(sf, sf); ctx.translate(-12, -12);`
-        svg += `<g transform="translate(${ax}, ${ay}) rotate(90) scale(${scale}) translate(-12, -12)">`;
-        svg += `<use href="#track_arrow" />`;
-        svg += `</g>`;
-        svg += `</g>`;
 
         // Zones (Green/Yellow circles)
-        data.zones.forEach(z => {
-            const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
-            if (!zt) return;
-            if (zt.range) return; 
+        if (this.layers.zones !== false) {
+            data.zones.forEach(z => {
+                const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
+                if (!zt) return;
+                if (zt.range) return;
 
-            const p = editor.getZoneWorldPos(z);
-            if (!p) return;
-            const sp = ts(p.x, p.y);
-            const lx = sp.x + (z.labelOffsetX || 0) * scale, ly = sp.y + (z.labelOffsetY || 0) * scale;
+                const p = editor.getZoneWorldPos(z);
+                if (!p) return;
+                const sp = ts(p.x, p.y);
+                const lx = sp.x + (z.labelOffsetX || 0) * scale, ly = sp.y + (z.labelOffsetY || 0) * scale;
 
-            svg += `<line x1="${sp.x}" y1="${sp.y}" x2="${lx}" y2="${ly}" stroke="#555" stroke-width="1.5" />`;
-            svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${5 * scale}" fill="${zt.color}" />`;
-            svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${9 * scale}" fill="none" stroke="${zt.color}" stroke-width="2" />`;
-            
-            const lines = z.label.toUpperCase().split('\n');
-            lines.forEach((l, i) => {
-                svg += `<text x="${lx}" y="${ly + i * 14 * scale}" fill="${zt.color}" font-family="Outfit" font-size="${12 * scale}" font-weight="bold" text-anchor="middle" filter="url(#glow)">${l}</text>`;
+                svg += `<line x1="${sp.x}" y1="${sp.y}" x2="${lx}" y2="${ly}" stroke="#555" stroke-width="1.5" />`;
+                svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${5 * scale}" fill="${zt.color}" />`;
+                svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${9 * scale}" fill="none" stroke="${zt.color}" stroke-width="2" />`;
+
+                const lines = z.label.toUpperCase().split('\n');
+                lines.forEach((l, i) => {
+                    svg += `<text x="${lx}" y="${ly + i * 14 * scale}" fill="${zt.color}" font-family="Outfit" font-size="${12 * scale}" font-weight="bold" text-anchor="middle" filter="url(#glow)">${l}</text>`;
+                });
             });
-        });
+        }
 
         // Sector Labels
-        if (data.sectorLabels) {
+        if (this.layers.sectors !== false && data.sectorLabels) {
             data.sectorLabels.forEach(sl => {
                 const pts = track.filter(pt => pt.sector === sl.sector); if (!pts.length) return;
                 const mid = pts[Math.floor(pts.length / 2)];
@@ -361,44 +422,71 @@ F1.SVGExporter = class SVGExporter {
                 const lx = sMid.x + sl.labelOffsetX * scale, ly = sMid.y + sl.labelOffsetY * scale;
                 const text = `SECTOR ${sl.sector}`;
                 // Estimate width based on scale
-                const tw = 60 * scale; 
+                const tw = 60 * scale;
                 const th = 22 * scale;
                 const sColor = sl.sector === 1 ? '#E70E6C' : sl.sector === 2 ? '#FBCF02' : '#369BE5';
-                
+
                 svg += `<g transform="translate(${lx}, ${ly}) rotate(${sl.rotation || 0})">`;
-                svg += `<rect x="${-tw/2}" y="${-th/2}" width="${tw}" height="${th}" rx="${4*scale}" ry="${4*scale}" fill="#ffffff" stroke="${sColor}" stroke-width="1.5" />`;
-                svg += `<text x="0" y="${1*scale}" fill="#000000" font-family="Outfit" font-size="${10*scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${text}</text>`;
+                svg += `<rect x="${-tw / 2}" y="${-th / 2}" width="${tw}" height="${th}" rx="${4 * scale}" ry="${4 * scale}" fill="#ffffff" stroke="${sColor}" stroke-width="1.5" />`;
+                svg += `<text x="0" y="${1 * scale}" fill="#000000" font-family="Outfit" font-size="${10 * scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${text}</text>`;
                 svg += `</g>`;
             });
         }
 
         // Turn Markers
-        data.turnMarkers.forEach(tm => {
-            const p = track[tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution)];
-            if (!p) return;
-            const sgn = tm.side === 'left' ? -1 : 1;
-            const w = sgn < 0 ? p.widthLeft : p.widthRight;
-            const circleRadiusPx = 15 * scale;
-            const distPx = w * scale + circleRadiusPx + 8 * scale;
-            const sCenter = ts(p.x, p.y);
-            const sp = { x: sCenter.x + p.nx * distPx * sgn, y: sCenter.y + p.ny * distPx * sgn };
-            
-            svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${15 * scale}" fill="#ffffff" stroke="#000000" stroke-width="2.5" />`;
-            svg += `<text x="${sp.x}" y="${sp.y + 1 * scale}" fill="#000000" font-family="Outfit" font-size="${13 * scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${tm.label}</text>`;
-        });
+        if (this.layers.turnNumbers !== false) {
+            data.turnMarkers.forEach(tm => {
+                const p = track[tm.segIndex * editor.resolution + Math.floor(tm.t * editor.resolution)];
+                if (!p) return;
+                const sgn = tm.side === 'left' ? -1 : 1;
+                const w = sgn < 0 ? p.widthLeft : p.widthRight;
+                const circleRadiusPx = 15 * scale;
+                const distPx = w * scale + circleRadiusPx + 8 * scale;
+                const sCenter = ts(p.x, p.y);
+                const sp = { x: sCenter.x + p.nx * distPx * sgn, y: sCenter.y + p.ny * distPx * sgn };
+
+                svg += `<circle cx="${sp.x}" cy="${sp.y}" r="${15 * scale}" fill="#ffffff" stroke="#000000" stroke-width="2.5" />`;
+                svg += `<text x="${sp.x}" y="${sp.y + 1 * scale}" fill="#000000" font-family="Outfit" font-size="${13 * scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${tm.label}</text>`;
+            });
+        }
 
         // Text Overlay (Title & Info)
-        const px = customNamePos ? customNamePos.x : (data.namePos ? data.namePos.x : 20);
-        const py = customNamePos ? customNamePos.y : (data.namePos ? data.namePos.y : 20);
-        const cname = data.name || 'UNTITLED CIRCUIT';
-        svg += `<text x="${px}" y="${py}" fill="${this.nameColor}" font-family="Outfit" font-size="28" font-weight="bold" text-anchor="start" dominant-baseline="hanging">${cname.toUpperCase()}</text>`;
+        const txtSet = textSettings || { scale: 1, x: 0, y: 0 };
+        const legSet = legendSettings || { scale: 1, x: 0, y: 0 };
 
-        const len = (editor.getTrackLength() * (data.gridSize / 50)) / 1000;
-        const turns = data.turnMarkers.length;
-        if (len > 0) {
-            svg += `<text x="${px}" y="${py + 35}" fill="${this.infoColor}" font-family="Outfit" font-size="14" text-anchor="start" dominant-baseline="hanging">TRACK LENGTH: ${(len * 1000).toFixed(0)}m (${len.toFixed(3)} km)</text>`;
+        const px = (data.namePos ? data.namePos.x : 20) + txtSet.x;
+        const py = (data.namePos ? data.namePos.y : 20) + txtSet.y;
+        const cname = data.name || 'UNTITLED CIRCUIT';
+        const txtScale = txtSet.scale;
+
+        svg += `<g transform="translate(${px}, ${py}) scale(${txtScale})">`;
+        if (this.layers.name !== false) {
+            svg += `<text x="0" y="0" fill="${this.nameColor}" font-family="Outfit" font-size="28" font-weight="bold" text-anchor="start" dominant-baseline="hanging">${cname.toUpperCase()}</text>`;
         }
-        svg += `<text x="${px}" y="${py + 55}" fill="${this.infoColor}" font-family="Outfit" font-size="12" text-anchor="start" dominant-baseline="hanging">${turns} TURNS</text>`;
+
+        if (this.layers.info !== false) {
+            const len = (editor.getTrackLength() * (data.gridSize / 50)) / 1000;
+            const turns = data.turnMarkers.length;
+            if (len > 0) {
+                svg += `<text x="0" y="35" fill="${this.infoColor}" font-family="Outfit" font-size="14" text-anchor="start" dominant-baseline="hanging">TRACK LENGTH: ${(len * 1000).toFixed(0)}m (${len.toFixed(3)} km)</text>`;
+            }
+            svg += `<text x="0" y="55" fill="${this.infoColor}" font-family="Outfit" font-size="12" text-anchor="start" dominant-baseline="hanging">${turns} TURNS</text>`;
+        }
+        svg += `</g>`;
+
+        // Sector Legend
+        if (legSet.scale > 0) {
+            const lx = 20 + legSet.x;
+            const ly = H - 40 + legSet.y;
+            svg += `<g transform="translate(${lx}, ${ly}) scale(${legSet.scale})">`;
+            let currX = 0;
+            [{ l: 'SECTOR 1', c: sectorColors[1] }, { l: 'SECTOR 2', c: sectorColors[2] }, { l: 'SECTOR 3', c: sectorColors[3] }].forEach(item => {
+                svg += `<rect x="${currX}" y="0" width="14" height="14" fill="${item.c}" />`;
+                svg += `<text x="${currX + 22}" y="7" fill="${this.infoColor}" font-family="Outfit" font-size="12" font-weight="bold" text-anchor="start" dominant-baseline="middle">${item.l}</text>`;
+                currX += 100;
+            });
+            svg += `</g>`;
+        }
 
         svg += `</svg>`;
         return svg;
