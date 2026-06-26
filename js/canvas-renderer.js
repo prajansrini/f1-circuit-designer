@@ -34,7 +34,7 @@ F1.Renderer = class Renderer {
 
         this.resize();
     }
-    resize() { const c = this.canvas.parentElement; this.canvas.width = c.clientWidth; this.canvas.height = c.clientHeight; }
+    resize() { const c = this.canvas.parentElement; if (c) { this.canvas.width = c.clientWidth; this.canvas.height = c.clientHeight; } }
     w2s(wx, wy) { return { x: (wx + this.ox) * this.scale + this.canvas.width / 2, y: (wy + this.oy) * this.scale + this.canvas.height / 2 }; }
     s2w(sx, sy) { return { x: (sx - this.canvas.width / 2) / this.scale - this.ox, y: (sy - this.canvas.height / 2) / this.scale - this.oy }; }
     zoom(d, sx, sy) { const b = this.s2w(sx, sy); this.scale *= d > 0 ? .92 : 1.08; this.scale = Math.max(.05, Math.min(20, this.scale)); const a = this.s2w(sx, sy); this.ox += a.x - b.x; this.oy += a.y - b.y; }
@@ -65,11 +65,13 @@ F1.Renderer = class Renderer {
     render(data, editor, sel, hoverPt, activeTool) {
         this._editor = editor;
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+        if (W <= 0 || H <= 0) return;
+        ctx.clearRect(0, 0, W, H);
         ctx.fillStyle = this.C.bg; ctx.fillRect(0, 0, W, H);
         if (this.showGrid) this._grid(data);
         const track = editor.getInterpolatedTrack();
         if (track.length > 1) {
-            this._surfaces(track); this._trackSurface(track); this._sectorStripes(track, data);
+            this._surfaces(track); this._sectorStripes(track, data); this._trackSurface(track);
             this._barriers(track); this._straightModeZones(data, editor, track, sel);
             this._renderIntersections(track, data, editor, sel);
             this._startFinish(track, data);
@@ -103,9 +105,9 @@ F1.Renderer = class Renderer {
     _grid(data) {
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = 50;
         const tl = this.s2w(0, 0), br = this.s2w(W, H);
-        ctx.strokeStyle = this.gridColor; ctx.globalAlpha = this.gridOpacity; ctx.lineWidth = 1; ctx.beginPath();
-        for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) { const s = this.w2s(x, 0); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, H); }
-        for (let y = Math.floor(tl.y / step) * step; y <= br.y; y += step) { const s = this.w2s(0, y); ctx.moveTo(0, s.y); ctx.lineTo(W, s.y); }
+        ctx.strokeStyle = this.gridColor || '#333333'; ctx.globalAlpha = this.gridOpacity !== undefined ? this.gridOpacity : 0.1; ctx.lineWidth = 1; ctx.beginPath();
+        for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) { const s = this.w2s(x, 0); const sx = Math.floor(s.x) + 0.5; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
+        for (let y = Math.floor(tl.y / step) * step; y <= br.y; y += step) { const s = this.w2s(0, y); const sy = Math.floor(s.y) + 0.5; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
         ctx.stroke(); ctx.globalAlpha = 1;
     }
 
@@ -132,13 +134,19 @@ F1.Renderer = class Renderer {
 
     _trackSurface(track) {
         const ctx = this.ctx;
+        
+        // 1. Draw edge lines FIRST, with double thickness (inner half will be covered by road fill)
+        ctx.strokeStyle = this.C.trackEdge; ctx.lineWidth = Math.max(1, 1.5 * this.scale) * 2;
+        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+
+        // 2. Draw road fill ON TOP, masking any edge lines or sector stripes that cross inward
         ctx.fillStyle = this.C.track; ctx.beginPath();
         for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); }
         for (let i = track.length - 1; i >= 0; i--) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); ctx.lineTo(s.x, s.y); }
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = this.C.trackEdge; ctx.lineWidth = Math.max(1, 1.5 * this.scale);
-        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
-        ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+
+        // 3. Draw center dash line last
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = Math.max(.5, .8 * this.scale); ctx.setLineDash([8 * this.scale, 12 * this.scale]);
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = this.w2s(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
     }
@@ -148,11 +156,11 @@ F1.Renderer = class Renderer {
         const sgn = forceSgn !== null ? forceSgn : this._getTrackOutsideSgn(track);
         let currentSec = -1;
         let pathStarted = false;
-        
+
         ctx.lineWidth = sw; ctx.globalAlpha = 0.7;
-        
+
         for (let i = 1; i < track.length; i++) {
-            const sec = track[i - 1].sector; 
+            const sec = track[i - 1].sector;
             if (sec === 0) {
                 if (pathStarted) { ctx.stroke(); pathStarted = false; }
                 continue;
@@ -181,10 +189,10 @@ F1.Renderer = class Renderer {
         while (i < track.length - 1) {
             const hasL = track[i].barrierLeft, hasR = track[i].barrierRight;
             if (!hasL && !hasR) { i++; continue; }
-            
+
             let j = i;
             while (j < track.length - 1 && track[j].barrierLeft === hasL && track[j].barrierRight === hasR) j++;
-            
+
             if (hasL) {
                 ctx.beginPath();
                 for (let k = i; k <= Math.min(j, track.length - 1); k++) {
@@ -292,7 +300,7 @@ F1.Renderer = class Renderer {
                         let actualI = sp.trackIndex;
                         if (actualI < 0) actualI += track.length;
                         if (actualI >= track.length) actualI -= track.length;
-                        
+
                         let inRange = false;
                         for (let k = ixRange.start; k <= ixRange.end; k++) {
                             let actualK = k;
@@ -364,7 +372,7 @@ F1.Renderer = class Renderer {
                     const fontSize = (zone.labelFontSize || 10) * sf;
                     ctx.font = `bold ${fontSize}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
-                    
+
                     // Measure each character width and convert to world distance
                     const charWidthsWorld = [];
                     let totalTextWWorld = 0;
@@ -719,39 +727,67 @@ F1.Renderer = class Renderer {
 
     _renderIntersections(track, data, editor, sel) {
         if (!window.app || !window.app.intersections) return;
-        
+
         window.app.intersections.forEach(ix => {
             const key = ix.key;
             const legacyKey = `${ix.cpA}-${ix.cpB}`;
             const inverted = data.overlapInversions && (data.overlapInversions.includes(key) || data.overlapInversions.includes(legacyKey));
-            
+
             const idxA = ix.trackIdxA;
             const idxB = ix.trackIdxB;
-            
+
             let topIdx = Math.max(idxA, idxB);
             if (inverted) topIdx = Math.min(idxA, idxB);
-            
-            const span = 25;
-            let start = topIdx - span;
-            let end = topIdx + span;
-            
-            if (!data.isClosed) {
-                start = Math.max(0, start);
-                end = Math.min(track.length - 1, end);
+
+            // Compute crossing angle to determine how far the bridge must extend
+            const ptA = track[idxA];
+            const ptA1 = track[Math.min(idxA + 1, track.length - 1)];
+            const ptB = track[idxB];
+            const ptB1 = track[Math.min(idxB + 1, track.length - 1)];
+            const dx1 = ptA1.x - ptA.x, dy1 = ptA1.y - ptA.y;
+            const dx2 = ptB1.x - ptB.x, dy2 = ptB1.y - ptB.y;
+            const len1 = Math.hypot(dx1, dy1) || 1, len2 = Math.hypot(dx2, dy2) || 1;
+            const dot = (dx1 * dx2 + dy1 * dy2) / (len1 * len2);
+            let angle = Math.acos(Math.max(-1, Math.min(1, Math.abs(dot))));
+            if (angle < 0.1) angle = 0.1;
+
+            const centerPt = track[topIdx];
+            const trackWidth = centerPt.widthLeft + centerPt.widthRight;
+            let targetDist = (trackWidth / Math.sin(angle)) * 0.8 + 20;
+            targetDist = Math.min(250, Math.max(trackWidth * 1.5, targetDist));
+
+            // Bridges must span targetDist fully to clear the intersection.
+            let maxSteps = track.length;
+
+            let start = topIdx, d1 = 0;
+            for (let steps = 0; steps < maxSteps; steps++) {
+                let prev = start - 1;
+                if (prev < 0) { if (!data.isClosed) break; prev += track.length; }
+                d1 += Math.hypot(track[start].x - track[prev].x, track[start].y - track[prev].y);
+                start = prev;
+                if (d1 >= targetDist) break;
             }
-            
+            let end = topIdx, d2 = 0;
+            for (let steps = 0; steps < maxSteps; steps++) {
+                let next = end + 1;
+                if (next >= track.length) { if (!data.isClosed) break; next -= track.length; }
+                d2 += Math.hypot(track[next].x - track[end].x, track[next].y - track[end].y);
+                end = next;
+                if (d2 >= targetDist) break;
+            }
+
             const subTrack = [];
-            for (let i = start; i <= end; i++) {
-                let actualI = i;
-                if (actualI < 0) actualI += track.length;
-                if (actualI >= track.length) actualI -= track.length;
-                if (track[actualI]) subTrack.push(track[actualI]);
+            if (data.isClosed && start > end) {
+                for (let i = start; i < track.length; i++) subTrack.push(track[i]);
+                for (let i = 0; i <= end; i++) subTrack.push(track[i]);
+            } else {
+                for (let i = start; i <= end; i++) { if (track[i]) subTrack.push(track[i]); }
             }
-            
+
             if (subTrack.length > 1) {
-                this._surfaces(subTrack); 
-                this._trackSurface(subTrack); 
+                this._surfaces(subTrack);
                 this._sectorStripes(subTrack, data, this._getTrackOutsideSgn(track));
+                this._trackSurface(subTrack);
                 this._barriers(subTrack);
                 this._straightModeZones(data, editor, track, sel, { start, end });
             }
@@ -764,7 +800,7 @@ F1.Renderer = class Renderer {
         // I will just add _renderIntersections before _rulers.
         if (!window.app || !window.app.rulers) return;
         const ctx = this.ctx;
-        
+
         const allRulers = [...window.app.rulers];
         if (window.app.activeRuler && !allRulers.includes(window.app.activeRuler)) {
             allRulers.push(window.app.activeRuler);
@@ -776,36 +812,44 @@ F1.Renderer = class Renderer {
         allRulers.forEach(r => {
             if (r.start === undefined || r.end === undefined) return;
             if (r.start >= N) return;
-            
+
             let s = r.start;
             let e = r.end;
-            let wrap = false;
-            
-            if (data.isClosed && Math.abs(s - e) > N / 2) {
-                wrap = true;
+
+            let step, isRaw = false;
+            if (r._rawEnd !== undefined && r._rawStart !== undefined) {
+                s = r._rawStart;
+                e = r._rawEnd;
+                step = s < e ? 1 : -1;
+                isRaw = true;
+            } else {
+                let wrap = false;
+                if (data.isClosed && Math.abs(s - e) > N / 2) {
+                    wrap = true;
+                }
+                step = wrap ? (s < e ? -1 : 1) : (s < e ? 1 : -1);
             }
-            
+
             ctx.beginPath();
             let dist = 0;
-            
+
             let cur = s;
-            const step = wrap ? (s < e ? -1 : 1) : (s < e ? 1 : -1);
-            
+
             const indices = [];
             if (s === e) {
-                indices.push(s);
+                indices.push(s >= 0 ? s % N : (s % N + N) % N);
             } else {
                 while (cur !== e) {
-                    indices.push(cur);
+                    indices.push(cur >= 0 ? cur % N : (cur % N + N) % N);
                     cur += step;
-                    if (data.isClosed) {
+                    if (!isRaw && data.isClosed) {
                         if (cur >= N) cur = 0;
                         if (cur < 0) cur = N - 1;
-                    } else {
+                    } else if (!isRaw && !data.isClosed) {
                         if (cur >= N || cur < 0) break;
                     }
                 }
-                indices.push(e);
+                indices.push(e >= 0 ? e % N : (e % N + N) % N);
             }
 
             for (let k = 0; k < indices.length; k++) {
@@ -816,17 +860,17 @@ F1.Renderer = class Renderer {
                 if (k === 0) ctx.moveTo(sp.x, sp.y);
                 else {
                     ctx.lineTo(sp.x, sp.y);
-                    const prevPt = track[indices[k-1]];
+                    const prevPt = track[indices[k - 1]];
                     dist += Math.hypot(pt.x - prevPt.x, pt.y - prevPt.y);
                 }
             }
-            
+
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = Math.max(4, 6 * this.scale);
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.stroke();
-            
+
             const drawEndpoint = (idx) => {
                 const p = track[Math.min(idx, track.length - 1)];
                 if (!p) return;
@@ -841,24 +885,24 @@ F1.Renderer = class Renderer {
             };
             drawEndpoint(r.start);
             if (r.start !== r.end) drawEndpoint(r.end);
-            
+
             if (s !== e && indices.length > 0) {
                 const midIdx = indices[Math.floor(indices.length / 2)];
                 const p = track[Math.min(midIdx, track.length - 1)];
                 if (p) {
                     const realDist = dist * scaleFact;
-                    const txt = realDist >= 1000 ? (realDist/1000).toFixed(3) + ' km' : realDist.toFixed(1) + ' m';
+                    const txt = realDist >= 1000 ? (realDist / 1000).toFixed(3) + ' km' : realDist.toFixed(1) + ' m';
                     const s = this.w2s(p.x, p.y);
-                    
+
                     ctx.font = 'bold 12px Outfit';
                     const tm = ctx.measureText(txt);
                     const tw = tm.width;
-                    
+
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                     ctx.beginPath();
-                    ctx.roundRect(s.x - tw/2 - 6, s.y - 12 - 14, tw + 12, 20, 4);
+                    ctx.roundRect(s.x - tw / 2 - 6, s.y - 12 - 14, tw + 12, 20, 4);
                     ctx.fill();
-                    
+
                     ctx.fillStyle = '#00ffff';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';

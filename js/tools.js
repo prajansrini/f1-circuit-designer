@@ -1529,11 +1529,18 @@ class ScaleTool extends BaseTool {
         if (!pt || pt.dist > 50) return;
 
         if (this.app.activeRuler) {
+            let prevEnd = this.app.activeRuler._rawEnd;
+            if (prevEnd === undefined) prevEnd = this.app.activeRuler.start;
+            let newRaw = pt.index;
+            const N = this.editor.getInterpolatedTrack().length;
+            while (newRaw - prevEnd > N / 2) newRaw -= N;
+            while (prevEnd - newRaw > N / 2) newRaw += N;
+            this.app.activeRuler._rawEnd = newRaw;
             this.app.activeRuler.end = pt.index;
             this.app.activeRuler = null;
         } else {
             if (!this.app.rulers) this.app.rulers = [];
-            this.app.activeRuler = { start: pt.index, end: pt.index };
+            this.app.activeRuler = { start: pt.index, end: pt.index, _rawStart: pt.index, _rawEnd: pt.index };
             this.app.rulers.push(this.app.activeRuler);
         }
         this.app.requestRender();
@@ -1544,8 +1551,21 @@ class ScaleTool extends BaseTool {
         if (this.dragInfo) {
             const pt = this.editor.findNearestTrackPoint(wx, wy);
             if (pt) {
-                if (this.dragInfo.type === 'start') this.dragInfo.ruler.start = pt.index;
-                else this.dragInfo.ruler.end = pt.index;
+                let prevRaw = this.dragInfo.type === 'start' ? this.dragInfo.ruler._rawStart : this.dragInfo.ruler._rawEnd;
+                if (prevRaw === undefined) prevRaw = this.dragInfo.type === 'start' ? this.dragInfo.ruler.start : this.dragInfo.ruler.end;
+                
+                let newRaw = pt.index;
+                const N = this.editor.getInterpolatedTrack().length;
+                while (newRaw - prevRaw > N / 2) newRaw -= N;
+                while (prevRaw - newRaw > N / 2) newRaw += N;
+
+                if (this.dragInfo.type === 'start') {
+                    this.dragInfo.ruler._rawStart = newRaw;
+                    this.dragInfo.ruler.start = pt.index;
+                } else {
+                    this.dragInfo.ruler._rawEnd = newRaw;
+                    this.dragInfo.ruler.end = pt.index;
+                }
                 this.app.requestRender();
             }
             return;
@@ -1553,6 +1573,14 @@ class ScaleTool extends BaseTool {
         if (this.app.activeRuler) {
             const pt = this.editor.findNearestTrackPoint(wx, wy);
             if (pt) {
+                let prevEnd = this.app.activeRuler._rawEnd;
+                if (prevEnd === undefined) prevEnd = this.app.activeRuler.start;
+                let newRaw = pt.index;
+                const N = this.editor.getInterpolatedTrack().length;
+                while (newRaw - prevEnd > N / 2) newRaw -= N;
+                while (prevEnd - newRaw > N / 2) newRaw += N;
+                
+                this.app.activeRuler._rawEnd = newRaw;
                 this.app.activeRuler.end = pt.index;
                 this.app.requestRender();
             }

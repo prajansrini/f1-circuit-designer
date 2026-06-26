@@ -52,13 +52,15 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     render(data, editor) {
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+        if (W <= 0 || H <= 0) return;
+        ctx.clearRect(0, 0, W, H);
         ctx.fillStyle = this.bgColor || '#0f1a0f'; ctx.fillRect(0, 0, W, H);
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-        if (this.layers.track) { 
-            this._trackBase(ctx, track, tf); 
-            this._sectorEdges(ctx, track, tf, data); 
+        if (this.layers.track) {
+            this._trackBase(ctx, track, tf);
+            this._sectorEdges(ctx, track, tf, data);
             if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
             this._renderIntersections(ctx, track, data, tf);
         }
@@ -68,8 +70,18 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
         if (this.layers.sectors) this._sectorLabels(ctx, track, data, tf);
         if (this.layers.zones) this._zones(ctx, data, editor, tf);
-        if (this.layers.name !== false) this._name(ctx, data, W, H);
-        if (this.layers.info) this._info(ctx, data, editor, W, H);
+        if (this.layers.name !== false) {
+            ctx.save();
+            if (this.exportRatio) ctx.scale(this.exportRatio, this.exportRatio);
+            this._name(ctx, data, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
+            ctx.restore();
+        }
+        if (this.layers.info) {
+            ctx.save();
+            if (this.exportRatio) ctx.scale(this.exportRatio, this.exportRatio);
+            this._info(ctx, data, editor, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
+            ctx.restore();
+        }
     }
 
     _placeholder(W, H) {
@@ -83,7 +95,10 @@ F1.PreviewRenderer = class PreviewRenderer {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const p of track) { const ex = Math.max(p.widthLeft, p.widthRight) + 35; minX = Math.min(minX, p.x - ex); maxX = Math.max(maxX, p.x + ex); minY = Math.min(minY, p.y - ex); maxY = Math.max(maxY, p.y + ex); }
         for (const p of data.pitLane.points) { minX = Math.min(minX, p.x - 25); maxX = Math.max(maxX, p.x + 25); minY = Math.min(minY, p.y - 25); maxY = Math.max(maxY, p.y + 25); }
-        const margin = 80, scaleX = (W - margin * 2) / (maxX - minX || 1), scaleY = (H - margin * 2) / (maxY - minY || 1), scale = Math.min(scaleX, scaleY);
+        const margin = Math.min(80, W / 3, H / 3);
+        const scaleX = Math.max(0.001, (W - margin * 2) / (maxX - minX || 1));
+        const scaleY = Math.max(0.001, (H - margin * 2) / (maxY - minY || 1));
+        const scale = Math.min(scaleX, scaleY);
         const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
         return { scale: scale * this.userScale, toScreen: (wx, wy) => ({ x: wx * scale * this.userScale + W / 2 - cx * scale * this.userScale + this.userOx, y: wy * scale * this.userScale + H / 2 - cy * scale * this.userScale + this.userOy }) };
     }
@@ -98,7 +113,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         let currentSec = -1;
         let pathStarted = false;
         ctx.lineWidth = lw; ctx.lineCap = 'round';
-        
+
         for (let i = 1; i < track.length; i++) {
             const sec = track[i - 1].sector;
             if (sec === 0) {
@@ -122,7 +137,9 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _renderIntersections(ctx, track, data, tf) {
         if (!window.app || !window.app.intersections) return;
-        
+
+        // Merge overlapping bridge ranges so continuous bridges form a single subTrack
+        const ranges = [];
         window.app.intersections.forEach(ix => {
             const key = ix.key;
             const legacyKey = `${ix.cpA}-${ix.cpB}`;
@@ -130,71 +147,127 @@ F1.PreviewRenderer = class PreviewRenderer {
             let topIdx = Math.max(ix.trackIdxA, ix.trackIdxB);
             if (inverted) topIdx = Math.min(ix.trackIdxA, ix.trackIdxB);
 
-            const span = 25;
-            let start = topIdx - span;
-            let end = topIdx + span;
+            // Compute crossing angle to determine how far the bridge must extend
+            const ptA = track[ix.trackIdxA];
+            const ptA1 = track[Math.min(ix.trackIdxA + 1, track.length - 1)];
+            const ptB = track[ix.trackIdxB];
+            const ptB1 = track[Math.min(ix.trackIdxB + 1, track.length - 1)];
+            const dx1 = ptA1.x - ptA.x, dy1 = ptA1.y - ptA.y;
+            const dx2 = ptB1.x - ptB.x, dy2 = ptB1.y - ptB.y;
+            const len1 = Math.hypot(dx1, dy1) || 1, len2 = Math.hypot(dx2, dy2) || 1;
+            const dot = (dx1 * dx2 + dy1 * dy2) / (len1 * len2);
+            let angle = Math.acos(Math.max(-1, Math.min(1, Math.abs(dot))));
+            if (angle < 0.1) angle = 0.1;
 
-            if (!data.isClosed) {
-                start = Math.max(0, start);
-                end = Math.min(track.length - 1, end);
+            const centerPt = track[topIdx];
+            const trackWidth = centerPt.widthLeft + centerPt.widthRight;
+            let targetDist = (trackWidth / Math.sin(angle)) * 0.8 + 20;
+            targetDist = Math.min(250, Math.max(trackWidth * 1.5, targetDist));
+
+            let start = topIdx, d1 = 0;
+            for (let steps = 0; steps < track.length; steps++) {
+                let prev = start - 1;
+                if (prev < 0) { if (!data.isClosed) break; prev += track.length; }
+                d1 += Math.hypot(track[start].x - track[prev].x, track[start].y - track[prev].y);
+                start = prev;
+                if (d1 >= targetDist) break;
             }
-
-            const subTrack = [];
-            for (let i = start; i <= end; i++) {
-                let actualI = i;
-                if (actualI < 0) actualI += track.length;
-                if (actualI >= track.length) actualI -= track.length;
-                if (track[actualI]) subTrack.push(track[actualI]);
+            let end = topIdx, d2 = 0;
+            for (let steps = 0; steps < track.length; steps++) {
+                let next = end + 1;
+                if (next >= track.length) { if (!data.isClosed) break; next -= track.length; }
+                d2 += Math.hypot(track[next].x - track[end].x, track[next].y - track[end].y);
+                end = next;
+                if (d2 >= targetDist) break;
             }
-
-            if (subTrack.length > 1) {
-                const lwBase = 40 * tf.scale;
-                const lwSectors = 7.5 * tf.scale;
-                
-                ctx.lineCap = 'butt';
-                ctx.lineJoin = 'round';
-                
-                // Draw base background color to mask out bottom track
-                ctx.strokeStyle = this.bgColor || '#0f1a0f';
-                ctx.lineWidth = lwBase + 4;
-                ctx.beginPath();
-                subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
-                ctx.stroke();
-
-                // Draw Track Base
-                ctx.strokeStyle = '#111111';
-                ctx.lineWidth = lwBase;
-                ctx.beginPath();
-                subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
-                ctx.stroke();
-
-                // Draw sectors
-                ctx.lineWidth = lwSectors;
-                let currentSec = -1;
-                let pathStarted = false;
-                for (let i = 1; i < subTrack.length; i++) {
-                    const sec = subTrack[i - 1].sector;
-                    if (sec === 0) {
-                        if (pathStarted) { ctx.stroke(); pathStarted = false; }
-                        continue;
-                    }
-                    if (sec !== currentSec || !pathStarted) {
-                        if (pathStarted) { ctx.stroke(); }
-                        currentSec = sec;
-                        ctx.strokeStyle = this.sectorColors[sec] || '#555';
-                        ctx.beginPath();
-                        const a = tf.toScreen(subTrack[i - 1].x, subTrack[i - 1].y);
-                        ctx.moveTo(a.x, a.y);
-                        pathStarted = true;
-                    }
-                    const b = tf.toScreen(subTrack[i].x, subTrack[i].y);
-                    ctx.lineTo(b.x, b.y);
-                }
-                if (pathStarted) ctx.stroke();
-                
-                ctx.lineCap = 'round';
-            }
+            
+            if (start > end && !data.isClosed) { let t = start; start = end; end = t; }
+            ranges.push({ start, end, topIdx });
         });
+
+        if (ranges.length === 0) return;
+
+        // Sort by start index, then merge
+        ranges.sort((a, b) => a.start - b.start);
+        const mergedRanges = [];
+        let current = ranges[0];
+
+        for (let i = 1; i < ranges.length; i++) {
+            const next = ranges[i];
+            // Check if they overlap or are adjacent (allowing wrap-around if closed)
+            let overlaps = false;
+            if (current.start <= current.end) {
+                if (next.start >= current.start && next.start <= current.end) overlaps = true;
+            } else {
+                // Wraps around
+                if (next.start >= current.start || next.start <= current.end) overlaps = true;
+            }
+
+            if (overlaps) {
+                // Merge
+                if (current.start <= current.end && next.end > current.end) current.end = next.end;
+                else if (current.start > current.end && next.end > current.end && next.end < current.start) current.end = next.end;
+            } else {
+                mergedRanges.push(current);
+                current = next;
+            }
+        }
+        mergedRanges.push(current);
+
+        // Sort by topIdx so we draw them in a consistent back-to-front order based on index if needed, 
+        // though typically later ones in the array will just draw on top.
+
+        const lwBase = 40 * tf.scale;
+        const lwSectors = 7.5 * tf.scale;
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'round';
+
+        mergedRanges.forEach(r => {
+            const subTrack = [];
+            if (data.isClosed && r.start > r.end) {
+                for (let i = r.start; i < track.length; i++) subTrack.push(track[i]);
+                for (let i = 0; i <= r.end; i++) subTrack.push(track[i]);
+            } else {
+                for (let i = r.start; i <= r.end; i++) { if (track[i]) subTrack.push(track[i]); }
+            }
+            if (subTrack.length < 2) return;
+
+            // Mask
+            ctx.strokeStyle = this.bgColor || '#0f1a0f';
+            ctx.lineWidth = lwBase;
+            ctx.beginPath();
+            subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
+            ctx.stroke();
+
+            // Base
+            ctx.strokeStyle = '#111111';
+            ctx.lineWidth = lwBase - 2 * tf.scale;
+            ctx.beginPath();
+            subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
+            ctx.stroke();
+
+            // Stripes
+            ctx.lineWidth = lwSectors;
+            let currentSec = -1, pathStarted = false;
+            for (let i = 1; i < subTrack.length; i++) {
+                const sec = subTrack[i - 1].sector;
+                if (sec === 0) { if (pathStarted) { ctx.stroke(); pathStarted = false; } continue; }
+                if (sec !== currentSec || !pathStarted) {
+                    if (pathStarted) ctx.stroke();
+                    currentSec = sec;
+                    ctx.strokeStyle = this.sectorColors[sec] || '#555';
+                    ctx.beginPath();
+                    const a = tf.toScreen(subTrack[i - 1].x, subTrack[i - 1].y);
+                    ctx.moveTo(a.x, a.y);
+                    pathStarted = true;
+                }
+                const b = tf.toScreen(subTrack[i].x, subTrack[i].y);
+                ctx.lineTo(b.x, b.y);
+            }
+            if (pathStarted) ctx.stroke();
+        });
+
+        ctx.lineCap = 'round';
     }
 
     /* Straight mode: red dashes close to track edge using strips.png — same equidistant algorithm as editor */
@@ -300,7 +373,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             if (zone.showLabel !== false) {
                 const sgn = zone.side === 'left' ? -1 : 1;
                 let pathPts = [];
-                
+
                 // Text needs to be outside the strips. Outer edge of strip is at stripOffsetWorld + sw.
                 // Text height is roughly 11 screen pixels (font size 11 * tf.scale).
                 const textOffsetWorld = stripOffsetWorld + sw + 4 / tf.scale + 11 / 2;
@@ -315,8 +388,11 @@ F1.PreviewRenderer = class PreviewRenderer {
                 else if (data.isClosed) { buildPath(si, track.length - 1); buildPath(0, ei); }
                 else { buildPath(ei, si); }
 
-                // Flip: reverse the path so text reads the opposite direction
-                if (zone.labelFlipped) { pathPts.reverse(); }
+                // Flip: auto-flip text to always be upright, user can override
+                const autoFlip = pathPts.length > 1 && (pathPts[pathPts.length - 1].x < pathPts[0].x);
+                let shouldFlip = autoFlip;
+                if (zone.labelFlipped) { shouldFlip = !shouldFlip; }
+                if (shouldFlip) { pathPts.reverse(); }
 
                 if (pathPts.length > 1) {
                     let cumLen = [0];
@@ -329,7 +405,7 @@ F1.PreviewRenderer = class PreviewRenderer {
                     // Use the scaled screen font size for measurement
                     ctx.font = `bold ${fontSizeScreen}px Outfit`;
                     const text = (zone.label || "STRAIGHT MODE ZONE").toUpperCase().replace(/\n/g, ' ');
-                    
+
                     const charWidthsWorld = [];
                     let totalTextWWorld = 0;
                     for (let c = 0; c < text.length; c++) {
@@ -560,22 +636,56 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
     _name(ctx, data, W, H) {
+        const txtSet = this.textSettings || { scale: 1, x: 0, y: 0 };
+        ctx.save();
+
+        const px = (data.namePos ? data.namePos.x : 20) + txtSet.x;
+        const py = (data.namePos ? data.namePos.y : 16) + txtSet.y;
+
+        ctx.translate(px, py);
+        ctx.scale(txtSet.scale, txtSet.scale);
+
         ctx.fillStyle = this.nameColor || '#fff'; ctx.font = 'bold 24px Outfit'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        const px = data.namePos ? data.namePos.x : 20;
-        const py = data.namePos ? data.namePos.y : 16;
-        ctx.fillText(data.name || 'Circuit', px, py);
+        ctx.fillText(data.name || 'Circuit', 0, 0);
+        ctx.restore();
     }
 
     _info(ctx, data, editor, W, H) {
+        const txtSet = this.textSettings || { scale: 1, x: 0, y: 0 };
+        const legSet = this.legendSettings || { scale: 1, x: 0, y: 0 };
+
+        ctx.save();
+        const px = (data.namePos ? data.namePos.x : 20) + txtSet.x;
+        const py = (data.namePos ? data.namePos.y : 16) + txtSet.y;
+        ctx.translate(px, py);
+        ctx.scale(txtSet.scale, txtSet.scale);
+
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         const len = editor.getTrackLength() * ((data.gridSize || 50) / 50.0);
-        const px = data.namePos ? data.namePos.x : 20;
-        const py = data.namePos ? data.namePos.y : 16;
-        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, px, py + 30); }
-        ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, px, py + 52);
-        const ly = H - 30; ctx.font = 'bold 10px Outfit'; let lx = 20;
-        [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
-            ctx.fillStyle = item.c; ctx.fillRect(lx, ly, 12, 12); ctx.fillStyle = this.infoColor || '#ccc'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(item.l, lx + 16, ly + 6); lx += ctx.measureText(item.l).width + 32;
-        });
+        if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 0, 30); }
+        ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 0, 52);
+        ctx.restore();
+
+        // Sector Legend
+        if (legSet.scale > 0) {
+            ctx.save();
+            const lx = 20 + legSet.x;
+            const ly = H - 40 + legSet.y; // Moved closer to bottom
+            ctx.translate(lx, ly);
+            ctx.scale(legSet.scale, legSet.scale);
+
+            ctx.font = 'bold 12px Outfit';
+            let currX = 0;
+            [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
+                ctx.fillStyle = item.c;
+                ctx.fillRect(currX, 0, 14, 14);
+                ctx.fillStyle = this.infoColor || '#ccc';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.l, currX + 22, 7);
+                currX += 100; // Horizontal spacing
+            });
+            ctx.restore();
+        }
     }
 };

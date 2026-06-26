@@ -17,6 +17,7 @@ F1.UIManager = class UIManager {
             barrier: () => this._barrierProps(), sector: () => this._sectorProps(),
             turn: () => this._turnProps(sel),
             pitlane: () => this._pitLaneProps(),
+            analysis: () => this._analysisProps(),
             zone: () => this._zoneProps(sel),
             straightMode: () => this._straightModeProps(sel),
             eraser: () => this._eraserProps(), scale: () => this._scaleProps(),
@@ -62,7 +63,7 @@ F1.UIManager = class UIManager {
                 <div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Select a Node</label>
                     <select id="prop-node-selector" class="prop-input" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">
                         <option value="">-- Choose a node --</option>
-                        ${[...this.app.data.controlPoints].sort((a,b) => this.app.data.getLogicalNodeIndex(a.id) - this.app.data.getLogicalNodeIndex(b.id)).map(p => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>Node ${this.app.data.getLogicalNodeIndex(p.id)}</option>`).join('')}
+                        ${[...this.app.data.controlPoints].sort((a, b) => this.app.data.getLogicalNodeIndex(a.id) - this.app.data.getLogicalNodeIndex(b.id)).map(p => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>Node ${this.app.data.getLogicalNodeIndex(p.id)}</option>`).join('')}
                     </select>
                 </div>`;
         if (sel && sel.type === 'cp') {
@@ -100,7 +101,7 @@ F1.UIManager = class UIManager {
         let h = '';
         const zt = F1.ZONE_TYPES.find(t => t.key === z.type);
         h += `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">`;
-        
+
         if (z.type === 'straight_mode') {
             const track = this.app.editor.getInterpolatedTrack();
             const si = z.segIndex * this.app.editor.resolution + Math.floor(z.t * this.app.editor.resolution);
@@ -136,7 +137,7 @@ F1.UIManager = class UIManager {
             h += `<div class="prop-group"><label>Side</label><div class="side-btns">
                 <button class="side-btn ${z.side === 'left' ? 'active' : ''}" id="btn-side-left">Left</button>
                 <button class="side-btn ${z.side === 'right' ? 'active' : ''}" id="btn-side-right">Right</button></div></div>`;
-            
+
             const labelOn = z.showLabel !== false;
             h += `<div class="prop-group"><label>Label Settings</label>
                 <div style="font-size:11px; color:#aaa; padding:0 5px;">
@@ -210,7 +211,7 @@ F1.UIManager = class UIManager {
             if (sel.type === 'runoff' || sel.type === 'barrier') label = `Run-off (Node ${idx}-${nextIdx}, ${sideStr})`;
             else label = `Node ${idx}`;
         }
-        
+
         h += `<p class="prop-hint" style="margin-bottom: 15px;">Selected: <strong>${label}</strong></p>`;
         h += '<p class="prop-hint dim" style="margin-top:-5px; margin-bottom:15px;">Click on any component (nodes, track sections, zones, etc.) to modify it.</p>';
 
@@ -236,12 +237,12 @@ F1.UIManager = class UIManager {
     _runoffBarrierProps(sel) {
         const pt = this.app.data.getPointById(sel.id);
         if (!pt) return '';
-        
+
         const isL = sel.side === 'left';
         const surfType = isL ? pt.surfaceLeft : pt.surfaceRight;
         const hasBarrier = isL ? pt.barrierLeft : pt.barrierRight;
         const surfW = isL ? pt.surfaceWidthLeft : pt.surfaceWidthRight;
-        
+
         let h = `<div class="prop-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;"><label>Surface Type</label>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                 <button class="surface-btn sel-surf-btn ${surfType === 'grass' ? 'active' : ''}" data-surf="grass" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#0f0; margin-bottom:4px;"></div><br>Grass</button>
@@ -249,17 +250,17 @@ F1.UIManager = class UIManager {
                 <button class="surface-btn sel-surf-btn ${surfType === 'asphalt' ? 'active' : ''}" data-surf="asphalt" style="padding: 10px 5px;"><div style="display:inline-block; width:12px; height:12px; background:#444; margin-bottom:4px;"></div><br>Asphalt</button>
                 <button class="surface-btn sel-surf-btn ${surfType === 'none' || !surfType ? 'active' : ''}" data-surf="none" style="padding: 10px 5px;"><div style="display:inline-block; margin-bottom:4px; font-size:12px; color:#aaa;">✕</div><br>None</button>
               </div></div>`;
-              
+
         h += `<div class="prop-group"><label>Barrier</label>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                 <button class="surface-btn sel-bar-btn ${hasBarrier ? 'active' : ''}" data-bar="true">On</button>
                 <button class="surface-btn sel-bar-btn ${!hasBarrier ? 'active' : ''}" data-bar="false">Off</button>
               </div></div>`;
-              
+
         const pts = this.app.data.controlPoints;
         const ptIdx = pts.findIndex(p => p.id === pt.id);
         const nextPt = pts[(ptIdx + 1) % pts.length];
-        
+
         const swStart = isL ? (pt.surfaceWidthLeft ?? 10) : (pt.surfaceWidthRight ?? 10);
         const swEnd = isL ? (nextPt.surfaceWidthLeft ?? 10) : (nextPt.surfaceWidthRight ?? 10);
         const sm = (this.app.data.gridSize || 50) / 50.0;
@@ -282,7 +283,7 @@ F1.UIManager = class UIManager {
               </div>
               <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-runoff-sw">Reset Run-off Width</button>
               </div>`;
-              
+
         return h;
     }
 
@@ -371,7 +372,7 @@ F1.UIManager = class UIManager {
                     <button class="prop-btn" id="btn-reverse-track" style="margin-top: 10px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>
                   </div>`;
         }
-        
+
         // Track Intersections
         if (this.app.intersections && this.app.intersections.length > 0) {
             h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
@@ -395,7 +396,7 @@ F1.UIManager = class UIManager {
                     <p class="prop-hint dim">No intersections detected.</p>
                   </div>`;
         }
-        
+
         h += `</div>`;
         return h;
     }
@@ -412,13 +413,13 @@ F1.UIManager = class UIManager {
     _surfaceProps(sel) {
         const t = this.app.tools.surface;
         let h = '<h3 class="prop-title">Run-off & Barriers</h3>';
-        
+
         const runoffs = [];
         this.app.data.controlPoints.forEach((pt) => {
             runoffs.push({ pt, side: 'left' });
             runoffs.push({ pt, side: 'right' });
         });
-        
+
         runoffs.sort((a, b) => this.app.data.getLogicalNodeIndex(a.pt.id) - this.app.data.getLogicalNodeIndex(b.pt.id));
 
         // Ensure there is always a valid selection for the dropdown if none is set
@@ -429,7 +430,7 @@ F1.UIManager = class UIManager {
 
         h += `<div class="prop-group" style="margin-top: 5px;"><label class="chk-label prop-hint">Select a Run-off to edit</label>
             <select class="prop-input" id="prop-runoff-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 5px;">`;
-        
+
         runoffs.forEach(r => {
             const isSelected = sel && (sel.type === 'runoff' || sel.type === 'barrier') && sel.id === r.pt.id && sel.side === r.side;
             const idx = this.app.data.getLogicalNodeIndex(r.pt.id);
@@ -438,11 +439,11 @@ F1.UIManager = class UIManager {
             h += `<option value="${r.pt.id}|${r.side}" ${isSelected ? 'selected' : ''}>Run-off (Node ${idx}-${nextIdx}, ${r.side === 'left' ? 'L' : 'R'})</option>`;
         });
         h += `</select></div>`;
-        
+
         if (sel && (sel.type === 'runoff' || sel.type === 'barrier')) {
             h += this._runoffBarrierProps(sel);
         }
-        
+
         return h;
     }
 
@@ -555,6 +556,418 @@ F1.UIManager = class UIManager {
         return h;
     }
 
+    _analysisProps() {
+        let h = '<h3 class="prop-title">Circuit Analysis</h3>';
+        if (!this.app.data.isClosed) {
+            h += '<p class="prop-hint">Circuit must be closed to perform geometric analysis.</p>';
+            return h;
+        }
+
+        const track = this.app.editor.getInterpolatedTrack();
+        const sf = (this.app.data.gridSize || 50) / 50.0;
+
+        let totalLength = 0;
+        let points = [];
+        for (let i = 0; i < track.length; i++) {
+            let prev = i === 0 ? track[track.length - 2] : track[i - 1];
+            let dx = track[i].x - prev.x, dy = track[i].y - prev.y;
+            let dist = Math.hypot(dx, dy) * sf;
+            let angle = Math.atan2(dy, dx);
+            points.push({ x: track[i].x * sf, y: track[i].y * sf, dist, angle, sector: track[i].sector || 0 });
+            totalLength += dist;
+        }
+
+        // Section 1.3 - Curvature (Sliding Window ±5)
+        for (let i = 0; i < points.length; i++) {
+            let win = 5;
+            let ahead = points[(i + win) % points.length];
+            let behind = points[(i - win + points.length) % points.length];
+
+            let dTheta = ahead.angle - behind.angle;
+            while (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+            while (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+
+            let ds = 0;
+            for (let j = 1; j <= win; j++) {
+                ds += points[(i + j) % points.length].dist + points[(i - j + points.length) % points.length].dist;
+            }
+
+            points[i].curvature = Math.abs(dTheta) / (ds / 2);
+            points[i].rawDirection = Math.sign(dTheta);
+            points[i].radius = Math.min(1000, 1 / (points[i].curvature || 0.001));
+        }
+
+        // Section 2 - Segment Parsing
+        let sections = [];
+        let currentType = points[0].radius < 250 ? 'corner' : 'straight';
+        let startIdx = 0;
+        for (let i = 1; i <= points.length; i++) {
+            let type = i === points.length ? currentType : (points[i].radius < 250 ? 'corner' : 'straight');
+            if (type !== currentType || i === points.length) {
+                let len = 0, dAngle = 0, minR = 1000, sumDir = 0;
+                let secCounts = [0, 0, 0, 0];
+                for (let j = startIdx; j < i; j++) {
+                    len += points[j].dist;
+                    if (points[j].radius < minR) minR = points[j].radius;
+                    dAngle += points[j].curvature * points[j].rawDirection * points[j].dist;
+                    sumDir += points[j].rawDirection;
+                    secCounts[points[j].sector]++;
+                }
+                let angleDeg = Math.abs(dAngle * 180 / Math.PI);
+                let dir = Math.sign(sumDir);
+                let sector = secCounts[1] >= secCounts[2] && secCounts[1] >= secCounts[3] ? 1 :
+                    secCounts[2] >= secCounts[1] && secCounts[2] >= secCounts[3] ? 2 : 3;
+
+                sections.push({ type: currentType, start: startIdx, end: i - 1, len, angleDeg, minR, dir, sector, dAngle });
+                if (i < points.length) {
+                    currentType = type;
+                    startIdx = i;
+                }
+            }
+        }
+
+        if (this.app.data.isClosed && sections.length > 1 && sections[0].type === sections[sections.length - 1].type) {
+            let last = sections.pop();
+            sections[0].len += last.len;
+            sections[0].dAngle += last.dAngle;
+            sections[0].angleDeg = Math.abs(sections[0].dAngle * 180 / Math.PI);
+            sections[0].minR = Math.min(sections[0].minR, last.minR);
+        }
+
+        let merged = true;
+        while (merged) {
+            merged = false;
+            for (let i = 0; i < sections.length; i++) {
+                let sec = sections[i];
+                if (sec.type === 'straight' && sec.len < 40 && sections.length > 1) {
+                    sec.type = 'corner';
+                    merged = true;
+                } else if (sec.type === 'corner' && sec.len < 20 && sec.angleDeg < 15 && sections.length > 1) {
+                    sec.type = 'straight';
+                    merged = true;
+                }
+            }
+            if (merged) {
+                let newSections = [];
+                let current = sections[0];
+                for (let i = 1; i < sections.length; i++) {
+                    if (sections[i].type === current.type) {
+                        current.len += sections[i].len;
+                        current.dAngle += sections[i].dAngle;
+                        current.angleDeg = Math.abs(current.dAngle * 180 / Math.PI);
+                        current.minR = Math.min(current.minR, sections[i].minR);
+                        current.end = sections[i].end;
+                    } else {
+                        newSections.push(current);
+                        current = sections[i];
+                    }
+                }
+                newSections.push(current);
+                if (this.app.data.isClosed && newSections.length > 1 && newSections[0].type === newSections[newSections.length - 1].type) {
+                    let last = newSections.pop();
+                    newSections[0].len += last.len;
+                    newSections[0].dAngle += last.dAngle;
+                    newSections[0].angleDeg = Math.abs(newSections[0].dAngle * 180 / Math.PI);
+                    newSections[0].minR = Math.min(newSections[0].minR, last.minR);
+                }
+                sections = newSections;
+            }
+        }
+
+        let corners = [], straights = [];
+        let currentStraightLen = 0;
+        let longestCornerLen = 0;
+
+        sections.forEach(sec => {
+            if (sec.type === 'straight') {
+                currentStraightLen += sec.len;
+            } else {
+                let type = 'Medium';
+                if (sec.minR < 30) type = 'Ultra-Slow';
+                else if (sec.minR < 70) type = 'Slow';
+                else if (sec.minR < 130) type = 'Medium-Slow';
+                else if (sec.minR < 200) type = 'Medium';
+                else if (sec.minR < 350) type = 'Medium-Fast';
+                else type = 'Fast';
+
+                if (sec.angleDeg > 150 && sec.minR < 45) type = 'Hairpin';
+                else if (sec.angleDeg > 45 && sec.minR >= 300) type = 'Sweeper';
+                else if (sec.angleDeg < 25 && sec.minR > 200) type = 'Kink';
+
+                if (type !== 'Kink') {
+                    if (sec.len > longestCornerLen) longestCornerLen = sec.len;
+                    corners.push({
+                        len: sec.len, angleDeg: sec.angleDeg, minR: sec.minR,
+                        type: type, dir: sec.dir, precStraight: currentStraightLen,
+                        sector: sec.sector, isComplex: false
+                    });
+                    straights.push(currentStraightLen);
+                    currentStraightLen = 0;
+                } else {
+                    currentStraightLen += sec.len;
+                }
+            }
+        });
+        straights.push(currentStraightLen);
+
+        let numComplexSeq = 0, numChicanes = 0, numDirChanges = 0;
+
+        for (let i = 0; i < corners.length; i++) {
+            let prevIdx = (i === 0) ? (this.app.data.isClosed ? corners.length - 1 : -1) : i - 1;
+            if (prevIdx === -1) continue;
+
+            let prev = corners[prevIdx];
+            let curr = corners[i];
+            let sepStraight = curr.precStraight;
+            if (i === 0 && this.app.data.isClosed) sepStraight += straights[straights.length - 1];
+
+            if (i === 0 && this.app.data.isClosed) curr.precStraight = sepStraight;
+
+            let dirFlipped = (prev.dir !== 0 && curr.dir !== 0 && prev.dir !== curr.dir);
+            if (dirFlipped) {
+                if (sepStraight < 30 && prev.minR >= 80 && curr.minR >= 80) {
+                    prev.isComplex = true;
+                    curr.isComplex = true;
+                    numComplexSeq++;
+                    numDirChanges++;
+                } else if (sepStraight < 100 && prev.minR < 80 && curr.minR < 80 && !prev.isComplex && !curr.isComplex) {
+                    numChicanes++;
+                    numDirChanges++;
+                } else {
+                    numDirChanges++;
+                }
+            }
+        }
+
+        // Section 6 - Lap Time Estimation
+        let baseTime = totalLength / (300 / 3.6);
+        let totalCornerTimeLost = 0;
+
+        corners.forEach(corner => {
+            let cs = Math.sqrt(corner.minR * 4.5 * 9.81) * 3.6;
+            let es = Math.min(310, 50 + corner.precStraight * 0.35);
+            if (cs > es) cs = es;
+
+            let brakingDist = Math.max(0, (es * es - cs * cs)) / (2 * 50 * 12.96);
+            let accelDist = Math.max(0, (es * es - cs * cs)) / (2 * 15 * 12.96);
+            let transitDist = brakingDist + accelDist;
+            let avgTransitSpeedMS = ((es + cs) / 2) / 3.6;
+
+            let actualTime = avgTransitSpeedMS > 0 ? transitDist / avgTransitSpeedMS : 0;
+            let idealTime = (es / 3.6) > 0 ? transitDist / (es / 3.6) : 0;
+            let timeLost = Math.max(0, actualTime - idealTime);
+
+            let cornerTraversalTime = (cs / 3.6) > 0 ? corner.len / (cs / 3.6) : 0;
+            let idealTraversalTime = (es / 3.6) > 0 ? corner.len / (es / 3.6) : 0;
+            timeLost += Math.max(0, cornerTraversalTime - idealTraversalTime);
+
+            totalCornerTimeLost += timeLost;
+            corner.cs = cs;
+            corner.es = es;
+        });
+        let lapTimeSeconds = baseTime + totalCornerTimeLost;
+
+        // Section 4 - Aggregate Metrics
+        const numCorners = corners.length;
+        const numHairpins = corners.filter(c => c.type === 'Hairpin').length;
+        const numSweepers = corners.filter(c => c.type === 'Sweeper').length;
+        const numFastCorners = corners.filter(c => c.type === 'Fast').length;
+        const numMedFastCorners = corners.filter(c => c.type === 'Medium-Fast').length;
+        const numMedCorners = corners.filter(c => c.type === 'Medium').length;
+        const numMedSlowCorners = corners.filter(c => c.type === 'Medium-Slow').length;
+        const numSlowCorners = corners.filter(c => c.type === 'Slow').length;
+        const numUltraSlowCorners = corners.filter(c => c.type === 'Ultra-Slow').length;
+
+        const totalStraightLength = straights.reduce((a, b) => a + b, 0);
+        const numStraightsCount = straights.filter(s => s > 0).length;
+        const maxStraight = straights.length > 0 ? Math.max(...straights) : 0;
+        const straightsOver400m = straights.filter(s => s > 400).length;
+        const straightsOver600m = straights.filter(s => s > 600).length;
+        const avgStraightLength = numStraightsCount > 0 ? totalStraightLength / numStraightsCount : 0;
+
+        const cornerDensity = numCorners / (totalLength / 1000);
+        const avgCornerRadius = numCorners > 0 ? corners.reduce((sum, c) => sum + c.minR, 0) / numCorners : 1000;
+
+        let totalHighSpeedLength = totalStraightLength + corners.filter(c => ['Fast', 'Sweeper', 'Medium-Fast'].includes(c.type) || c.isComplex).reduce((sum, c) => sum + c.len, 0);
+        let totalTechLength = corners.filter(c => ['Ultra-Slow', 'Slow', 'Medium-Slow', 'Hairpin'].includes(c.type)).reduce((sum, c) => sum + c.len, 0) + (numChicanes * 50);
+
+        // Section 5 - Sector Analysis
+        let secCounts = {
+            1: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' },
+            2: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' },
+            3: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' }
+        };
+
+        corners.forEach(c => {
+            let s = c.sector;
+            if (s === 0) return;
+            secCounts[s].corners++;
+            if (['Fast', 'Sweeper'].includes(c.type)) secCounts[s].fastWt += 1;
+            if (c.isComplex) secCounts[s].fastWt += 0.8;
+            if (c.type === 'Medium-Fast') secCounts[s].fastWt += 0.5;
+            if (['Ultra-Slow', 'Slow', 'Hairpin'].includes(c.type)) secCounts[s].slowWt += 1;
+        });
+
+        for (let i = 1; i <= 3; i++) {
+            let f = secCounts[i].fastWt, s = secCounts[i].slowWt;
+            if (f > s * 1.3) secCounts[i].char = "High-Speed";
+            else if (s > f * 1.3) secCounts[i].char = "Technical";
+        }
+
+        let c1 = secCounts[1].corners, c2 = secCounts[2].corners, c3 = secCounts[3].corners;
+        let meanC = (c1 + c2 + c3) / 3;
+        let secBalPenalty = Math.sqrt((Math.pow(c1 - meanC, 2) + Math.pow(c2 - meanC, 2) + Math.pow(c3 - meanC, 2)) / 3) * 5;
+
+        // Section 8 - Normalization and Formulas
+        const norm = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
+
+        let rawDiff = (numCorners * 1.5) + (numHairpins * 8) + (numChicanes * 10) + (numDirChanges * 1.5) + (cornerDensity * 5) + (1000 / avgCornerRadius) + (numUltraSlowCorners * 6);
+        let difficulty = norm(rawDiff, 120);
+
+        let rawOvertake = (straightsOver400m * 20) + (maxStraight / 12) + (numHairpins * 8) + ((numUltraSlowCorners + numSlowCorners) * 3) - (numChicanes * 5) - (cornerDensity * 3);
+        let overtaking = norm(rawOvertake, 110);
+
+        let rawFlow = 100 - (numChicanes * 5) - (numHairpins * 10) - (numUltraSlowCorners * 6) - ((numSlowCorners + numMedSlowCorners) * 3) + (numSweepers * 10) + (numComplexSeq * 8) + (numFastCorners * 5) - (numDirChanges * 1) - (cornerDensity * 1.5);
+        let flow = Math.min(100, Math.max(0, rawFlow));
+
+        let rawTech = (cornerDensity * 8) + (numChicanes * 15) + (numDirChanges * 4) + ((numUltraSlowCorners + numSlowCorners + numMedSlowCorners) * 5) + (numUltraSlowCorners * 8) + (numHairpins * 6) - (numFastCorners * 3) - (numSweepers * 4) - (numComplexSeq * 2);
+        let technicality = norm(rawTech, 130);
+
+        let rawHS = (maxStraight / 10) + (totalStraightLength / 50) + (numFastCorners * 12) + (numSweepers * 15) + (numComplexSeq * 10) + (numMedFastCorners * 5);
+        let highSpeed = norm(rawHS, 160);
+
+        let rawBrake = 0;
+        corners.forEach(c => {
+            if (c.type === 'Hairpin') rawBrake += 20 + (c.es / 20);
+            else if (c.type === 'Ultra-Slow') rawBrake += 12 + (c.es / 25);
+            else if (['Slow', 'Medium-Slow'].includes(c.type)) rawBrake += 6 + (c.es / 35);
+        });
+        rawBrake += (numChicanes * 8);
+        let braking = norm(rawBrake, 200);
+
+        let latStress = (numFastCorners * 8) + (numSweepers * 12) + (numComplexSeq * 10) + (numMedFastCorners * 5) + (numMedCorners * 3);
+        let longStress = (numHairpins * 10) + ((numUltraSlowCorners + numSlowCorners + numMedSlowCorners) * 5) + (numChicanes * 6);
+        let rawTire = (latStress * 0.6) + (longStress * 0.4) + (cornerDensity * 4) + (totalLength / 500);
+        let tireStress = norm(rawTire, 150);
+
+        let rawAero = (numFastCorners * 12) + (numSweepers * 18) + (numComplexSeq * 14) + (numMedFastCorners * 6) - (straightsOver600m * 8) - (numHairpins * 3) + ((totalLength / 1000) * 4);
+        let aeroDemand = norm(rawAero, 140);
+
+        let rawSpec = (overtaking * 0.30) + (highSpeed * 0.20) + (technicality * 0.15) + (difficulty * 0.15) + (flow * 0.10) + (numHairpins * 4) + (straightsOver400m * 8) + (numSweepers * 6) + (numComplexSeq * 5);
+        let spectacle = norm(rawSpec, 100);
+
+        let ratio = totalHighSpeedLength / Math.max(totalTechLength, 1);
+        let ratioScore = 100 - Math.abs(ratio - 1.4) * 25;
+        let varPenalty = Math.abs((numFastCorners + numSweepers + numComplexSeq) - (numUltraSlowCorners + numSlowCorners + numHairpins)) * 2;
+        let balance = Math.min(100, Math.max(0, ratioScore - varPenalty - secBalPenalty));
+
+        // Section 9 - Mutual Exclusion Penalties
+        if (highSpeed > 70 && braking > 80) {
+            let overflow1 = braking - 80;
+            highSpeed = Math.max(0, highSpeed - overflow1 * 0.4);
+            let overflow2 = highSpeed - 70;
+            braking = Math.max(0, braking - overflow2 * 0.2);
+        }
+        if (flow > 70 && technicality > 80) {
+            let overflow = technicality - 80;
+            flow = Math.max(0, flow - overflow * 0.3);
+        }
+        if (overtaking > 75 && technicality > 80) {
+            let overflow = technicality - 80;
+            overtaking = Math.max(0, overtaking - overflow * 0.25);
+        }
+
+        difficulty = Math.min(100, Math.max(0, difficulty));
+        overtaking = Math.min(100, Math.max(0, overtaking));
+        flow = Math.min(100, Math.max(0, flow));
+        technicality = Math.min(100, Math.max(0, technicality));
+        highSpeed = Math.min(100, Math.max(0, highSpeed));
+        braking = Math.min(100, Math.max(0, braking));
+        tireStress = Math.min(100, Math.max(0, tireStress));
+        aeroDemand = Math.min(100, Math.max(0, aeroDemand));
+        spectacle = Math.min(100, Math.max(0, spectacle));
+        balance = Math.min(100, Math.max(0, balance));
+
+        // Section 10 - Overall Score
+        let overallScore = (difficulty * 0.10) + (overtaking * 0.15) + (flow * 0.10) + (technicality * 0.10) + (highSpeed * 0.10) + (braking * 0.10) + (tireStress * 0.08) + (aeroDemand * 0.07) + (spectacle * 0.15) + (balance * 0.05);
+
+        // Section 11 - Classification
+        let clScores = {
+            "High-Speed Circuit": (highSpeed * 0.5) + ((100 - technicality) * 0.3) + (flow * 0.2),
+            "Technical Circuit": (technicality * 0.5) + ((100 - flow) * 0.2) + (difficulty * 0.3),
+            "Stop-Start Circuit": (braking * 0.4) + ((100 - flow) * 0.4) + (technicality * 0.2),
+            "Overtaking Circuit": (overtaking * 0.6) + (flow * 0.2) + (highSpeed * 0.2),
+            "Driver's Circuit": (difficulty * 0.4) + (technicality * 0.3) + (balance * 0.3),
+            "Street-Circuit Style": (technicality * 0.3) + (braking * 0.3) + ((100 - overtaking) * 0.2) + (cornerDensity * 2),
+            "Balanced Circuit": (balance * 0.5) + (spectacle * 0.3) + (flow * 0.2)
+        };
+        let classification = Object.keys(clScores).reduce((a, b) => clScores[a] > clScores[b] ? a : b);
+
+        // UI Formatting
+        let formatTime = (t) => {
+            let m = Math.floor(t / 60);
+            let s = Math.floor(t % 60);
+            let ms = Math.round((t % 1) * 1000);
+            return `${m}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        };
+
+        const pBar = (val, color) => `<div style="width:100%; background:#222; height:8px; border-radius:4px; margin-top:2px; overflow:hidden;"><div style="width:${val}%; background:${color}; height:100%;"></div></div>`;
+        const cTotal = numCorners || 1;
+        const fastPct = Math.round(((numFastCorners + numSweepers + numComplexSeq) / cTotal) * 100);
+        const slowPct = Math.round(((numUltraSlowCorners + numSlowCorners + numHairpins) / cTotal) * 100);
+
+        h += `<div class="prop-group" style="margin-top: 10px;">
+                <label>Final Report</label>
+                <div style="font-size:12px; margin-top:5px; background:#1a1a1a; padding:10px; border-radius:6px; border:1px solid #333;">
+                    <div style="text-align:center; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
+                        <div style="font-size:10px; color:#aaa; text-transform:uppercase;">Overall Quality</div>
+                        <div style="font-size:24px; font-weight:bold; color:${overallScore > 75 ? '#00e676' : overallScore > 50 ? '#ffb300' : '#ff5252'};">${overallScore.toFixed(1)}</div>
+                        <div style="font-size:12px; color:#ddd; margin-top:2px;">${classification}</div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 15px; margin-bottom:15px; color:#ccc;">
+                        <div><span style="color:#888">Length</span> <div style="float:right; color:#fff">${(totalLength / 1000).toFixed(3)} km</div></div>
+                        <div><span style="color:#888">Est. Lap Time</span> <div style="float:right; color:#fff" title="±5s (Physics-based Approximation)">${formatTime(lapTimeSeconds)}</div></div>
+                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
+                        <div><span style="color:#888">Corners</span> <div style="float:right; color:#fff">${numCorners}</div></div>
+                        <div><span style="color:#888">Sweepers</span> <div style="float:right; color:#fff">${numSweepers}</div></div>
+                        <div><span style="color:#888">Hairpins</span> <div style="float:right; color:#fff">${numHairpins}</div></div>
+                        <div><span style="color:#888">Chicanes</span> <div style="float:right; color:#fff">${numChicanes}</div></div>
+                        <div><span style="color:#888">Complex Seq.</span> <div style="float:right; color:#fff">${numComplexSeq}</div></div>
+                        <div><span style="color:#888">Turn Density</span> <div style="float:right; color:#fff">${cornerDensity.toFixed(1)} /km</div></div>
+                        <div><span style="color:#888">Fast Turn %</span> <div style="float:right; color:#fff">${fastPct}%</div></div>
+                        <div><span style="color:#888">Slow Turn %</span> <div style="float:right; color:#fff">${slowPct}%</div></div>
+                        <div><span style="color:#888">Longest Turn</span> <div style="float:right; color:#fff">${longestCornerLen.toFixed(0)} m</div></div>
+                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
+                        <div><span style="color:#888">Straights</span> <div style="float:right; color:#fff">${numStraightsCount}</div></div>
+                        <div><span style="color:#888">Max Straight</span> <div style="float:right; color:#fff">${maxStraight.toFixed(0)} m</div></div>
+                        <div><span style="color:#888">Str > 400m</span> <div style="float:right; color:#fff">${straightsOver400m}</div></div>
+                        <div><span style="color:#888">Avg Str</span> <div style="float:right; color:#fff">${avgStraightLength.toFixed(0)} m</div></div>
+                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
+                        <div><span style="color:#888">Sec 1</span> <div style="float:right; color:#fff">${secCounts[1].char}</div></div>
+                        <div><span style="color:#888">Sec 2</span> <div style="float:right; color:#fff">${secCounts[2].char}</div></div>
+                        <div style="grid-column: 1 / -1;"><span style="color:#888">Sec 3</span> <div style="float:right; color:#fff">${secCounts[3].char}</div></div>
+                    </div>
+
+                    <label style="font-size:11px; margin-bottom:5px;">Normalized Scoring</label>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="font-size:11px; color:#aaa">Difficulty <span style="float:right; color:#fff">${difficulty.toFixed(0)}</span>${pBar(difficulty, '#ff1801')}</div>
+                        <div style="font-size:11px; color:#aaa">Overtaking <span style="float:right; color:#fff">${overtaking.toFixed(0)}</span>${pBar(overtaking, '#00e676')}</div>
+                        <div style="font-size:11px; color:#aaa">Flow <span style="float:right; color:#fff">${flow.toFixed(0)}</span>${pBar(flow, '#29b6f6')}</div>
+                        <div style="font-size:11px; color:#aaa">Technicality <span style="float:right; color:#fff">${technicality.toFixed(0)}</span>${pBar(technicality, '#ab47bc')}</div>
+                        <div style="font-size:11px; color:#aaa">High-Speed <span style="float:right; color:#fff">${highSpeed.toFixed(0)}</span>${pBar(highSpeed, '#ffa726')}</div>
+                        <div style="font-size:11px; color:#aaa">Braking Demand <span style="float:right; color:#fff">${braking.toFixed(0)}</span>${pBar(braking, '#ef5350')}</div>
+                        <div style="font-size:11px; color:#aaa">Tire Stress <span style="float:right; color:#fff">${tireStress.toFixed(0)}</span>${pBar(tireStress, '#ffca28')}</div>
+                        <div style="font-size:11px; color:#aaa">Aero Demand <span style="float:right; color:#fff">${aeroDemand.toFixed(0)}</span>${pBar(aeroDemand, '#26c6da')}</div>
+                        <div style="font-size:11px; color:#aaa">Spectacle <span style="float:right; color:#fff">${spectacle.toFixed(0)}</span>${pBar(spectacle, '#ec407a')} <span style="font-size: 8px; font-style: italic; display: block; margin-top: 2px;">*Derived Index</span></div>
+                        <div style="font-size:11px; color:#aaa">Balance <span style="float:right; color:#fff">${balance.toFixed(0)}</span>${pBar(balance, '#8d6e63')}</div>
+                    </div>
+                </div>
+              </div>`;
+
+        return h;
+    }
+
     _zoneProps(sel) {
         const t = this.app.tools.zone;
         let h = '<h3 class="prop-title">F1 Zones</h3><p class="prop-hint">Click near track to place.</p>';
@@ -564,7 +977,7 @@ F1.UIManager = class UIManager {
             h += `<button class="zone-btn ${t.zoneType === zt.key ? 'active' : ''}" data-zone="${zt.key}" style="--zone-c:${zt.color};--zone-bg:${zt.bg}">${zt.label.replace('\\n', ' ')}${zt.range ? ' ↔' : ''}</button>`;
         });
         h += '</div></div>';
-        
+
 
 
         if (sel && sel.type === 'zone') {
@@ -683,15 +1096,15 @@ F1.UIManager = class UIManager {
                 if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
                 const pt = this.app.data.getPointById(sel.id);
                 if (!pt) return;
-                
+
                 const pts = this.app.data.controlPoints;
                 const ptIdx = pts.findIndex(p => p.id === pt.id);
                 const nextPt = pts[(ptIdx + 1) % pts.length];
-                
+
                 this.app.data.snapshot();
                 const v = b.dataset.surf;
                 if (sel.side === 'left') pt.surfaceLeft = v; else pt.surfaceRight = v;
-                
+
                 if (v === 'none') {
                     if (sel.side === 'left') {
                         pt.surfaceWidthLeft = 0;
@@ -701,7 +1114,7 @@ F1.UIManager = class UIManager {
                         nextPt.surfaceWidthRight = 0;
                     }
                 }
-                
+
                 this.updateProperties();
                 this.app.requestRender();
             });
@@ -720,7 +1133,7 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             });
         });
-        
+
         const pswS = document.getElementById('prop-sel-sw-start');
         const pswSVal = document.getElementById('prop-sel-sw-start-val');
         const pswE = document.getElementById('prop-sel-sw-end');
@@ -735,7 +1148,7 @@ F1.UIManager = class UIManager {
                 let v = parseFloat(val) / sm;
                 if (isNaN(v)) return;
                 v = Math.max(0, v);
-                
+
                 const sel = this.app.selection;
                 if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
                 const pt = this.app.data.getPointById(sel.id);
@@ -754,29 +1167,29 @@ F1.UIManager = class UIManager {
                 }
                 this.app.requestRender();
             };
-            
+
             pswS.oninput = () => updateSelSW('start', pswS.value, false);
             pswS.onchange = () => updateSelSW('start', pswS.value, true);
             pswSVal.onchange = () => updateSelSW('start', pswSVal.value, true);
-            
+
             pswE.oninput = () => updateSelSW('end', pswE.value, false);
             pswE.onchange = () => updateSelSW('end', pswE.value, true);
             pswEVal.onchange = () => updateSelSW('end', pswEVal.value, true);
-            
+
             let lastBothVal = 0;
             pswB.onmousedown = () => { lastBothVal = parseFloat(pswB.value); };
             const applyBothDelta = (cur, save) => {
                 if (save) this.app.data.snapshot();
                 const delta = (cur - lastBothVal) / sm;
                 lastBothVal = cur;
-                
+
                 const sel = this.app.selection;
                 if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
                 const pt = this.app.data.getPointById(sel.id);
                 if (!pt) return;
                 const pts = this.app.data.controlPoints;
                 const nextPt = pts[(pts.findIndex(p => p.id === pt.id) + 1) % pts.length];
-                
+
                 if (sel.side === 'left') {
                     pt.surfaceWidthLeft = Math.max(0, (pt.surfaceWidthLeft ?? 10) + delta);
                     nextPt.surfaceWidthLeft = Math.max(0, (nextPt.surfaceWidthLeft ?? 10) + delta);
@@ -797,20 +1210,20 @@ F1.UIManager = class UIManager {
                 lastBothVal = 0;
                 this.app.requestRender();
             };
-            
+
             pswB.oninput = () => {
                 // For live sliding we apply delta but don't reset to 0 yet
                 const cur = parseFloat(pswB.value);
                 const delta = (cur - lastBothVal) / sm;
                 lastBothVal = cur;
-                
+
                 const sel = this.app.selection;
                 if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
                 const pt = this.app.data.getPointById(sel.id);
                 if (!pt) return;
                 const pts = this.app.data.controlPoints;
                 const nextPt = pts[(pts.findIndex(p => p.id === pt.id) + 1) % pts.length];
-                
+
                 if (sel.side === 'left') {
                     pt.surfaceWidthLeft = Math.max(0, (pt.surfaceWidthLeft ?? 10) + delta);
                     nextPt.surfaceWidthLeft = Math.max(0, (nextPt.surfaceWidthLeft ?? 10) + delta);
@@ -849,7 +1262,7 @@ F1.UIManager = class UIManager {
                 if (!pt) return;
                 const pts = this.app.data.controlPoints;
                 const nextPt = pts[(pts.findIndex(p => p.id === pt.id) + 1) % pts.length];
-                
+
                 if (sel.side === 'left') {
                     pt.surfaceWidthLeft = 10.0;
                     nextPt.surfaceWidthLeft = 10.0;
@@ -861,7 +1274,7 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             };
         }
-        
+
         if (document.getElementById('btn-reset-tw')) {
             document.getElementById('btn-reset-tw').onclick = () => {
                 this.app.data.snapshot();
@@ -915,7 +1328,7 @@ F1.UIManager = class UIManager {
                 this.app.requestRender();
             };
         }
-        
+
         const roSel = document.getElementById('prop-runoff-selector');
         if (roSel) {
             roSel.onchange = () => {
@@ -937,13 +1350,13 @@ F1.UIManager = class UIManager {
                 const ixId = parseInt(ixSel.value);
                 const ix = this.app.intersections.find(i => i.id === ixId);
                 if (!ix) return;
-                
+
                 this.app.data.snapshot();
                 const key = ix.key;
                 const legacyKey = `${ix.cpA}-${ix.cpB}`;
                 const idx = this.app.data.overlapInversions.indexOf(key);
                 const legacyIdx = this.app.data.overlapInversions.indexOf(legacyKey);
-                
+
                 if (idx > -1) {
                     this.app.data.overlapInversions.splice(idx, 1);
                 } else if (legacyIdx > -1) {
@@ -1158,13 +1571,13 @@ F1.UIManager = class UIManager {
                 const b = (sl, inp, key) => {
                     if (sl && inp) {
                         sl.oninput = () => { pt[key] = parseFloat(sl.value) / sm; inp.value = sl.value; this.app.requestRender(); };
-                        inp.onchange = () => { 
+                        inp.onchange = () => {
                             let v = parseFloat(inp.value) / sm;
                             v = Math.max(key.startsWith('width') ? 5 : 0, v);
                             pt[key] = v;
                             inp.value = (v * sm).toFixed(1);
-                            sl.value = inp.value; 
-                            this.app.requestRender(); 
+                            sl.value = inp.value;
+                            this.app.requestRender();
                         };
                     }
                 };
