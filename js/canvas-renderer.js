@@ -18,7 +18,11 @@ F1.Renderer = class Renderer {
         this.C = {
             bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
+<<<<<<< HEAD
             pitLane: '#383838', pitLine: '#ffff00',
+=======
+            pitLane: '#111', pitLine: '#ffff00',
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             s1: '#E70E6C', s2: '#FBCF02', s3: '#369BE5',
             cp: '#00ff88', cpSel: '#ff8800', cpHover: '#66ffbb',
             grid: 'rgba(255,255,255,0.04)', gsRoof: ['#e10600', '#0050b0', '#e8a700', '#888']
@@ -62,6 +66,39 @@ F1.Renderer = class Renderer {
         return area >= 0 ? 1 : -1;
     }
 
+<<<<<<< HEAD
+=======
+    _garage(data, sel) {
+        if (!data.garage) return;
+        const g = data.garage;
+        const s = this.w2s(g.x, g.y);
+        const w = g.width * this.scale;
+        const l = g.length * this.scale;
+        const rot = (g.rotation || 0) * Math.PI / 180;
+        const ctx = this.ctx;
+
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(rot);
+        
+        ctx.fillStyle = '#555';
+        ctx.fillRect(-l/2, -w/2, l, w);
+        
+        if (sel && sel.type === 'garage') {
+            ctx.strokeStyle = '#e10600';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-l/2 - 2, -w/2 - 2, l + 4, w + 4);
+        }
+        
+        ctx.restore();
+
+        if (sel && sel.type === 'garage') {
+            const dist = w / 2 + 20 * this.scale;
+            this._drawRotHandle(s.x, s.y, rot, dist);
+        }
+    }
+
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     render(data, editor, sel, hoverPt, activeTool) {
         this._editor = editor;
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
@@ -70,6 +107,7 @@ F1.Renderer = class Renderer {
         ctx.fillStyle = this.C.bg; ctx.fillRect(0, 0, W, H);
         if (this.showGrid) this._grid(data);
         const track = editor.getInterpolatedTrack();
+<<<<<<< HEAD
         if (track.length > 1) {
             this._surfaces(track); this._sectorStripes(track, data); this._trackSurface(track);
             this._barriers(track); this._straightModeZones(data, editor, track, sel);
@@ -77,6 +115,16 @@ F1.Renderer = class Renderer {
             this._startFinish(track, data);
         }
         this._pitLane(editor);
+=======
+        this._pitLane(editor);
+        this._garage(data, sel);
+        if (track.length > 1) {
+            this._surfaces(track); this._sectorStripes(track, data); this._trackSurface(track);
+            this._barriers(track); this._highlightSelection(track, data, sel); this._straightModeZones(data, editor, track, sel);
+            this._renderIntersections(track, data, editor, sel);
+            this._startFinish(track, data);
+        }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this._zones(data, editor, sel, activeTool); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
@@ -215,6 +263,66 @@ F1.Renderer = class Renderer {
         }
     }
 
+<<<<<<< HEAD
+=======
+    _highlightSelection(track, data, sel) {
+        if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
+        const cpIdx = data.controlPoints.findIndex(p => p.id === sel.id);
+        if (cpIdx === -1) return;
+        
+        const isL = sel.side === 'left';
+        const ctx = this.ctx;
+        
+        let startIndex = -1, endIndex = -1;
+        for (let i = 0; i < track.length; i++) {
+            if (track[i].segIndex === cpIdx) {
+                if (startIndex === -1) startIndex = i;
+                endIndex = i;
+            } else if (startIndex !== -1 && track[i].segIndex > cpIdx) {
+                break;
+            }
+        }
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+            endIndex = Math.min(endIndex + 1, track.length - 1);
+            
+            // Highlight area
+            ctx.fillStyle = 'rgba(225, 6, 0, 0.4)';
+            ctx.beginPath();
+            for (let k = startIndex; k <= endIndex; k++) {
+                const p = track[k], sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                const w = (isL ? p.widthLeft : p.widthRight) + sw, sgn = isL ? -1 : 1;
+                const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn);
+                k === startIndex ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
+            }
+            for (let k = endIndex; k >= startIndex; k--) {
+                const p = track[k], w = isL ? p.widthLeft : p.widthRight, sgn = isL ? -1 : 1;
+                const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn);
+                ctx.lineTo(s.x, s.y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Highlight Barrier line if barrier is selected
+            if (sel.type === 'barrier') {
+                const hasBarrier = isL ? track[startIndex].barrierLeft : track[startIndex].barrierRight;
+                if (hasBarrier) {
+                    ctx.strokeStyle = '#e10600';
+                    ctx.lineWidth = Math.max(4, 6 * this.scale);
+                    ctx.beginPath();
+                    for (let k = startIndex; k <= endIndex; k++) {
+                        const p = track[k], sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                        const w = (isL ? p.widthLeft : p.widthRight) + sw, sgn = isL ? -1 : 1;
+                        const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn);
+                        k === startIndex ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     /* Straight Mode - red dashes close to track edge using strips.png */
     _straightModeZones(data, editor, track, sel, ixRange = null) {
         const ctx = this.ctx;
@@ -500,9 +608,12 @@ F1.Renderer = class Renderer {
         ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, 1.2 * this.scale);
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x + (pit[i].nx || 0) * w, pit[i].y + (pit[i].ny || 0) * w); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x - (pit[i].nx || 0) * w, pit[i].y - (pit[i].ny || 0) * w); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+<<<<<<< HEAD
         ctx.strokeStyle = this.C.pitLine; ctx.lineWidth = Math.max(1, 1.5 * this.scale); ctx.setLineDash([6 * this.scale, 6 * this.scale]);
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
         if (pit.length > 4) { const mid = pit[Math.floor(pit.length / 2)], s = this.w2s(mid.x, mid.y); ctx.fillStyle = '#fff'; ctx.font = `bold ${12 * this.scale}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PIT LANE', s.x, s.y); }
+=======
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 
 
@@ -714,8 +825,13 @@ F1.Renderer = class Renderer {
         });
     }
 
+<<<<<<< HEAD
     _pitPoints(data, sel, activeTool) {
         if (activeTool !== 'pitlane') return;
+=======
+    _pitPoints(data, sel) {
+        if (!data.showPitlaneNodes) return;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const ctx = this.ctx;
         data.pitLane.points.forEach(pt => {
             const s = this.w2s(pt.x, pt.y);

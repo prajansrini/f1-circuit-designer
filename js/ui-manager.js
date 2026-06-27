@@ -17,6 +17,10 @@ F1.UIManager = class UIManager {
             barrier: () => this._barrierProps(), sector: () => this._sectorProps(),
             turn: () => this._turnProps(sel),
             pitlane: () => this._pitLaneProps(),
+<<<<<<< HEAD
+=======
+            garage: () => this._pitLaneProps(),
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             analysis: () => this._analysisProps(),
             zone: () => this._zoneProps(sel),
             straightMode: () => this._straightModeProps(sel),
@@ -56,7 +60,11 @@ F1.UIManager = class UIManager {
                 <p class="prop-hint">Click on the track to insert a new control point.</p>
                 <div class="prop-group" style="margin-top: 15px;">
                     <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+<<<<<<< HEAD
                         <input type="checkbox" id="cb-show-nodes" ${this.app.renderer.showCtrlPts ? 'checked' : ''}>
+=======
+                        <input type="checkbox" id="cb-show-nodes" ${this.app.renderer.showCtrlPts ? 'checked' : ''} style="accent-color:#e10600;">
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Nodes</span>
                     </label>
                 </div>
@@ -189,7 +197,13 @@ F1.UIManager = class UIManager {
 
         const typeLabels = {
             'cp': 'Node',
+<<<<<<< HEAD
             'turn': 'Turn Marker'
+=======
+            'turn': 'Turn Marker',
+            'garage': 'Garage',
+            'pit': 'Pitlane'
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         };
         let label = typeLabels[sel.type] || sel.type;
         if (sel.type === 'zone') {
@@ -543,21 +557,64 @@ F1.UIManager = class UIManager {
 
     _pitLaneProps() {
         const n = this.app.data.pitLane.points.length;
+<<<<<<< HEAD
         let h = '<h3 class="prop-title">Pit Lane</h3><p class="prop-hint">Click to place path. FIA: min 12m width, with fast lane (outer) and slow lane (inner, crew side).</p>';
         h += `<p class="prop-hint dim">Points: <strong>${n}</strong></p>`;
+=======
+        let h = '<h3 class="prop-title">Pit Lane</h3>';
+        h += `<p class="prop-hint dim">Pitlane Nodes: <strong>${n}</strong></p>`;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         h += `<div class="prop-group"><label>Width</label>
             <div style="display:flex; align-items:center; margin-bottom: 4px;">
                 <input type="range" min="4" max="20" step="0.5" value="${this.app.data.pitLane.width}" id="prop-pitw" class="prop-slider" style="flex:1; margin-right:6px; min-width:0;">
                 <input type="number" class="prop-input" style="flex: 0 0 45px; padding:2px; font-size:11px; text-align:right; min-width:0;" id="prop-pitw-val-input" value="${this.app.data.pitLane.width}" min="4" max="20" step="0.5">
                 <span style="margin-left:4px; font-size:11px; color:#aaa; width:12px;">m</span>
             </div></div>`;
+<<<<<<< HEAD
         h += '<p class="prop-hint dim">Pit entry/exit should not cross racing line. Speed limit: 80 km/h.</p>';
         h += '<button class="prop-btn danger" id="btn-clear-pit">Clear Pit Lane</button>';
+=======
+        h += `<div class="prop-group" style="margin-top: 15px;">
+                <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="prop-show-pit-nodes" ${this.app.data.showPitlaneNodes ? 'checked' : ''} style="accent-color:#e10600;">
+                    <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Pitlane Nodes</span>
+                </label>
+              </div>`;
+        h += `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
+                <label>Garage Building</label>
+                ${!this.app.data.garage ? 
+                    `<button class="prop-btn" id="btn-add-garage">Place Garage</button>` :
+                    `
+                    <div style="display:flex; gap:10px; margin-bottom:10px; margin-top: 8px;">
+                        <div style="flex:1;">
+                            <span style="font-size:11px;color:#aaa;">Length</span>
+                            <input type="number" id="prop-garage-len" value="${this.app.data.garage.length}" class="prop-input" style="width:100%;" min="10" step="1">
+                        </div>
+                        <div style="flex:1;">
+                            <span style="font-size:11px;color:#aaa;">Width</span>
+                            <input type="number" id="prop-garage-wid" value="${this.app.data.garage.width}" class="prop-input" style="width:100%;" min="5" step="1">
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:8px;">
+                        <span style="font-size:11px;color:#aaa;width:42px;">Rotation</span>
+                        <input type="range" id="prop-garage-rot-range" class="prop-slider" min="0" max="360" step="1" value="${Math.round(this.app.data.garage.rotation || 0)}" style="flex:1; min-width:10px;">
+                        <input type="number" id="prop-garage-rot-num" value="${Math.round(this.app.data.garage.rotation || 0)}" class="prop-input" style="width:48px; padding-left:4px; padding-right:4px;" min="0" max="360" step="1">
+                    </div>
+                    <button class="prop-btn danger" id="btn-remove-garage" style="margin-top:12px;">Remove Garage</button>
+                    `
+                }
+              </div>`;
+        h += '<button class="prop-btn danger" id="btn-clear-pit" style="margin-top: 15px;">Clear Pit Lane</button>';
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         return h;
     }
 
     _analysisProps() {
+<<<<<<< HEAD
         let h = '<h3 class="prop-title">Circuit Analysis</h3>';
+=======
+        let h = '<h3 class="prop-title">F1 Circuit Analyzer v2.0</h3>';
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         if (!this.app.data.isClosed) {
             h += '<p class="prop-hint">Circuit must be closed to perform geometric analysis.</p>';
             return h;
@@ -568,6 +625,11 @@ F1.UIManager = class UIManager {
 
         let totalLength = 0;
         let points = [];
+<<<<<<< HEAD
+=======
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         for (let i = 0; i < track.length; i++) {
             let prev = i === 0 ? track[track.length - 2] : track[i - 1];
             let dx = track[i].x - prev.x, dy = track[i].y - prev.y;
@@ -575,8 +637,21 @@ F1.UIManager = class UIManager {
             let angle = Math.atan2(dy, dx);
             points.push({ x: track[i].x * sf, y: track[i].y * sf, dist, angle, sector: track[i].sector || 0 });
             totalLength += dist;
+<<<<<<< HEAD
         }
 
+=======
+            
+            let px = track[i].x * sf, py = track[i].y * sf;
+            if (px < minX) minX = px; if (px > maxX) maxX = px;
+            if (py < minY) minY = py; if (py > maxY) maxY = py;
+        }
+
+        // Bounding Box & Compactness
+        let bbArea = (maxX - minX) * (maxY - minY);
+        let compactness = bbArea > 0 ? totalLength / Math.sqrt(bbArea) : 0;
+
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         // Section 1.3 - Curvature (Sliding Window ±5)
         for (let i = 0; i < points.length; i++) {
             let win = 5;
@@ -739,7 +814,11 @@ F1.UIManager = class UIManager {
             }
         }
 
+<<<<<<< HEAD
         // Section 6 - Lap Time Estimation
+=======
+        // Section 6 - Lap Time Estimation & Corner Speeds
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         let baseTime = totalLength / (300 / 3.6);
         let totalCornerTimeLost = 0;
 
@@ -767,8 +846,79 @@ F1.UIManager = class UIManager {
         });
         let lapTimeSeconds = baseTime + totalCornerTimeLost;
 
+<<<<<<< HEAD
         // Section 4 - Aggregate Metrics
         const numCorners = corners.length;
+=======
+        // V2.0 NEW PARAMETERS
+        let leftCorners = corners.filter(c => c.dir < 0).length;
+        let rightCorners = corners.filter(c => c.dir > 0).length;
+        let numCorners = corners.length;
+        let symmetryIndex = numCorners > 0 ? Math.abs(leftCorners - rightCorners) / numCorners : 0;
+
+        let brakingZones = 0;
+        let overtakingZones = 0;
+        let goodExits = 0;
+        
+        corners.forEach((c, i) => {
+            let brakingDelta = c.es - c.cs;
+            if (brakingDelta > 100) brakingZones++;
+            
+            let exitStraight = straights[i + 1] || 0;
+            if (i === corners.length - 1 && this.app.data.isClosed) exitStraight += straights[0];
+            
+            if (exitStraight >= 300) goodExits++;
+            
+            if (c.precStraight >= 400 && brakingDelta > 100) overtakingZones++;
+            else if (c.es > 250 && brakingDelta > 100) overtakingZones++;
+        });
+        let exitQualityPct = numCorners > 0 ? (goodExits / numCorners) * 100 : 0;
+
+        let sequences = 0;
+        let currentChain = 0;
+        for (let i = 0; i < corners.length; i++) {
+            let sep = corners[i].precStraight;
+            if (i === 0 && this.app.data.isClosed) sep += straights[straights.length - 1];
+            if (sep <= 150) {
+                currentChain++;
+            } else {
+                if (currentChain >= 3) sequences++;
+                currentChain = 1;
+            }
+        }
+        if (currentChain >= 3) sequences++;
+
+        let pitLen = 350;
+        if (this.app.data.pitLane.points.length > 1) {
+            pitLen = 0;
+            for(let i=1; i<this.app.data.pitLane.points.length; i++) {
+                let dx = this.app.data.pitLane.points[i].x - this.app.data.pitLane.points[i-1].x;
+                let dy = this.app.data.pitLane.points[i].y - this.app.data.pitLane.points[i-1].y;
+                pitLen += Math.hypot(dx, dy) * sf;
+            }
+        }
+        let avgSpeed = lapTimeSeconds > 0 ? totalLength / lapTimeSeconds : (200 / 3.6);
+        let pitDelta = (pitLen / (80 / 3.6)) - (pitLen / avgSpeed) + 15;
+
+        let secSpeeds = { 1: [], 2: [], 3: [] };
+        corners.forEach(c => { if (c.sector && secSpeeds[c.sector]) secSpeeds[c.sector].push(c.cs); });
+        let secAvg = { 1: 0, 2: 0, 3: 0 };
+        for (let s = 1; s <= 3; s++) {
+            if (secSpeeds[s].length > 0) secAvg[s] = secSpeeds[s].reduce((a,b)=>a+b,0) / secSpeeds[s].length;
+            else secAvg[s] = 150;
+        }
+        let meanAvg = (secAvg[1] + secAvg[2] + secAvg[3]) / 3;
+        let variance = ((Math.pow(secAvg[1]-meanAvg,2) + Math.pow(secAvg[2]-meanAvg,2) + Math.pow(secAvg[3]-meanAvg,2)) / 3);
+        let stdDev = Math.sqrt(variance);
+        let sectorBalanceScore = Math.min(100, 20 + stdDev * 3);
+
+        let aspect = bbArea > 0 ? (maxX - minX) / (maxY - minY) : 1;
+        if (aspect < 1) aspect = 1 / aspect;
+        let originality = 50 + (sectorBalanceScore * 0.3) + (Math.abs(aspect - 2.0) * 10) + (sequences * 5) - (symmetryIndex * 50);
+        originality = Math.min(100, Math.max(0, originality));
+
+        // Aggregate Basic Metrics
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const numHairpins = corners.filter(c => c.type === 'Hairpin').length;
         const numSweepers = corners.filter(c => c.type === 'Sweeper').length;
         const numFastCorners = corners.filter(c => c.type === 'Fast').length;
@@ -782,6 +932,7 @@ F1.UIManager = class UIManager {
         const numStraightsCount = straights.filter(s => s > 0).length;
         const maxStraight = straights.length > 0 ? Math.max(...straights) : 0;
         const straightsOver400m = straights.filter(s => s > 400).length;
+<<<<<<< HEAD
         const straightsOver600m = straights.filter(s => s > 600).length;
         const avgStraightLength = numStraightsCount > 0 ? totalStraightLength / numStraightsCount : 0;
 
@@ -892,18 +1043,79 @@ F1.UIManager = class UIManager {
         let overallScore = (difficulty * 0.10) + (overtaking * 0.15) + (flow * 0.10) + (technicality * 0.10) + (highSpeed * 0.10) + (braking * 0.10) + (tireStress * 0.08) + (aeroDemand * 0.07) + (spectacle * 0.15) + (balance * 0.05);
 
         // Section 11 - Classification
+=======
+        const avgStraightLength = numStraightsCount > 0 ? totalStraightLength / numStraightsCount : 0;
+
+        const cornerDensity = numCorners / (totalLength / 1000);
+        let totalTechLength = corners.filter(c => ['Ultra-Slow', 'Slow', 'Medium-Slow', 'Hairpin'].includes(c.type)).reduce((sum, c) => sum + c.len, 0) + (numChicanes * 50);
+        let totalHighSpeedLength = totalStraightLength + corners.filter(c => ['Fast', 'Sweeper', 'Medium-Fast'].includes(c.type) || c.isComplex).reduce((sum, c) => sum + c.len, 0);
+
+        // Normalized Scoring (V2.0 weights)
+        const norm = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
+
+        // Use Machine Learning Models for the final scores
+        let avgRadius = numCorners > 0 ? corners.reduce((sum, c) => sum + c.minR, 0) / numCorners : 1000;
+        let minRadius = numCorners > 0 ? Math.min(...corners.map(c => c.minR)) : 1000;
+        let maxRadius = numCorners > 0 ? Math.max(...corners.map(c => c.minR)) : 1000;
+        let curvatureVariance = numCorners > 0 ? corners.reduce((sum, c) => sum + Math.pow(c.minR - avgRadius, 2), 0) / numCorners : 0;
+        let avgCornerAngle = numCorners > 0 ? corners.reduce((sum, c) => sum + c.angleDeg, 0) / numCorners : 0;
+        let techSectionLength = totalTechLength;
+        let fastSectionLength = totalHighSpeedLength;
+        let numMedCombined = numMedCorners + numMedFastCorners;
+        let numSlowCombined = numSlowCorners + numUltraSlowCorners + numMedSlowCorners;
+
+        let features = [
+            totalLength, numCorners, numStraightsCount, maxStraight, avgStraightLength,
+            avgRadius, minRadius, maxRadius, cornerDensity, numDirChanges,
+            numHairpins, numChicanes, numFastCorners, numMedCombined, numSlowCombined,
+            techSectionLength, fastSectionLength, curvatureVariance, avgCornerAngle, sequences
+        ];
+        
+        let difficulty = typeof predict_DifficultyScore === 'function' ? predict_DifficultyScore(features) : 0;
+        let overtaking = typeof predict_OvertakingScore === 'function' ? predict_OvertakingScore(features) : 0;
+        let flow = typeof predict_FlowScore === 'function' ? predict_FlowScore(features) : 0;
+        let technicality = typeof predict_TechnicalityScore === 'function' ? predict_TechnicalityScore(features) : 0;
+        let highSpeed = typeof predict_HighSpeedScore === 'function' ? predict_HighSpeedScore(features) : 0;
+        let braking = typeof predict_BrakingDemandScore === 'function' ? predict_BrakingDemandScore(features) : 0;
+        let tireStress = typeof predict_TyreStressScore === 'function' ? predict_TyreStressScore(features) : 0;
+        let aeroDemand = typeof predict_AerodynamicDemandScore === 'function' ? predict_AerodynamicDemandScore(features) : 0;
+        let cqs = typeof predict_CircuitQualityScore === 'function' ? predict_CircuitQualityScore(features) : 0;
+
+        // Strategic Diversity is still calculated via rule-based logic since it depends heavily on pit delta
+        let stratRaw = (Math.abs(pitDelta - 22) < 5 ? 30 : 10) + (sectorBalanceScore * 0.4) + (overtakingZones * 8) + (totalLength / 200);
+        let stratDiv = norm(stratRaw, 100);
+
+        // Tier Classification
+        let tier = "F Tier";
+        if (cqs >= 95) tier = "Legendary";
+        else if (cqs >= 90) tier = "S Tier";
+        else if (cqs >= 80) tier = "A Tier";
+        else if (cqs >= 65) tier = "B Tier";
+        else if (cqs >= 50) tier = "C Tier";
+        else if (cqs >= 35) tier = "D Tier";
+
+        // Track Classification
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         let clScores = {
             "High-Speed Circuit": (highSpeed * 0.5) + ((100 - technicality) * 0.3) + (flow * 0.2),
             "Technical Circuit": (technicality * 0.5) + ((100 - flow) * 0.2) + (difficulty * 0.3),
             "Stop-Start Circuit": (braking * 0.4) + ((100 - flow) * 0.4) + (technicality * 0.2),
             "Overtaking Circuit": (overtaking * 0.6) + (flow * 0.2) + (highSpeed * 0.2),
+<<<<<<< HEAD
             "Driver's Circuit": (difficulty * 0.4) + (technicality * 0.3) + (balance * 0.3),
             "Street-Circuit Style": (technicality * 0.3) + (braking * 0.3) + ((100 - overtaking) * 0.2) + (cornerDensity * 2),
             "Balanced Circuit": (balance * 0.5) + (spectacle * 0.3) + (flow * 0.2)
+=======
+            "Driver's Circuit": (difficulty * 0.4) + (technicality * 0.3) + (sectorBalanceScore * 0.3),
+            "Street-Circuit Style": (technicality * 0.3) + (braking * 0.3) + ((100 - overtaking) * 0.2) + (cornerDensity * 2),
+            "Balanced Circuit": (sectorBalanceScore * 0.5) + (flow * 0.2),
+            "Modern F1 Style": (braking * 0.4) + (technicality * 0.3) + (overtaking * 0.3)
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         };
         let classification = Object.keys(clScores).reduce((a, b) => clScores[a] > clScores[b] ? a : b);
 
         // UI Formatting
+<<<<<<< HEAD
         let formatTime = (t) => {
             let m = Math.floor(t / 60);
             let s = Math.floor(t % 60);
@@ -952,15 +1164,63 @@ F1.UIManager = class UIManager {
                     <label style="font-size:11px; margin-bottom:5px;">Normalized Scoring</label>
                     <div style="display:flex; flex-direction:column; gap:6px;">
                         <div style="font-size:11px; color:#aaa">Difficulty <span style="float:right; color:#fff">${difficulty.toFixed(0)}</span>${pBar(difficulty, '#ff1801')}</div>
+=======
+        const pBar = (val, color) => `<div style="width:100%; background:#222; height:8px; border-radius:4px; margin-top:2px; overflow:hidden;"><div style="width:${val}%; background:${color}; height:100%;"></div></div>`;
+
+        h += `<div class="prop-group" style="margin-top: 10px;">
+                <div style="font-size:12px; margin-top:5px; background:#1a1a1a; padding:10px; border-radius:6px; border:1px solid #333;">
+                    <div style="text-align:center; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
+                        <div style="font-size:10px; color:#aaa; text-transform:uppercase;">Circuit Quality Score</div>
+                        <div style="font-size:28px; font-weight:bold; color:${cqs > 80 ? '#00e676' : cqs > 60 ? '#ffb300' : '#ff5252'};">${cqs.toFixed(1)} <span style="font-size:14px">/ 100</span></div>
+                        <div style="font-size:14px; font-weight:bold; color:#fff; margin-top:4px;">${tier}</div>
+                        <div style="font-size:11px; color:#ddd; margin-top:2px;">${classification}</div>
+                    </div>
+                    
+                    <label style="font-size:11px; margin-bottom:5px; color:#888;">Geometric Parameters</label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-bottom:10px; color:#ccc; font-size:11px;">
+                        <div><span style="color:#888">Length</span> <div style="float:right; color:#fff">${(totalLength / 1000).toFixed(3)} km</div></div>
+                        <div><span style="color:#888">Corners</span> <div style="float:right; color:#fff">${numCorners}</div></div>
+                        <div><span style="color:#888">Hairpins</span> <div style="float:right; color:#fff">${numHairpins}</div></div>
+                        <div><span style="color:#888">Chicanes</span> <div style="float:right; color:#fff">${numChicanes}</div></div>
+                        <div><span style="color:#888">Longest Straight</span> <div style="float:right; color:#fff">${maxStraight.toFixed(0)} m</div></div>
+                        <div><span style="color:#888">Corner Density</span> <div style="float:right; color:#fff">${cornerDensity.toFixed(1)} /km</div></div>
+                        <div><span style="color:#888">Tech Section</span> <div style="float:right; color:#fff">${(totalTechLength/1000).toFixed(2)} km</div></div>
+                        <div><span style="color:#888">Fast Section</span> <div style="float:right; color:#fff">${(totalHighSpeedLength/1000).toFixed(2)} km</div></div>
+                        <div><span style="color:#888">Dir. Changes</span> <div style="float:right; color:#fff">${numDirChanges}</div></div>
+                    </div>
+
+                    <label style="font-size:11px; margin-bottom:5px; color:#888; border-top:1px solid #333; padding-top:6px;">V2.0 Parameters</label>
+                    <div style="display:grid; grid-template-columns:1fr; gap:6px; margin-bottom:15px; color:#ccc; font-size:11px;">
+                        <div><span style="color:#888">Overtaking Zones</span> <div style="float:right; color:#fff">${overtakingZones}</div></div>
+                        <div><span style="color:#888">Braking Zones</span> <div style="float:right; color:#fff">${brakingZones}</div></div>
+                        <div><span style="color:#888">Corner Chains</span> <div style="float:right; color:#fff">${sequences}</div></div>
+                        <div><span style="color:#888">L/R Balance</span> <div style="float:right; color:#fff">${leftCorners} L / ${rightCorners} R (Idx: ${symmetryIndex.toFixed(2)})</div></div>
+                        <div><span style="color:#888">Compactness Ratio</span> <div style="float:right; color:#fff">${compactness.toFixed(2)}</div></div>
+                        <div><span style="color:#888">Corner Exit Quality</span> <div style="float:right; color:#fff">${exitQualityPct.toFixed(0)}%</div></div>
+                        <div><span style="color:#888">Pit Delta (est.)</span> <div style="float:right; color:#fff">${pitDelta.toFixed(1)} s</div></div>
+                        <div><span style="color:#888">Sector Balance</span> <div style="float:right; color:#fff">${sectorBalanceScore.toFixed(0)}/100</div></div>
+                        <div><span style="color:#888">Layout Originality</span> <div style="float:right; color:#fff">${originality.toFixed(0)}/100</div></div>
+                    </div>
+
+                    <label style="font-size:11px; margin-bottom:5px; color:#888; border-top:1px solid #333; padding-top:6px;">Performance Scores</label>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="font-size:11px; color:#aaa">Driver Difficulty <span style="float:right; color:#fff">${difficulty.toFixed(0)}</span>${pBar(difficulty, '#ff1801')}</div>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <div style="font-size:11px; color:#aaa">Overtaking <span style="float:right; color:#fff">${overtaking.toFixed(0)}</span>${pBar(overtaking, '#00e676')}</div>
                         <div style="font-size:11px; color:#aaa">Flow <span style="float:right; color:#fff">${flow.toFixed(0)}</span>${pBar(flow, '#29b6f6')}</div>
                         <div style="font-size:11px; color:#aaa">Technicality <span style="float:right; color:#fff">${technicality.toFixed(0)}</span>${pBar(technicality, '#ab47bc')}</div>
                         <div style="font-size:11px; color:#aaa">High-Speed <span style="float:right; color:#fff">${highSpeed.toFixed(0)}</span>${pBar(highSpeed, '#ffa726')}</div>
                         <div style="font-size:11px; color:#aaa">Braking Demand <span style="float:right; color:#fff">${braking.toFixed(0)}</span>${pBar(braking, '#ef5350')}</div>
+<<<<<<< HEAD
                         <div style="font-size:11px; color:#aaa">Tire Stress <span style="float:right; color:#fff">${tireStress.toFixed(0)}</span>${pBar(tireStress, '#ffca28')}</div>
                         <div style="font-size:11px; color:#aaa">Aero Demand <span style="float:right; color:#fff">${aeroDemand.toFixed(0)}</span>${pBar(aeroDemand, '#26c6da')}</div>
                         <div style="font-size:11px; color:#aaa">Spectacle <span style="float:right; color:#fff">${spectacle.toFixed(0)}</span>${pBar(spectacle, '#ec407a')} <span style="font-size: 8px; font-style: italic; display: block; margin-top: 2px;">*Derived Index</span></div>
                         <div style="font-size:11px; color:#aaa">Balance <span style="float:right; color:#fff">${balance.toFixed(0)}</span>${pBar(balance, '#8d6e63')}</div>
+=======
+                        <div style="font-size:11px; color:#aaa">Tyre Stress <span style="float:right; color:#fff">${tireStress.toFixed(0)}</span>${pBar(tireStress, '#ffca28')}</div>
+                        <div style="font-size:11px; color:#aaa">Aero Demand <span style="float:right; color:#fff">${aeroDemand.toFixed(0)}</span>${pBar(aeroDemand, '#26c6da')}</div>
+                        <div style="font-size:11px; color:#aaa">Strategic Diversity <span style="float:right; color:#fff">${stratDiv.toFixed(0)}</span>${pBar(stratDiv, '#ec407a')}</div>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </div>
                 </div>
               </div>`;
@@ -1028,8 +1288,13 @@ F1.UIManager = class UIManager {
                 <p class="prop-hint">Configure the background grid scale and appearance.</p>
                 <div class="prop-group" style="margin-top: 15px;">
                     <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+<<<<<<< HEAD
                         <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''}>
                         <span style="margin-top: 2px;">Show Grid</span>
+=======
+                        <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''} style="accent-color:#e10600;">
+                        <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Grid</span>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </label>
                 </div>
                 <div class="prop-group"><label>Grid Scale</label>
@@ -1113,6 +1378,17 @@ F1.UIManager = class UIManager {
                         pt.surfaceWidthRight = 0;
                         nextPt.surfaceWidthRight = 0;
                     }
+<<<<<<< HEAD
+=======
+                } else {
+                    if (sel.side === 'left') {
+                        if (!pt.surfaceWidthLeft || pt.surfaceWidthLeft === 0) pt.surfaceWidthLeft = 10;
+                        if (!nextPt.surfaceWidthLeft || nextPt.surfaceWidthLeft === 0) nextPt.surfaceWidthLeft = 10;
+                    } else {
+                        if (!pt.surfaceWidthRight || pt.surfaceWidthRight === 0) pt.surfaceWidthRight = 10;
+                        if (!nextPt.surfaceWidthRight || nextPt.surfaceWidthRight === 0) nextPt.surfaceWidthRight = 10;
+                    }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 }
 
                 this.updateProperties();
@@ -1647,10 +1923,52 @@ F1.UIManager = class UIManager {
             };
             pitw.oninput = () => updatePitWidth(pitw.value);
             pitwVal.onchange = () => updatePitWidth(pitwVal.value);
+<<<<<<< HEAD
             pitwVal.oninput = () => updatePitWidth(pitwVal.value);
         }
         const cp = document.getElementById('btn-clear-pit');
         if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
+=======
+        }
+        const cp = document.getElementById('btn-clear-pit');
+        if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
+        
+        const showPitNodes = document.getElementById('prop-show-pit-nodes');
+        if (showPitNodes) {
+            showPitNodes.onchange = () => {
+                this.app.data.showPitlaneNodes = showPitNodes.checked;
+                this.app.requestRender();
+            };
+        }
+
+        const btnAddG = document.getElementById('btn-add-garage');
+        if (btnAddG) btnAddG.onclick = () => { this.app.setTool('garage'); };
+
+
+        const btnRemG = document.getElementById('btn-remove-garage');
+        if (btnRemG) btnRemG.onclick = () => { this.app.data.snapshot(); this.app.data.garage = null; this.app.setTool('pitlane'); this.app.requestRender(); this.updateProperties(); };
+
+        const glen = document.getElementById('prop-garage-len');
+        if (glen) glen.oninput = () => { if(this.app.data.garage) { this.app.data.garage.length = parseFloat(glen.value) || 250; this.app.requestRender(); }};
+        const gwid = document.getElementById('prop-garage-wid');
+        if (gwid) gwid.oninput = () => { if(this.app.data.garage) { this.app.data.garage.width = parseFloat(gwid.value) || 20; this.app.requestRender(); }};
+        const grotRange = document.getElementById('prop-garage-rot-range');
+        const grotNum = document.getElementById('prop-garage-rot-num');
+        if (grotRange && grotNum) {
+            const updateRot = (val) => {
+                if(this.app.data.garage) {
+                    let r = parseFloat(val) || 0;
+                    this.app.data.garage.rotation = r;
+                    grotRange.value = r;
+                    grotNum.value = r;
+                    this.app.requestRender();
+                }
+            };
+            grotRange.oninput = () => updateRot(grotRange.value);
+            grotNum.onchange = () => updateRot(grotNum.value);
+        }
+
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const dz = document.getElementById('btn-del-zone');
         if (dz) dz.onclick = () => { if (this.app.selection && this.app.selection.type === 'zone') { this.app.data.snapshot(); this.app.data.removeZone(this.app.selection.id); this.app.setSelection(null); this.app.requestRender(); } };
         // Layer checkboxes

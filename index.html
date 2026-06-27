@@ -345,6 +345,31 @@
                                         title="Black"></div>
                                 </div>
                             </label>
+<<<<<<< HEAD
+=======
+                            <label style="display:flex; flex-direction:column; font-size:11px; color:#aaa; margin-top:10px;">Map Road
+                                <div
+                                    style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
+                                    <div class="color-circle" data-for="preview-road-color"
+                                        style="width:24px;height:24px;border-radius:50%;background:#000000;border:2px solid #444;cursor:pointer;flex-shrink:0;"
+                                        title="Click to pick color"></div>
+                                    <input type="text" id="preview-road-color-hex" value="#000000" maxlength="7"
+                                        style="width:55px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#ddd;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px;text-transform:uppercase;">
+                                    <input type="color" id="preview-road-color" value="#000000"
+                                        style="position:absolute; left:0; top:0; width:24px; height:24px; padding:0; border:0; opacity:0; pointer-events:none;">
+                                </div>
+                                <div class="color-swatches" data-target="preview-road-color"
+                                    style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">
+                                    <div class="swatch" data-color="#000000" style="width:12px;height:12px;background:#000000;cursor:pointer;border:1px solid #444;" title="Black"></div>
+                                    <div class="swatch" data-color="#111111" style="width:12px;height:12px;background:#111111;cursor:pointer;border:1px solid #444;" title="Very Dark Grey"></div>
+                                    <div class="swatch" data-color="#222222" style="width:12px;height:12px;background:#222222;cursor:pointer;border:1px solid #444;" title="Dark Grey"></div>
+                                    <div class="swatch" data-color="#333333" style="width:12px;height:12px;background:#333333;cursor:pointer;border:1px solid #444;" title="Standard Grey"></div>
+                                    <div class="swatch" data-color="#444444" style="width:12px;height:12px;background:#444444;cursor:pointer;border:1px solid #444;" title="Medium Grey"></div>
+                                    <div class="swatch" data-color="#555555" style="width:12px;height:12px;background:#555555;cursor:pointer;border:1px solid #444;" title="Lighter Grey"></div>
+                                    <div class="swatch" data-color="#ffffff" style="width:12px;height:12px;background:#ffffff;cursor:pointer;border:1px solid #444;" title="White"></div>
+                                </div>
+                            </label>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         </div>
                     </div>
                 </details>
@@ -354,8 +379,15 @@
                     <div style="padding-bottom: 10px;">
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="track"
                                 checked><span>Track</span></label>
+<<<<<<< HEAD
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectors"
                                 checked><span>Sectors</span></label>
+=======
+                        <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectorEdges"
+                                checked><span>Sectors</span></label>
+                        <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectors"
+                                checked><span>Sector Label</span></label>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="turnNumbers"
                                 checked><span>Turn Numbers</span></label>
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="zones"
@@ -373,6 +405,11 @@
                                 checked><span>Circuit Name</span></label>
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="info"
                                 checked><span>Circuit Info</span></label>
+<<<<<<< HEAD
+=======
+                        <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectorLegend"
+                                checked><span>Sector Legend</span></label>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </div>
                 </details>
             </div>
@@ -517,6 +554,16 @@
                         <p style="font-size:11px; color:#888; margin-top:-5px; margin-bottom:15px;">Note: JPG does not
                             support transparency.</p>
                     </div>
+<<<<<<< HEAD
+=======
+                    <div class="prop-group">
+                        <label>Road Surface</label>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="color" id="export-road-color" value="#000000" class="prop-input"
+                                style="padding:0; width:40px; height:24px; border:none; cursor:pointer;">
+                        </div>
+                    </div>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
                     <div id="export-preview-controls">
                         <!-- Text Options -->
@@ -591,9 +638,18 @@
                                         class="export-layer-cb" data-layer="track" checked
                                         style="accent-color:#e10600;"><span>Track</span></label>
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
+<<<<<<< HEAD
                                         class="export-layer-cb" data-layer="sectors" checked
                                         style="accent-color:#e10600;"><span>Sectors</span></label>
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
+=======
+                                        class="export-layer-cb" data-layer="sectorEdges" checked
+                                        style="accent-color:#e10600;"><span>Sectors</span></label>
+                                <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
+                                        class="export-layer-cb" data-layer="sectors" checked
+                                        style="accent-color:#e10600;"><span>Sector Label</span></label>
+                                <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                                         class="export-layer-cb" data-layer="turnNumbers" checked
                                         style="accent-color:#e10600;"><span>Turn
                                         Numbers</span></label>
@@ -624,6 +680,12 @@
                                         class="export-layer-cb" data-layer="info" checked
                                         style="accent-color:#e10600;"><span>Circuit
                                         Info</span></label>
+<<<<<<< HEAD
+=======
+                                <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
+                                        class="export-layer-cb" data-layer="sectorLegend" checked
+                                        style="accent-color:#e10600;"><span>Sector Legend</span></label>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                             </div>
                         </div>
                     </div>
@@ -684,6 +746,10 @@
         </div>
     </div>
 
+<<<<<<< HEAD
+=======
+    <script src="js/ml-models.js?v=100"></script>
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     <script src="js/circuit-data.js?v=100"></script>
     <script src="js/track-editor.js?v=100"></script>
     <script src="js/canvas-renderer.js?v=100"></script>
