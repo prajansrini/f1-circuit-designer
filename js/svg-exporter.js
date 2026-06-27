@@ -1,10 +1,18 @@
 window.F1 = window.F1 || {};
 
 F1.SVGExporter = class SVGExporter {
+<<<<<<< HEAD
     constructor(bgColor, infoColor, nameColor) {
         this.bgColor = bgColor;
         this.infoColor = infoColor;
         this.nameColor = nameColor;
+=======
+    constructor(bgColor, infoColor, nameColor, roadColor) {
+        this.bgColor = bgColor;
+        this.infoColor = infoColor;
+        this.nameColor = nameColor;
+        this.roadColor = roadColor || '#000000';
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this.layers = {};
     }
 
@@ -87,15 +95,25 @@ F1.SVGExporter = class SVGExporter {
         }
 
         if (this.layers.track !== false) {
+<<<<<<< HEAD
             // Track Edges and Base
             svg += `<path d="${pathStr}" fill="none" stroke="#ffffff" stroke-width="${43 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
             svg += `<path d="${pathStr}" fill="none" stroke="#111111" stroke-width="${40 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+=======
+            // Track Base
+            svg += `<path d="${pathStr}" fill="none" stroke="${this.roadColor}" stroke-width="${40 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         }
 
         const sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
 
+<<<<<<< HEAD
         // Sectors
         if (this.layers.sectors !== false && this.layers.track !== false) {
+=======
+        // Sectors (Edges)
+        if (this.layers.sectorEdges !== false && this.layers.track !== false) {
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             const slw = Math.max(6, 6 * scale);
             let currentSector = -1;
             let sectorPath = "";
@@ -338,12 +356,21 @@ F1.SVGExporter = class SVGExporter {
                 }
 
                 if (subPath !== "") {
+<<<<<<< HEAD
                     svg += `<path d="${subPath}" fill="none" stroke="${this.bgColor}" stroke-width="${43 * scale + 2}" stroke-linecap="butt" stroke-linejoin="round" />`;
                     svg += `<path d="${subPath}" fill="none" stroke="#ffffff" stroke-width="${43 * scale}" stroke-linecap="butt" stroke-linejoin="round" />`;
                     svg += `<path d="${subPath}" fill="none" stroke="#111111" stroke-width="${40 * scale}" stroke-linecap="butt" stroke-linejoin="round" />`;
                     Object.keys(secPaths).forEach(sec => {
                         svg += `<path d="${secPaths[sec].path}" fill="none" stroke="${sectorColors[sec] || '#555'}" stroke-width="${slw}" stroke-linecap="butt" />`;
                     });
+=======
+                    svg += `<path d="${subPath}" fill="none" stroke="${this.roadColor}" stroke-width="${40 * scale}" stroke-linecap="butt" stroke-linejoin="round" />`;
+                    if (this.layers.sectorEdges !== false) {
+                        Object.keys(secPaths).forEach(sec => {
+                            svg += `<path d="${secPaths[sec].path}" fill="none" stroke="${sectorColors[sec] || '#555'}" stroke-width="${slw}" stroke-linecap="butt" />`;
+                        });
+                    }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 }
             });
         }
@@ -357,7 +384,11 @@ F1.SVGExporter = class SVGExporter {
                     const s = ts(pit[i].x, pit[i].y);
                     pitPath += `L ${s.x} ${s.y} `;
                 }
+<<<<<<< HEAD
                 svg += `<path d="${pitPath}" fill="none" stroke="#222" stroke-width="${4 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+=======
+                svg += `<path d="${pitPath}" fill="none" stroke="${this.roadColor}" stroke-width="${4 * scale}" stroke-linecap="round" stroke-linejoin="round" />`;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             }
         }
 
@@ -475,7 +506,11 @@ F1.SVGExporter = class SVGExporter {
         svg += `</g>`;
 
         // Sector Legend
+<<<<<<< HEAD
         if (legSet.scale > 0) {
+=======
+        if (this.layers.sectorLegend !== false && legSet.scale > 0) {
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             const lx = 20 + legSet.x;
             const ly = H - 40 + legSet.y;
             svg += `<g transform="translate(${lx}, ${ly}) scale(${legSet.scale})">`;

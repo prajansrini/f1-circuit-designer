@@ -54,6 +54,10 @@ F1.App = class App {
             analysis: new F1.Tools.BaseTool(this),
             eraser: new F1.Tools.EraserTool(this),
             scale: new F1.Tools.ScaleTool(this),
+<<<<<<< HEAD
+=======
+            garage: new F1.Tools.GarageTool(this),
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             help: new F1.Tools.BaseTool(this)
         };
 
@@ -421,9 +425,16 @@ F1.App = class App {
         };
 
         wireColor('editor-bg-color', (c) => { this.renderer.C.bg = c; this.requestRender(); });
+<<<<<<< HEAD
         wireColor('preview-bg-color', (c) => { this.preview.bgColor = c; this._renderPreview(); });
         wireColor('info-text-color', (c) => { this.preview.infoColor = c; this._renderPreview(); });
         wireColor('name-text-color', (c) => { this.preview.nameColor = c; this._renderPreview(); });
+=======
+        wireColor('preview-bg-color', (c) => { this.preview.bgColor = c; this.exportPreview.bgColor = c; this._renderPreview(); });
+        wireColor('preview-road-color', (c) => { this.preview.roadColor = c; this.exportPreview.roadColor = c; this._renderPreview(); });
+        wireColor('info-text-color', (c) => { this.preview.infoColor = c; this.exportPreview.infoColor = c; this._renderPreview(); });
+        wireColor('name-text-color', (c) => { this.preview.nameColor = c; this.exportPreview.nameColor = c; this._renderPreview(); });
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         // Swatch clicks
         document.querySelectorAll('.swatch').forEach(sw => {
@@ -438,9 +449,16 @@ F1.App = class App {
                     if (hex) hex.value = color.toUpperCase();
                     if (circle) circle.style.background = color;
                     if (targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
+<<<<<<< HEAD
                     else if (targetId === 'preview-bg-color') { this.preview.bgColor = color; this._renderPreview(); }
                     else if (targetId === 'info-text-color') { this.preview.infoColor = color; this._renderPreview(); }
                     else if (targetId === 'name-text-color') { this.preview.nameColor = color; this._renderPreview(); }
+=======
+                    else if (targetId === 'preview-bg-color') { this.preview.bgColor = color; this.exportPreview.bgColor = color; this._renderPreview(); }
+                    else if (targetId === 'preview-road-color') { this.preview.roadColor = color; this.exportPreview.roadColor = color; this._renderPreview(); }
+                    else if (targetId === 'info-text-color') { this.preview.infoColor = color; this.exportPreview.infoColor = color; this._renderPreview(); }
+                    else if (targetId === 'name-text-color') { this.preview.nameColor = color; this.exportPreview.nameColor = color; this._renderPreview(); }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 }
             });
         });
@@ -716,6 +734,10 @@ F1.App = class App {
         document.getElementById('export-res').addEventListener('change', resync);
         document.getElementById('export-transparent').addEventListener('change', resync);
         document.getElementById('export-bg-color').addEventListener('input', resync);
+<<<<<<< HEAD
+=======
+        document.getElementById('export-road-color').addEventListener('input', resync);
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         this.exportStates = { preview: null, editor: null };
         this.exportActiveMode = 'preview';
@@ -726,6 +748,10 @@ F1.App = class App {
             res: document.getElementById('export-res').value,
             transparent: document.getElementById('export-transparent').checked,
             bgColor: document.getElementById('export-bg-color').value,
+<<<<<<< HEAD
+=======
+            roadColor: document.getElementById('export-road-color').value,
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             nameColor: document.getElementById('export-name-color').value,
             infoColor: document.getElementById('export-info-color').value,
             textScale: document.getElementById('export-text-scale').value,
@@ -748,6 +774,10 @@ F1.App = class App {
             if (s.res) document.getElementById('export-res').value = s.res;
             document.getElementById('export-transparent').checked = s.transparent;
             document.getElementById('export-bg-color').value = s.bgColor;
+<<<<<<< HEAD
+=======
+            document.getElementById('export-road-color').value = s.roadColor || '#000000';
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             document.getElementById('export-name-color').value = s.nameColor;
             document.getElementById('export-info-color').value = s.infoColor;
             document.getElementById('export-text-scale').value = s.textScale;
@@ -884,7 +914,13 @@ F1.App = class App {
         // Sync layers and styles
         Object.assign(this.exportPreview.layers, this.preview.layers);
         this.exportPreview.bgColor = this.preview.bgColor;
+<<<<<<< HEAD
         document.getElementById('export-bg-color').value = this.preview.bgColor;
+=======
+        this.exportPreview.roadColor = this.preview.roadColor || '#000000';
+        document.getElementById('export-bg-color').value = this.preview.bgColor;
+        document.getElementById('export-road-color').value = this.exportPreview.roadColor;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this.exportPreview.infoColor = this.preview.infoColor;
         this.exportPreview.nameColor = this.preview.nameColor;
         document.getElementById('export-info-color').value = this.preview.infoColor;
@@ -949,15 +985,29 @@ F1.App = class App {
             // Draw Map Texts on top of Editor View!
             if (this.exportPreview.layers.name !== false) this.exportPreview._name(c.getContext('2d'), this.data, W, H);
             if (this.exportPreview.layers.info !== false) this.exportPreview._info(c.getContext('2d'), this.data, this.editor, W, H);
+<<<<<<< HEAD
+=======
+            if (this.exportPreview.layers.sectorLegend !== false) this.exportPreview._sectorLegend(c.getContext('2d'), W, H);
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         } else {
             // Force background override if transparent
             const oldBg = this.exportPreview.bgColor;
             this.exportPreview.bgColor = transparent ? 'rgba(0,0,0,0)' : bgColor;
+<<<<<<< HEAD
+=======
+            
+            const oldRoad = this.exportPreview.roadColor;
+            this.exportPreview.roadColor = document.getElementById('export-road-color').value;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
             this.exportPreview.render(this.data, this.editor);
 
             // Restore
             this.exportPreview.bgColor = oldBg;
+<<<<<<< HEAD
+=======
+            this.exportPreview.roadColor = oldRoad;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         }
     }
 
@@ -978,7 +1028,11 @@ F1.App = class App {
                 return;
             }
             try {
+<<<<<<< HEAD
                 const exporter = new F1.SVGExporter(this.exportPreview.bgColor, this.exportPreview.infoColor, this.exportPreview.nameColor);
+=======
+                const exporter = new F1.SVGExporter(this.exportPreview.bgColor, this.exportPreview.infoColor, this.exportPreview.nameColor, this.exportPreview.roadColor);
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 Object.assign(exporter.layers, this.exportPreview.layers);
                 const svgStr = await exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.textSettings, this.exportPreview.legendSettings);
                 const blob = new Blob([svgStr], { type: 'image/svg+xml' });

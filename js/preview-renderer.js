@@ -58,14 +58,27 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
+<<<<<<< HEAD
         if (this.layers.track) {
             this._trackBase(ctx, track, tf);
             this._sectorEdges(ctx, track, tf, data);
+=======
+        if (this.layers.pitLane) {
+            this._pitLane(ctx, editor, tf);
+            this._garage(ctx, data, tf);
+        }
+        if (this.layers.track) {
+            this._trackBase(ctx, track, tf);
+            if (this.layers.sectorEdges !== false) this._sectorEdges(ctx, track, tf, data);
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
             this._renderIntersections(ctx, track, data, tf);
         }
         this._startFinish(ctx, track, data, tf, editor);
+<<<<<<< HEAD
         if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
+=======
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
         if (this.layers.sectors) this._sectorLabels(ctx, track, data, tf);
@@ -82,6 +95,15 @@ F1.PreviewRenderer = class PreviewRenderer {
             this._info(ctx, data, editor, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
             ctx.restore();
         }
+<<<<<<< HEAD
+=======
+        if (this.layers.sectorLegend !== false) {
+            ctx.save();
+            if (this.exportRatio) ctx.scale(this.exportRatio, this.exportRatio);
+            this._sectorLegend(ctx, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
+            ctx.restore();
+        }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 
     _placeholder(W, H) {
@@ -104,7 +126,11 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
     _trackBase(ctx, track, tf) {
+<<<<<<< HEAD
         ctx.strokeStyle = '#111111'; ctx.lineWidth = 40 * tf.scale; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+=======
+        ctx.strokeStyle = this.roadColor || '#000000'; ctx.lineWidth = 40 * tf.scale; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = tf.toScreen(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
 
@@ -232,6 +258,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             }
             if (subTrack.length < 2) return;
 
+<<<<<<< HEAD
             // Mask
             ctx.strokeStyle = this.bgColor || '#0f1a0f';
             ctx.lineWidth = lwBase;
@@ -242,6 +269,11 @@ F1.PreviewRenderer = class PreviewRenderer {
             // Base
             ctx.strokeStyle = '#111111';
             ctx.lineWidth = lwBase - 2 * tf.scale;
+=======
+            // Base
+            ctx.strokeStyle = this.roadColor || '#000000';
+            ctx.lineWidth = 40 * tf.scale;
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             ctx.beginPath();
             subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
             ctx.stroke();
@@ -528,6 +560,7 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _pitLane(ctx, editor, tf) {
         const pit = editor.getInterpolatedPitLane(); if (pit.length < 2) return;
+<<<<<<< HEAD
         ctx.strokeStyle = '#383838'; ctx.lineWidth = Math.max(8, 10 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
         ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, 1.5 * tf.scale); ctx.setLineDash([4, 4]);
@@ -535,6 +568,27 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
 
+=======
+        ctx.strokeStyle = this.roadColor || '#000000'; ctx.lineWidth = Math.max(8, 10 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
+    }
+
+    _garage(ctx, data, tf) {
+        if (!data.garage || this.layers.garages === false) return;
+        const g = data.garage;
+        const s = tf.toScreen(g.x, g.y);
+        const w = g.width * tf.scale;
+        const l = g.length * tf.scale;
+        const rot = (g.rotation || 0) * Math.PI / 180;
+
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(rot);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(-l/2, -w/2, l, w);
+        ctx.restore();
+    }
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
     /* Turn markers on the SIDE of the track (user-placed, like reference image) */
     _turnMarkers(ctx, data, editor, track, tf) {
@@ -665,6 +719,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 0, 30); }
         ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 0, 52);
         ctx.restore();
+<<<<<<< HEAD
 
         // Sector Legend
         if (legSet.scale > 0) {
@@ -687,5 +742,30 @@ F1.PreviewRenderer = class PreviewRenderer {
             });
             ctx.restore();
         }
+=======
+    }
+
+    _sectorLegend(ctx, W, H) {
+        const legSet = this.legendSettings || { scale: 1, x: 0, y: 0 };
+        if (legSet.scale <= 0) return;
+        ctx.save();
+        const lx = 20 + legSet.x;
+        const ly = H - 40 + legSet.y; // Moved closer to bottom
+        ctx.translate(lx, ly);
+        ctx.scale(legSet.scale, legSet.scale);
+
+        ctx.font = 'bold 12px Outfit';
+        let currX = 0;
+        [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
+            ctx.fillStyle = item.c;
+            ctx.fillRect(currX, 0, 14, 14);
+            ctx.fillStyle = this.infoColor || '#ccc';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.l, currX + 22, 7);
+            currX += 100; // Horizontal spacing
+        });
+        ctx.restore();
+>>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 };
