@@ -17,13 +17,11 @@ F1.UIManager = class UIManager {
             barrier: () => this._barrierProps(), sector: () => this._sectorProps(),
             turn: () => this._turnProps(sel),
             pitlane: () => this._pitLaneProps(),
-<<<<<<< HEAD
-=======
             garage: () => this._pitLaneProps(),
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             analysis: () => this._analysisProps(),
             zone: () => this._zoneProps(sel),
             straightMode: () => this._straightModeProps(sel),
+            hotlap: () => this._hotlapProps(),
             eraser: () => this._eraserProps(), scale: () => this._scaleProps(),
             help: () => this._helpProps()
         };
@@ -60,11 +58,7 @@ F1.UIManager = class UIManager {
                 <p class="prop-hint">Click on the track to insert a new control point.</p>
                 <div class="prop-group" style="margin-top: 15px;">
                     <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-<<<<<<< HEAD
-                        <input type="checkbox" id="cb-show-nodes" ${this.app.renderer.showCtrlPts ? 'checked' : ''}>
-=======
                         <input type="checkbox" id="cb-show-nodes" ${this.app.renderer.showCtrlPts ? 'checked' : ''} style="accent-color:#e10600;">
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Nodes</span>
                     </label>
                 </div>
@@ -197,13 +191,9 @@ F1.UIManager = class UIManager {
 
         const typeLabels = {
             'cp': 'Node',
-<<<<<<< HEAD
-            'turn': 'Turn Marker'
-=======
             'turn': 'Turn Marker',
             'garage': 'Garage',
             'pit': 'Pitlane'
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         };
         let label = typeLabels[sel.type] || sel.type;
         if (sel.type === 'zone') {
@@ -557,23 +547,14 @@ F1.UIManager = class UIManager {
 
     _pitLaneProps() {
         const n = this.app.data.pitLane.points.length;
-<<<<<<< HEAD
-        let h = '<h3 class="prop-title">Pit Lane</h3><p class="prop-hint">Click to place path. FIA: min 12m width, with fast lane (outer) and slow lane (inner, crew side).</p>';
-        h += `<p class="prop-hint dim">Points: <strong>${n}</strong></p>`;
-=======
         let h = '<h3 class="prop-title">Pit Lane</h3>';
         h += `<p class="prop-hint dim">Pitlane Nodes: <strong>${n}</strong></p>`;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         h += `<div class="prop-group"><label>Width</label>
             <div style="display:flex; align-items:center; margin-bottom: 4px;">
                 <input type="range" min="4" max="20" step="0.5" value="${this.app.data.pitLane.width}" id="prop-pitw" class="prop-slider" style="flex:1; margin-right:6px; min-width:0;">
                 <input type="number" class="prop-input" style="flex: 0 0 45px; padding:2px; font-size:11px; text-align:right; min-width:0;" id="prop-pitw-val-input" value="${this.app.data.pitLane.width}" min="4" max="20" step="0.5">
                 <span style="margin-left:4px; font-size:11px; color:#aaa; width:12px;">m</span>
             </div></div>`;
-<<<<<<< HEAD
-        h += '<p class="prop-hint dim">Pit entry/exit should not cross racing line. Speed limit: 80 km/h.</p>';
-        h += '<button class="prop-btn danger" id="btn-clear-pit">Clear Pit Lane</button>';
-=======
         h += `<div class="prop-group" style="margin-top: 15px;">
                 <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                     <input type="checkbox" id="prop-show-pit-nodes" ${this.app.data.showPitlaneNodes ? 'checked' : ''} style="accent-color:#e10600;">
@@ -605,16 +586,28 @@ F1.UIManager = class UIManager {
                 }
               </div>`;
         h += '<button class="prop-btn danger" id="btn-clear-pit" style="margin-top: 15px;">Clear Pit Lane</button>';
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
+        return h;
+    }
+
+    _hotlapProps() {
+        let h = '<h3 class="prop-title">Hot Lap Preview</h3>';
+        if (!this.app.data.isClosed) {
+            h += '<p class="prop-hint">Circuit must be closed to simulate a lap.</p>';
+            return h;
+        }
+
+        h += `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
+                <p class="prop-hint">Open the Hot Lap Simulator modal to configure multiple cars, select camera views, and start the simulation.</p>
+                <button class="generate-btn" id="btn-open-hotlap-modal" style="width: 100%; margin-top: 10px; font-weight: bold; padding:10px;">
+                    Open Simulator
+                </button>
+              </div>`;
+              
         return h;
     }
 
     _analysisProps() {
-<<<<<<< HEAD
-        let h = '<h3 class="prop-title">Circuit Analysis</h3>';
-=======
         let h = '<h3 class="prop-title">F1 Circuit Analyzer v2.0</h3>';
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         if (!this.app.data.isClosed) {
             h += '<p class="prop-hint">Circuit must be closed to perform geometric analysis.</p>';
             return h;
@@ -625,11 +618,8 @@ F1.UIManager = class UIManager {
 
         let totalLength = 0;
         let points = [];
-<<<<<<< HEAD
-=======
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         for (let i = 0; i < track.length; i++) {
             let prev = i === 0 ? track[track.length - 2] : track[i - 1];
             let dx = track[i].x - prev.x, dy = track[i].y - prev.y;
@@ -637,10 +627,6 @@ F1.UIManager = class UIManager {
             let angle = Math.atan2(dy, dx);
             points.push({ x: track[i].x * sf, y: track[i].y * sf, dist, angle, sector: track[i].sector || 0 });
             totalLength += dist;
-<<<<<<< HEAD
-        }
-
-=======
             
             let px = track[i].x * sf, py = track[i].y * sf;
             if (px < minX) minX = px; if (px > maxX) maxX = px;
@@ -651,7 +637,6 @@ F1.UIManager = class UIManager {
         let bbArea = (maxX - minX) * (maxY - minY);
         let compactness = bbArea > 0 ? totalLength / Math.sqrt(bbArea) : 0;
 
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         // Section 1.3 - Curvature (Sliding Window ±5)
         for (let i = 0; i < points.length; i++) {
             let win = 5;
@@ -814,11 +799,7 @@ F1.UIManager = class UIManager {
             }
         }
 
-<<<<<<< HEAD
-        // Section 6 - Lap Time Estimation
-=======
         // Section 6 - Lap Time Estimation & Corner Speeds
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         let baseTime = totalLength / (300 / 3.6);
         let totalCornerTimeLost = 0;
 
@@ -846,10 +827,6 @@ F1.UIManager = class UIManager {
         });
         let lapTimeSeconds = baseTime + totalCornerTimeLost;
 
-<<<<<<< HEAD
-        // Section 4 - Aggregate Metrics
-        const numCorners = corners.length;
-=======
         // V2.0 NEW PARAMETERS
         let leftCorners = corners.filter(c => c.dir < 0).length;
         let rightCorners = corners.filter(c => c.dir > 0).length;
@@ -918,7 +895,6 @@ F1.UIManager = class UIManager {
         originality = Math.min(100, Math.max(0, originality));
 
         // Aggregate Basic Metrics
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const numHairpins = corners.filter(c => c.type === 'Hairpin').length;
         const numSweepers = corners.filter(c => c.type === 'Sweeper').length;
         const numFastCorners = corners.filter(c => c.type === 'Fast').length;
@@ -932,118 +908,6 @@ F1.UIManager = class UIManager {
         const numStraightsCount = straights.filter(s => s > 0).length;
         const maxStraight = straights.length > 0 ? Math.max(...straights) : 0;
         const straightsOver400m = straights.filter(s => s > 400).length;
-<<<<<<< HEAD
-        const straightsOver600m = straights.filter(s => s > 600).length;
-        const avgStraightLength = numStraightsCount > 0 ? totalStraightLength / numStraightsCount : 0;
-
-        const cornerDensity = numCorners / (totalLength / 1000);
-        const avgCornerRadius = numCorners > 0 ? corners.reduce((sum, c) => sum + c.minR, 0) / numCorners : 1000;
-
-        let totalHighSpeedLength = totalStraightLength + corners.filter(c => ['Fast', 'Sweeper', 'Medium-Fast'].includes(c.type) || c.isComplex).reduce((sum, c) => sum + c.len, 0);
-        let totalTechLength = corners.filter(c => ['Ultra-Slow', 'Slow', 'Medium-Slow', 'Hairpin'].includes(c.type)).reduce((sum, c) => sum + c.len, 0) + (numChicanes * 50);
-
-        // Section 5 - Sector Analysis
-        let secCounts = {
-            1: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' },
-            2: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' },
-            3: { corners: 0, fastWt: 0, slowWt: 0, char: 'Mixed' }
-        };
-
-        corners.forEach(c => {
-            let s = c.sector;
-            if (s === 0) return;
-            secCounts[s].corners++;
-            if (['Fast', 'Sweeper'].includes(c.type)) secCounts[s].fastWt += 1;
-            if (c.isComplex) secCounts[s].fastWt += 0.8;
-            if (c.type === 'Medium-Fast') secCounts[s].fastWt += 0.5;
-            if (['Ultra-Slow', 'Slow', 'Hairpin'].includes(c.type)) secCounts[s].slowWt += 1;
-        });
-
-        for (let i = 1; i <= 3; i++) {
-            let f = secCounts[i].fastWt, s = secCounts[i].slowWt;
-            if (f > s * 1.3) secCounts[i].char = "High-Speed";
-            else if (s > f * 1.3) secCounts[i].char = "Technical";
-        }
-
-        let c1 = secCounts[1].corners, c2 = secCounts[2].corners, c3 = secCounts[3].corners;
-        let meanC = (c1 + c2 + c3) / 3;
-        let secBalPenalty = Math.sqrt((Math.pow(c1 - meanC, 2) + Math.pow(c2 - meanC, 2) + Math.pow(c3 - meanC, 2)) / 3) * 5;
-
-        // Section 8 - Normalization and Formulas
-        const norm = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
-
-        let rawDiff = (numCorners * 1.5) + (numHairpins * 8) + (numChicanes * 10) + (numDirChanges * 1.5) + (cornerDensity * 5) + (1000 / avgCornerRadius) + (numUltraSlowCorners * 6);
-        let difficulty = norm(rawDiff, 120);
-
-        let rawOvertake = (straightsOver400m * 20) + (maxStraight / 12) + (numHairpins * 8) + ((numUltraSlowCorners + numSlowCorners) * 3) - (numChicanes * 5) - (cornerDensity * 3);
-        let overtaking = norm(rawOvertake, 110);
-
-        let rawFlow = 100 - (numChicanes * 5) - (numHairpins * 10) - (numUltraSlowCorners * 6) - ((numSlowCorners + numMedSlowCorners) * 3) + (numSweepers * 10) + (numComplexSeq * 8) + (numFastCorners * 5) - (numDirChanges * 1) - (cornerDensity * 1.5);
-        let flow = Math.min(100, Math.max(0, rawFlow));
-
-        let rawTech = (cornerDensity * 8) + (numChicanes * 15) + (numDirChanges * 4) + ((numUltraSlowCorners + numSlowCorners + numMedSlowCorners) * 5) + (numUltraSlowCorners * 8) + (numHairpins * 6) - (numFastCorners * 3) - (numSweepers * 4) - (numComplexSeq * 2);
-        let technicality = norm(rawTech, 130);
-
-        let rawHS = (maxStraight / 10) + (totalStraightLength / 50) + (numFastCorners * 12) + (numSweepers * 15) + (numComplexSeq * 10) + (numMedFastCorners * 5);
-        let highSpeed = norm(rawHS, 160);
-
-        let rawBrake = 0;
-        corners.forEach(c => {
-            if (c.type === 'Hairpin') rawBrake += 20 + (c.es / 20);
-            else if (c.type === 'Ultra-Slow') rawBrake += 12 + (c.es / 25);
-            else if (['Slow', 'Medium-Slow'].includes(c.type)) rawBrake += 6 + (c.es / 35);
-        });
-        rawBrake += (numChicanes * 8);
-        let braking = norm(rawBrake, 200);
-
-        let latStress = (numFastCorners * 8) + (numSweepers * 12) + (numComplexSeq * 10) + (numMedFastCorners * 5) + (numMedCorners * 3);
-        let longStress = (numHairpins * 10) + ((numUltraSlowCorners + numSlowCorners + numMedSlowCorners) * 5) + (numChicanes * 6);
-        let rawTire = (latStress * 0.6) + (longStress * 0.4) + (cornerDensity * 4) + (totalLength / 500);
-        let tireStress = norm(rawTire, 150);
-
-        let rawAero = (numFastCorners * 12) + (numSweepers * 18) + (numComplexSeq * 14) + (numMedFastCorners * 6) - (straightsOver600m * 8) - (numHairpins * 3) + ((totalLength / 1000) * 4);
-        let aeroDemand = norm(rawAero, 140);
-
-        let rawSpec = (overtaking * 0.30) + (highSpeed * 0.20) + (technicality * 0.15) + (difficulty * 0.15) + (flow * 0.10) + (numHairpins * 4) + (straightsOver400m * 8) + (numSweepers * 6) + (numComplexSeq * 5);
-        let spectacle = norm(rawSpec, 100);
-
-        let ratio = totalHighSpeedLength / Math.max(totalTechLength, 1);
-        let ratioScore = 100 - Math.abs(ratio - 1.4) * 25;
-        let varPenalty = Math.abs((numFastCorners + numSweepers + numComplexSeq) - (numUltraSlowCorners + numSlowCorners + numHairpins)) * 2;
-        let balance = Math.min(100, Math.max(0, ratioScore - varPenalty - secBalPenalty));
-
-        // Section 9 - Mutual Exclusion Penalties
-        if (highSpeed > 70 && braking > 80) {
-            let overflow1 = braking - 80;
-            highSpeed = Math.max(0, highSpeed - overflow1 * 0.4);
-            let overflow2 = highSpeed - 70;
-            braking = Math.max(0, braking - overflow2 * 0.2);
-        }
-        if (flow > 70 && technicality > 80) {
-            let overflow = technicality - 80;
-            flow = Math.max(0, flow - overflow * 0.3);
-        }
-        if (overtaking > 75 && technicality > 80) {
-            let overflow = technicality - 80;
-            overtaking = Math.max(0, overtaking - overflow * 0.25);
-        }
-
-        difficulty = Math.min(100, Math.max(0, difficulty));
-        overtaking = Math.min(100, Math.max(0, overtaking));
-        flow = Math.min(100, Math.max(0, flow));
-        technicality = Math.min(100, Math.max(0, technicality));
-        highSpeed = Math.min(100, Math.max(0, highSpeed));
-        braking = Math.min(100, Math.max(0, braking));
-        tireStress = Math.min(100, Math.max(0, tireStress));
-        aeroDemand = Math.min(100, Math.max(0, aeroDemand));
-        spectacle = Math.min(100, Math.max(0, spectacle));
-        balance = Math.min(100, Math.max(0, balance));
-
-        // Section 10 - Overall Score
-        let overallScore = (difficulty * 0.10) + (overtaking * 0.15) + (flow * 0.10) + (technicality * 0.10) + (highSpeed * 0.10) + (braking * 0.10) + (tireStress * 0.08) + (aeroDemand * 0.07) + (spectacle * 0.15) + (balance * 0.05);
-
-        // Section 11 - Classification
-=======
         const avgStraightLength = numStraightsCount > 0 ? totalStraightLength / numStraightsCount : 0;
 
         const cornerDensity = numCorners / (totalLength / 1000);
@@ -1095,76 +959,19 @@ F1.UIManager = class UIManager {
         else if (cqs >= 35) tier = "D Tier";
 
         // Track Classification
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         let clScores = {
             "High-Speed Circuit": (highSpeed * 0.5) + ((100 - technicality) * 0.3) + (flow * 0.2),
             "Technical Circuit": (technicality * 0.5) + ((100 - flow) * 0.2) + (difficulty * 0.3),
             "Stop-Start Circuit": (braking * 0.4) + ((100 - flow) * 0.4) + (technicality * 0.2),
             "Overtaking Circuit": (overtaking * 0.6) + (flow * 0.2) + (highSpeed * 0.2),
-<<<<<<< HEAD
-            "Driver's Circuit": (difficulty * 0.4) + (technicality * 0.3) + (balance * 0.3),
-            "Street-Circuit Style": (technicality * 0.3) + (braking * 0.3) + ((100 - overtaking) * 0.2) + (cornerDensity * 2),
-            "Balanced Circuit": (balance * 0.5) + (spectacle * 0.3) + (flow * 0.2)
-=======
             "Driver's Circuit": (difficulty * 0.4) + (technicality * 0.3) + (sectorBalanceScore * 0.3),
             "Street-Circuit Style": (technicality * 0.3) + (braking * 0.3) + ((100 - overtaking) * 0.2) + (cornerDensity * 2),
             "Balanced Circuit": (sectorBalanceScore * 0.5) + (flow * 0.2),
             "Modern F1 Style": (braking * 0.4) + (technicality * 0.3) + (overtaking * 0.3)
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         };
         let classification = Object.keys(clScores).reduce((a, b) => clScores[a] > clScores[b] ? a : b);
 
         // UI Formatting
-<<<<<<< HEAD
-        let formatTime = (t) => {
-            let m = Math.floor(t / 60);
-            let s = Math.floor(t % 60);
-            let ms = Math.round((t % 1) * 1000);
-            return `${m}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
-        };
-
-        const pBar = (val, color) => `<div style="width:100%; background:#222; height:8px; border-radius:4px; margin-top:2px; overflow:hidden;"><div style="width:${val}%; background:${color}; height:100%;"></div></div>`;
-        const cTotal = numCorners || 1;
-        const fastPct = Math.round(((numFastCorners + numSweepers + numComplexSeq) / cTotal) * 100);
-        const slowPct = Math.round(((numUltraSlowCorners + numSlowCorners + numHairpins) / cTotal) * 100);
-
-        h += `<div class="prop-group" style="margin-top: 10px;">
-                <label>Final Report</label>
-                <div style="font-size:12px; margin-top:5px; background:#1a1a1a; padding:10px; border-radius:6px; border:1px solid #333;">
-                    <div style="text-align:center; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
-                        <div style="font-size:10px; color:#aaa; text-transform:uppercase;">Overall Quality</div>
-                        <div style="font-size:24px; font-weight:bold; color:${overallScore > 75 ? '#00e676' : overallScore > 50 ? '#ffb300' : '#ff5252'};">${overallScore.toFixed(1)}</div>
-                        <div style="font-size:12px; color:#ddd; margin-top:2px;">${classification}</div>
-                    </div>
-                    
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 15px; margin-bottom:15px; color:#ccc;">
-                        <div><span style="color:#888">Length</span> <div style="float:right; color:#fff">${(totalLength / 1000).toFixed(3)} km</div></div>
-                        <div><span style="color:#888">Est. Lap Time</span> <div style="float:right; color:#fff" title="±5s (Physics-based Approximation)">${formatTime(lapTimeSeconds)}</div></div>
-                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
-                        <div><span style="color:#888">Corners</span> <div style="float:right; color:#fff">${numCorners}</div></div>
-                        <div><span style="color:#888">Sweepers</span> <div style="float:right; color:#fff">${numSweepers}</div></div>
-                        <div><span style="color:#888">Hairpins</span> <div style="float:right; color:#fff">${numHairpins}</div></div>
-                        <div><span style="color:#888">Chicanes</span> <div style="float:right; color:#fff">${numChicanes}</div></div>
-                        <div><span style="color:#888">Complex Seq.</span> <div style="float:right; color:#fff">${numComplexSeq}</div></div>
-                        <div><span style="color:#888">Turn Density</span> <div style="float:right; color:#fff">${cornerDensity.toFixed(1)} /km</div></div>
-                        <div><span style="color:#888">Fast Turn %</span> <div style="float:right; color:#fff">${fastPct}%</div></div>
-                        <div><span style="color:#888">Slow Turn %</span> <div style="float:right; color:#fff">${slowPct}%</div></div>
-                        <div><span style="color:#888">Longest Turn</span> <div style="float:right; color:#fff">${longestCornerLen.toFixed(0)} m</div></div>
-                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
-                        <div><span style="color:#888">Straights</span> <div style="float:right; color:#fff">${numStraightsCount}</div></div>
-                        <div><span style="color:#888">Max Straight</span> <div style="float:right; color:#fff">${maxStraight.toFixed(0)} m</div></div>
-                        <div><span style="color:#888">Str > 400m</span> <div style="float:right; color:#fff">${straightsOver400m}</div></div>
-                        <div><span style="color:#888">Avg Str</span> <div style="float:right; color:#fff">${avgStraightLength.toFixed(0)} m</div></div>
-                        <div style="grid-column: 1 / -1; height: 1px; background: #333; margin: 4px 0;"></div>
-                        <div><span style="color:#888">Sec 1</span> <div style="float:right; color:#fff">${secCounts[1].char}</div></div>
-                        <div><span style="color:#888">Sec 2</span> <div style="float:right; color:#fff">${secCounts[2].char}</div></div>
-                        <div style="grid-column: 1 / -1;"><span style="color:#888">Sec 3</span> <div style="float:right; color:#fff">${secCounts[3].char}</div></div>
-                    </div>
-
-                    <label style="font-size:11px; margin-bottom:5px;">Normalized Scoring</label>
-                    <div style="display:flex; flex-direction:column; gap:6px;">
-                        <div style="font-size:11px; color:#aaa">Difficulty <span style="float:right; color:#fff">${difficulty.toFixed(0)}</span>${pBar(difficulty, '#ff1801')}</div>
-=======
         const pBar = (val, color) => `<div style="width:100%; background:#222; height:8px; border-radius:4px; margin-top:2px; overflow:hidden;"><div style="width:${val}%; background:${color}; height:100%;"></div></div>`;
 
         h += `<div class="prop-group" style="margin-top: 10px;">
@@ -1205,22 +1012,14 @@ F1.UIManager = class UIManager {
                     <label style="font-size:11px; margin-bottom:5px; color:#888; border-top:1px solid #333; padding-top:6px;">Performance Scores</label>
                     <div style="display:flex; flex-direction:column; gap:6px;">
                         <div style="font-size:11px; color:#aaa">Driver Difficulty <span style="float:right; color:#fff">${difficulty.toFixed(0)}</span>${pBar(difficulty, '#ff1801')}</div>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <div style="font-size:11px; color:#aaa">Overtaking <span style="float:right; color:#fff">${overtaking.toFixed(0)}</span>${pBar(overtaking, '#00e676')}</div>
                         <div style="font-size:11px; color:#aaa">Flow <span style="float:right; color:#fff">${flow.toFixed(0)}</span>${pBar(flow, '#29b6f6')}</div>
                         <div style="font-size:11px; color:#aaa">Technicality <span style="float:right; color:#fff">${technicality.toFixed(0)}</span>${pBar(technicality, '#ab47bc')}</div>
                         <div style="font-size:11px; color:#aaa">High-Speed <span style="float:right; color:#fff">${highSpeed.toFixed(0)}</span>${pBar(highSpeed, '#ffa726')}</div>
                         <div style="font-size:11px; color:#aaa">Braking Demand <span style="float:right; color:#fff">${braking.toFixed(0)}</span>${pBar(braking, '#ef5350')}</div>
-<<<<<<< HEAD
-                        <div style="font-size:11px; color:#aaa">Tire Stress <span style="float:right; color:#fff">${tireStress.toFixed(0)}</span>${pBar(tireStress, '#ffca28')}</div>
-                        <div style="font-size:11px; color:#aaa">Aero Demand <span style="float:right; color:#fff">${aeroDemand.toFixed(0)}</span>${pBar(aeroDemand, '#26c6da')}</div>
-                        <div style="font-size:11px; color:#aaa">Spectacle <span style="float:right; color:#fff">${spectacle.toFixed(0)}</span>${pBar(spectacle, '#ec407a')} <span style="font-size: 8px; font-style: italic; display: block; margin-top: 2px;">*Derived Index</span></div>
-                        <div style="font-size:11px; color:#aaa">Balance <span style="float:right; color:#fff">${balance.toFixed(0)}</span>${pBar(balance, '#8d6e63')}</div>
-=======
                         <div style="font-size:11px; color:#aaa">Tyre Stress <span style="float:right; color:#fff">${tireStress.toFixed(0)}</span>${pBar(tireStress, '#ffca28')}</div>
                         <div style="font-size:11px; color:#aaa">Aero Demand <span style="float:right; color:#fff">${aeroDemand.toFixed(0)}</span>${pBar(aeroDemand, '#26c6da')}</div>
                         <div style="font-size:11px; color:#aaa">Strategic Diversity <span style="float:right; color:#fff">${stratDiv.toFixed(0)}</span>${pBar(stratDiv, '#ec407a')}</div>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </div>
                 </div>
               </div>`;
@@ -1288,13 +1087,8 @@ F1.UIManager = class UIManager {
                 <p class="prop-hint">Configure the background grid scale and appearance.</p>
                 <div class="prop-group" style="margin-top: 15px;">
                     <label class="chk-label prop-hint" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-<<<<<<< HEAD
-                        <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''}>
-                        <span style="margin-top: 2px;">Show Grid</span>
-=======
                         <input type="checkbox" id="cb-grid-on" ${this.app.renderer.showGrid ? 'checked' : ''} style="accent-color:#e10600;">
                         <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Grid</span>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </label>
                 </div>
                 <div class="prop-group"><label>Grid Scale</label>
@@ -1378,8 +1172,6 @@ F1.UIManager = class UIManager {
                         pt.surfaceWidthRight = 0;
                         nextPt.surfaceWidthRight = 0;
                     }
-<<<<<<< HEAD
-=======
                 } else {
                     if (sel.side === 'left') {
                         if (!pt.surfaceWidthLeft || pt.surfaceWidthLeft === 0) pt.surfaceWidthLeft = 10;
@@ -1388,7 +1180,6 @@ F1.UIManager = class UIManager {
                         if (!pt.surfaceWidthRight || pt.surfaceWidthRight === 0) pt.surfaceWidthRight = 10;
                         if (!nextPt.surfaceWidthRight || nextPt.surfaceWidthRight === 0) nextPt.surfaceWidthRight = 10;
                     }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 }
 
                 this.updateProperties();
@@ -1923,12 +1714,6 @@ F1.UIManager = class UIManager {
             };
             pitw.oninput = () => updatePitWidth(pitw.value);
             pitwVal.onchange = () => updatePitWidth(pitwVal.value);
-<<<<<<< HEAD
-            pitwVal.oninput = () => updatePitWidth(pitwVal.value);
-        }
-        const cp = document.getElementById('btn-clear-pit');
-        if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
-=======
         }
         const cp = document.getElementById('btn-clear-pit');
         if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
@@ -1968,9 +1753,19 @@ F1.UIManager = class UIManager {
             grotNum.onchange = () => updateRot(grotNum.value);
         }
 
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const dz = document.getElementById('btn-del-zone');
         if (dz) dz.onclick = () => { if (this.app.selection && this.app.selection.type === 'zone') { this.app.data.snapshot(); this.app.data.removeZone(this.app.selection.id); this.app.setSelection(null); this.app.requestRender(); } };
+        
+        // Hot Lap Preview Controls
+        const btnOpenHotlap = document.getElementById('btn-open-hotlap-modal');
+        if (btnOpenHotlap) {
+            btnOpenHotlap.onclick = () => {
+                if (this.app && this.app.hotlapSimulator) {
+                    this.app.hotlapSimulator.openModal();
+                }
+            };
+        }
+
         // Layer checkboxes
         document.querySelectorAll('.layer-cb').forEach(cb => { cb.onchange = () => { this.app.preview.layers[cb.dataset.layer] = cb.checked; } });
 

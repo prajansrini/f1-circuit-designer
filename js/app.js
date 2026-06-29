@@ -37,6 +37,7 @@ F1.App = class App {
         this.previewCanvas = document.getElementById('preview-canvas');
         this.preview = new F1.PreviewRenderer(this.previewCanvas);
         this.uiManager = new F1.UIManager(this);
+        this.hotlapSimulator = new F1.HotlapSimulator(this);
 
         window.addEventListener('circuit-changed', () => this._saveProjectsToStorage());
 
@@ -51,13 +52,11 @@ F1.App = class App {
             pitlane: new F1.Tools.PitLaneTool(this),
             zone: new F1.Tools.ZoneTool(this),
             straightMode: new F1.Tools.StraightModeTool(this),
+            hotlap: new F1.Tools.BaseTool(this),
             analysis: new F1.Tools.BaseTool(this),
             eraser: new F1.Tools.EraserTool(this),
             scale: new F1.Tools.ScaleTool(this),
-<<<<<<< HEAD
-=======
             garage: new F1.Tools.GarageTool(this),
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             help: new F1.Tools.BaseTool(this)
         };
 
@@ -330,7 +329,14 @@ F1.App = class App {
         window.addEventListener('resize', () => { this.renderer.resize(); this.preview.resize(); this.requestRender(); this._renderPreview(); });
         document.addEventListener('keydown', e => {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
-            if (e.key === 'Escape') { this.setTool('select'); return; }
+            if (e.key === 'Escape') {
+                if (document.getElementById('hotlap-modal').style.display === 'flex') {
+                    this.hotlapSimulator.closeModal();
+                    return;
+                }
+                this.setTool('select');
+                return;
+            }
             if (e.ctrlKey || e.metaKey) {
                 const key = e.key.toLowerCase();
                 if (key === 'm') { e.preventDefault(); this._renderPreview(); return; }
@@ -348,9 +354,24 @@ F1.App = class App {
                 if (key === 'y' || (e.shiftKey && key === 'z')) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             }
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
-            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale' };
+            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale', g: 'hotlap' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'a') {
+                if (document.getElementById('hotlap-modal').style.display === 'flex') {
+                    if (this.hotlapSimulator.viewType.value === 'map') {
+                        this.preview.fitToScreen(this.data, this.editor);
+                    } else {
+                        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                        for (const p of this.data.controlPoints) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+                        const scaleX = (this.hotlapSimulator.canvas.width - 100) / (maxX - minX || 1);
+                        const scaleY = (this.hotlapSimulator.canvas.height - 100) / (maxY - minY || 1);
+                        this.hotlapSimulator.scale = Math.min(scaleX, scaleY);
+                        this.hotlapSimulator.ox = -(minX + maxX) / 2;
+                        this.hotlapSimulator.oy = -(minY + maxY) / 2;
+                    }
+                    if (!this.hotlapSimulator.playing || this.hotlapSimulator.paused) this.hotlapSimulator.render();
+                    return;
+                }
                 if (document.getElementById('export-modal').style.display === 'flex') {
                     document.getElementById('btn-export-fit').click();
                 } else if (hoveredCanvas === 'editor') {
@@ -364,6 +385,7 @@ F1.App = class App {
             }
             if (e.key.toLowerCase() === 'f') {
                 if (document.getElementById('export-modal').style.display === 'flex') return;
+                if (document.getElementById('hotlap-modal').style.display === 'flex') return;
                 if (hoveredCanvas === 'editor') {
                     document.getElementById('btn-full-editor').click();
                 } else {
@@ -425,16 +447,10 @@ F1.App = class App {
         };
 
         wireColor('editor-bg-color', (c) => { this.renderer.C.bg = c; this.requestRender(); });
-<<<<<<< HEAD
-        wireColor('preview-bg-color', (c) => { this.preview.bgColor = c; this._renderPreview(); });
-        wireColor('info-text-color', (c) => { this.preview.infoColor = c; this._renderPreview(); });
-        wireColor('name-text-color', (c) => { this.preview.nameColor = c; this._renderPreview(); });
-=======
         wireColor('preview-bg-color', (c) => { this.preview.bgColor = c; this.exportPreview.bgColor = c; this._renderPreview(); });
         wireColor('preview-road-color', (c) => { this.preview.roadColor = c; this.exportPreview.roadColor = c; this._renderPreview(); });
         wireColor('info-text-color', (c) => { this.preview.infoColor = c; this.exportPreview.infoColor = c; this._renderPreview(); });
         wireColor('name-text-color', (c) => { this.preview.nameColor = c; this.exportPreview.nameColor = c; this._renderPreview(); });
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         // Swatch clicks
         document.querySelectorAll('.swatch').forEach(sw => {
@@ -449,16 +465,10 @@ F1.App = class App {
                     if (hex) hex.value = color.toUpperCase();
                     if (circle) circle.style.background = color;
                     if (targetId === 'editor-bg-color') { this.renderer.C.bg = color; this.requestRender(); }
-<<<<<<< HEAD
-                    else if (targetId === 'preview-bg-color') { this.preview.bgColor = color; this._renderPreview(); }
-                    else if (targetId === 'info-text-color') { this.preview.infoColor = color; this._renderPreview(); }
-                    else if (targetId === 'name-text-color') { this.preview.nameColor = color; this._renderPreview(); }
-=======
                     else if (targetId === 'preview-bg-color') { this.preview.bgColor = color; this.exportPreview.bgColor = color; this._renderPreview(); }
                     else if (targetId === 'preview-road-color') { this.preview.roadColor = color; this.exportPreview.roadColor = color; this._renderPreview(); }
                     else if (targetId === 'info-text-color') { this.preview.infoColor = color; this.exportPreview.infoColor = color; this._renderPreview(); }
                     else if (targetId === 'name-text-color') { this.preview.nameColor = color; this.exportPreview.nameColor = color; this._renderPreview(); }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                 }
             });
         });
@@ -734,10 +744,18 @@ F1.App = class App {
         document.getElementById('export-res').addEventListener('change', resync);
         document.getElementById('export-transparent').addEventListener('change', resync);
         document.getElementById('export-bg-color').addEventListener('input', resync);
-<<<<<<< HEAD
-=======
         document.getElementById('export-road-color').addEventListener('input', resync);
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
+
+        document.getElementById('export-format').addEventListener('change', (e) => {
+            const transCb = document.getElementById('export-transparent');
+            if (e.target.value === 'svg') {
+                transCb.checked = true;
+                transCb.disabled = true;
+            } else {
+                transCb.disabled = false;
+            }
+            resync();
+        });
 
         this.exportStates = { preview: null, editor: null };
         this.exportActiveMode = 'preview';
@@ -748,10 +766,7 @@ F1.App = class App {
             res: document.getElementById('export-res').value,
             transparent: document.getElementById('export-transparent').checked,
             bgColor: document.getElementById('export-bg-color').value,
-<<<<<<< HEAD
-=======
             roadColor: document.getElementById('export-road-color').value,
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             nameColor: document.getElementById('export-name-color').value,
             infoColor: document.getElementById('export-info-color').value,
             textScale: document.getElementById('export-text-scale').value,
@@ -774,10 +789,7 @@ F1.App = class App {
             if (s.res) document.getElementById('export-res').value = s.res;
             document.getElementById('export-transparent').checked = s.transparent;
             document.getElementById('export-bg-color').value = s.bgColor;
-<<<<<<< HEAD
-=======
             document.getElementById('export-road-color').value = s.roadColor || '#000000';
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             document.getElementById('export-name-color').value = s.nameColor;
             document.getElementById('export-info-color').value = s.infoColor;
             document.getElementById('export-text-scale').value = s.textScale;
@@ -914,13 +926,9 @@ F1.App = class App {
         // Sync layers and styles
         Object.assign(this.exportPreview.layers, this.preview.layers);
         this.exportPreview.bgColor = this.preview.bgColor;
-<<<<<<< HEAD
-        document.getElementById('export-bg-color').value = this.preview.bgColor;
-=======
         this.exportPreview.roadColor = this.preview.roadColor || '#000000';
         document.getElementById('export-bg-color').value = this.preview.bgColor;
         document.getElementById('export-road-color').value = this.exportPreview.roadColor;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this.exportPreview.infoColor = this.preview.infoColor;
         this.exportPreview.nameColor = this.preview.nameColor;
         document.getElementById('export-info-color').value = this.preview.infoColor;
@@ -938,9 +946,9 @@ F1.App = class App {
         }
         this.exportCanvasRenderer.fitToScreen(this.data);
 
-        // Reset export states to clear any saved zoom
         this.exportStates = { preview: null, editor: null };
 
+        document.getElementById('export-format').dispatchEvent(new Event('change'));
         this._renderExportPreview();
     }
 
@@ -985,29 +993,20 @@ F1.App = class App {
             // Draw Map Texts on top of Editor View!
             if (this.exportPreview.layers.name !== false) this.exportPreview._name(c.getContext('2d'), this.data, W, H);
             if (this.exportPreview.layers.info !== false) this.exportPreview._info(c.getContext('2d'), this.data, this.editor, W, H);
-<<<<<<< HEAD
-=======
             if (this.exportPreview.layers.sectorLegend !== false) this.exportPreview._sectorLegend(c.getContext('2d'), W, H);
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         } else {
             // Force background override if transparent
             const oldBg = this.exportPreview.bgColor;
             this.exportPreview.bgColor = transparent ? 'rgba(0,0,0,0)' : bgColor;
-<<<<<<< HEAD
-=======
             
             const oldRoad = this.exportPreview.roadColor;
             this.exportPreview.roadColor = document.getElementById('export-road-color').value;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
             this.exportPreview.render(this.data, this.editor);
 
             // Restore
             this.exportPreview.bgColor = oldBg;
-<<<<<<< HEAD
-=======
             this.exportPreview.roadColor = oldRoad;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         }
     }
 
@@ -1028,11 +1027,9 @@ F1.App = class App {
                 return;
             }
             try {
-<<<<<<< HEAD
-                const exporter = new F1.SVGExporter(this.exportPreview.bgColor, this.exportPreview.infoColor, this.exportPreview.nameColor);
-=======
-                const exporter = new F1.SVGExporter(this.exportPreview.bgColor, this.exportPreview.infoColor, this.exportPreview.nameColor, this.exportPreview.roadColor);
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
+                const uiBg = transparent ? 'rgba(0,0,0,0)' : document.getElementById('export-bg-color').value;
+                const uiRoad = document.getElementById('export-road-color').value;
+                const exporter = new F1.SVGExporter(uiBg, this.exportPreview.infoColor, this.exportPreview.nameColor, uiRoad);
                 Object.assign(exporter.layers, this.exportPreview.layers);
                 const svgStr = await exporter.export(this.data, this.editor, W, H, transparent, this.exportPreview.textSettings, this.exportPreview.legendSettings);
                 const blob = new Blob([svgStr], { type: 'image/svg+xml' });
@@ -1084,6 +1081,7 @@ F1.App = class App {
                     pr.bgColor = transparent && fmt !== 'jpg' ? 'rgba(0,0,0,0)' : bgColor;
                     pr.infoColor = this.exportPreview.infoColor;
                     pr.nameColor = this.exportPreview.nameColor;
+                    pr.roadColor = document.getElementById('export-road-color').value;
 
                     const ratio = W / this.exportPreview.canvas.width;
                     pr.userScale = this.exportPreview.userScale * ratio;

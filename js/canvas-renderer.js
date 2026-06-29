@@ -18,11 +18,7 @@ F1.Renderer = class Renderer {
         this.C = {
             bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
-<<<<<<< HEAD
-            pitLane: '#383838', pitLine: '#ffff00',
-=======
             pitLane: '#111', pitLine: '#ffff00',
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             s1: '#E70E6C', s2: '#FBCF02', s3: '#369BE5',
             cp: '#00ff88', cpSel: '#ff8800', cpHover: '#66ffbb',
             grid: 'rgba(255,255,255,0.04)', gsRoof: ['#e10600', '#0050b0', '#e8a700', '#888']
@@ -66,8 +62,6 @@ F1.Renderer = class Renderer {
         return area >= 0 ? 1 : -1;
     }
 
-<<<<<<< HEAD
-=======
     _garage(data, sel) {
         if (!data.garage) return;
         const g = data.garage;
@@ -98,7 +92,6 @@ F1.Renderer = class Renderer {
         }
     }
 
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     render(data, editor, sel, hoverPt, activeTool) {
         this._editor = editor;
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
@@ -107,15 +100,6 @@ F1.Renderer = class Renderer {
         ctx.fillStyle = this.C.bg; ctx.fillRect(0, 0, W, H);
         if (this.showGrid) this._grid(data);
         const track = editor.getInterpolatedTrack();
-<<<<<<< HEAD
-        if (track.length > 1) {
-            this._surfaces(track); this._sectorStripes(track, data); this._trackSurface(track);
-            this._barriers(track); this._straightModeZones(data, editor, track, sel);
-            this._renderIntersections(track, data, editor, sel);
-            this._startFinish(track, data);
-        }
-        this._pitLane(editor);
-=======
         this._pitLane(editor);
         this._garage(data, sel);
         if (track.length > 1) {
@@ -124,12 +108,15 @@ F1.Renderer = class Renderer {
             this._renderIntersections(track, data, editor, sel);
             this._startFinish(track, data);
         }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this._zones(data, editor, sel, activeTool); this._sectorLabels(data, editor, sel); this._turnMarkers(data, editor, sel);
         if (this.showCtrlPts) { this._controlPoints(data, sel, hoverPt); }
         this._pitPoints(data, sel, activeTool);
         this._rotationHandles(data, editor, sel);
         this._rulers(track, data);
+
+        if (this.hotlapPlaying && this.hotlapPoints && this.hotlapPoints.length > 0) {
+            this._renderHotlap(ctx);
+        }
 
         // Hover tooltip for Nodes
         if (hoverPt) {
@@ -149,6 +136,8 @@ F1.Renderer = class Renderer {
             }
         }
     }
+
+
 
     _grid(data) {
         const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, step = 50;
@@ -263,8 +252,6 @@ F1.Renderer = class Renderer {
         }
     }
 
-<<<<<<< HEAD
-=======
     _highlightSelection(track, data, sel) {
         if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) return;
         const cpIdx = data.controlPoints.findIndex(p => p.id === sel.id);
@@ -322,7 +309,6 @@ F1.Renderer = class Renderer {
         }
     }
 
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     /* Straight Mode - red dashes close to track edge using strips.png */
     _straightModeZones(data, editor, track, sel, ixRange = null) {
         const ctx = this.ctx;
@@ -608,12 +594,6 @@ F1.Renderer = class Renderer {
         ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, 1.2 * this.scale);
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x + (pit[i].nx || 0) * w, pit[i].y + (pit[i].ny || 0) * w); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x - (pit[i].nx || 0) * w, pit[i].y - (pit[i].ny || 0) * w); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
-<<<<<<< HEAD
-        ctx.strokeStyle = this.C.pitLine; ctx.lineWidth = Math.max(1, 1.5 * this.scale); ctx.setLineDash([6 * this.scale, 6 * this.scale]);
-        ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = this.w2s(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
-        if (pit.length > 4) { const mid = pit[Math.floor(pit.length / 2)], s = this.w2s(mid.x, mid.y); ctx.fillStyle = '#fff'; ctx.font = `bold ${12 * this.scale}px Outfit`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PIT LANE', s.x, s.y); }
-=======
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 
 
@@ -825,13 +805,8 @@ F1.Renderer = class Renderer {
         });
     }
 
-<<<<<<< HEAD
-    _pitPoints(data, sel, activeTool) {
-        if (activeTool !== 'pitlane') return;
-=======
     _pitPoints(data, sel) {
         if (!data.showPitlaneNodes) return;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const ctx = this.ctx;
         data.pitLane.points.forEach(pt => {
             const s = this.w2s(pt.x, pt.y);

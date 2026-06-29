@@ -139,6 +139,10 @@
                     <line x1="6" y1="20" x2="6" y2="14"></line>
                 </svg><span>Analysis</span></button>
 
+            <div style="flex-grow: 1;"></div>
+            
+            <button class="tool-btn" data-tool="hotlap" title="Hot Lap Preview (G)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Simulate</span></button>
+
             <button class="tool-btn" data-tool="help" title="Help & Tips (H)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -345,8 +349,6 @@
                                         title="Black"></div>
                                 </div>
                             </label>
-<<<<<<< HEAD
-=======
                             <label style="display:flex; flex-direction:column; font-size:11px; color:#aaa; margin-top:10px;">Map Road
                                 <div
                                     style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
@@ -369,7 +371,6 @@
                                     <div class="swatch" data-color="#ffffff" style="width:12px;height:12px;background:#ffffff;cursor:pointer;border:1px solid #444;" title="White"></div>
                                 </div>
                             </label>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         </div>
                     </div>
                 </details>
@@ -379,15 +380,10 @@
                     <div style="padding-bottom: 10px;">
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="track"
                                 checked><span>Track</span></label>
-<<<<<<< HEAD
-                        <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectors"
-                                checked><span>Sectors</span></label>
-=======
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectorEdges"
                                 checked><span>Sectors</span></label>
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectors"
                                 checked><span>Sector Label</span></label>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="turnNumbers"
                                 checked><span>Turn Numbers</span></label>
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="zones"
@@ -405,11 +401,8 @@
                                 checked><span>Circuit Name</span></label>
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="info"
                                 checked><span>Circuit Info</span></label>
-<<<<<<< HEAD
-=======
                         <label class="layer-item"><input type="checkbox" class="layer-cb" data-layer="sectorLegend"
                                 checked><span>Sector Legend</span></label>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                     </div>
                 </details>
             </div>
@@ -446,6 +439,7 @@
                         <div class="shortcut"><kbd>Ctrl+I</kbd> Download</div>
                         <div class="shortcut"><kbd>Alt+N</kbd> New Proj.</div>
                         <div class="shortcut"><kbd>Ctrl+D</kbd> Duplicate</div>
+                        <div class="shortcut"><kbd>G</kbd> Simulate</div>
                         <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Ctrl+/</kbd> Name Circuit</div>
                     </div>
                 </details>
@@ -554,8 +548,6 @@
                         <p style="font-size:11px; color:#888; margin-top:-5px; margin-bottom:15px;">Note: JPG does not
                             support transparency.</p>
                     </div>
-<<<<<<< HEAD
-=======
                     <div class="prop-group">
                         <label>Road Surface</label>
                         <div style="display:flex; gap:10px; align-items:center;">
@@ -563,7 +555,6 @@
                                 style="padding:0; width:40px; height:24px; border:none; cursor:pointer;">
                         </div>
                     </div>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
                     <div id="export-preview-controls">
                         <!-- Text Options -->
@@ -638,18 +629,12 @@
                                         class="export-layer-cb" data-layer="track" checked
                                         style="accent-color:#e10600;"><span>Track</span></label>
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
-<<<<<<< HEAD
-                                        class="export-layer-cb" data-layer="sectors" checked
-                                        style="accent-color:#e10600;"><span>Sectors</span></label>
-                                <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
-=======
                                         class="export-layer-cb" data-layer="sectorEdges" checked
                                         style="accent-color:#e10600;"><span>Sectors</span></label>
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
                                         class="export-layer-cb" data-layer="sectors" checked
                                         style="accent-color:#e10600;"><span>Sector Label</span></label>
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                                         class="export-layer-cb" data-layer="turnNumbers" checked
                                         style="accent-color:#e10600;"><span>Turn
                                         Numbers</span></label>
@@ -680,12 +665,9 @@
                                         class="export-layer-cb" data-layer="info" checked
                                         style="accent-color:#e10600;"><span>Circuit
                                         Info</span></label>
-<<<<<<< HEAD
-=======
                                 <label class="layer-item" style="color:#ddd; margin:0;"><input type="checkbox"
                                         class="export-layer-cb" data-layer="sectorLegend" checked
                                         style="accent-color:#e10600;"><span>Sector Legend</span></label>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
                             </div>
                         </div>
                     </div>
@@ -746,18 +728,144 @@
         </div>
     </div>
 
-<<<<<<< HEAD
-=======
-    <script src="js/ml-models.js?v=100"></script>
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
-    <script src="js/circuit-data.js?v=100"></script>
-    <script src="js/track-editor.js?v=100"></script>
-    <script src="js/canvas-renderer.js?v=100"></script>
-    <script src="js/preview-renderer.js?v=100"></script>
-    <script src="js/svg-exporter.js?v=100"></script>
-    <script src="js/tools.js?v=100"></script>
-    <script src="js/ui-manager.js?v=100"></script>
-    <script src="js/app.js?v=100"></script>
+    <div id="hotlap-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; justify-content:center; align-items:center; font-family:'Outfit', sans-serif;">
+        <div style="background:#1a1a1a; border-radius:12px; width:90%; max-width:1200px; height:85vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #333; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <div style="padding:15px 20px; background:#222; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:16px; color:#fff;">Hot Lap Simulate</h2>
+                <button id="btn-close-hotlap" style="background:none; border:none; color:#aaa; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <div style="display:flex; flex:1; overflow:hidden;">
+                <div style="flex:1; background:#000; position:relative; overflow:hidden; display:flex; justify-content:center; align-items:center;" id="hotlap-preview-wrapper">
+                    <canvas id="hotlap-preview-canvas" style="cursor:grab; box-shadow:0 0 20px rgba(0,0,0,0.5);"></canvas>
+                </div>
+                <div style="width:320px; background:#181818; border-left:1px solid #333; padding:20px; overflow-y:auto; overflow-x:hidden;">
+                    
+                    <div class="prop-group">
+                        <label>Background View</label>
+                        <select id="hotlap-view-type" class="prop-input" style="width:100%; margin-bottom:15px; padding:6px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+                            <option value="map">Map View</option>
+                            <option value="editor">Editor View</option>
+                        </select>
+                    </div>
+
+                    <div class="prop-group">
+                        <label>Team Selection</label>
+                        <select id="hotlap-car-team" class="prop-input" style="width:100%; margin-bottom:15px; padding:6px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+                            <option value="#27F4D2">Mercedes</option>
+                            <option value="#3671C6">Red Bull Racing</option>
+                            <option value="#E8002D">Ferrari</option>
+                            <option value="#FF8000">McLaren</option>
+                            <option value="#00A1E8">Alpine</option>
+                            <option value="#6692FF">Racing Bulls</option>
+                            <option value="#229971">Aston Martin</option>
+                            <option value="#1868DB">Williams</option>
+                            <option value="#FF2D00">Audi</option>
+                            <option value="#DEE1E2">Haas</option>
+                            <option value="#AAAAAD">Cadillac</option>
+                        </select>
+                    </div>
+
+                    <div class="prop-group">
+                        <label>Simulation Speed</label>
+                        <input type="range" id="hotlap-sim-speed" class="prop-slider" min="0" max="10" step="0.1" value="1" style="width:100%;">
+                        <div style="text-align:right; font-size:12px; color:#aaa; margin-top:4px;"><span id="hotlap-sim-speed-val">1.0</span>x</div>
+                    </div>
+
+                    <div class="prop-group" style="border-top:1px solid #333; padding-top:15px; margin-top:15px;">
+                        <label>Settings</label>
+                        <div style="font-size:11px; color:#aaa; padding:0 5px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                                <span>Follow Camera</span><input type="checkbox" id="hotlap-follow-cam" style="accent-color:#e10600;">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;" id="hotlap-follow-zoom-container">
+                                <span>Camera Zoom</span>
+                                <input type="range" id="hotlap-follow-zoom" class="prop-slider" min="0.1" max="5" step="0.1" value="1" style="width:100px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button id="btn-hotlap-play" class="generate-btn" style="flex:1; padding:12px; font-size:14px; font-weight:bold;">Start</button>
+                        <button id="btn-hotlap-pause" class="prop-btn accent" style="flex:1; padding:12px; font-size:14px; display:none; font-weight:bold;">Pause</button>
+                        <button id="btn-hotlap-stop" class="prop-btn danger" style="flex:1; padding:12px; font-size:14px; display:none; font-weight:bold;">Stop</button>
+                    </div>
+
+                    <div id="hotlap-telemetry" style="margin-top:20px; padding:15px; background:#111; border:1px solid #333; border-radius:8px; display:none; flex-direction:column; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                            <div style="color:#00ff88; font-size:28px; font-weight:bold; font-family:'Outfit', sans-serif;" id="hotlap-speed-readout">0 <span style="font-size:14px;color:#aaa;">km/h</span></div>
+                            <div style="color:#fff; font-size:14px;" id="hotlap-gear-readout">Gear 1</div>
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; max-width:180px;">
+                                <div id="hotlap-drs-indicator" style="padding:3px 6px; border-radius:3px; font-size:9px; font-weight:bold; background:#333; color:#666; transition: all 0.2s;">STRAIGHT MODE</div>
+                                <div id="hotlap-boost-indicator" style="padding:3px 6px; border-radius:3px; font-size:9px; font-weight:bold; background:#333; color:#666; transition: all 0.2s;">BOOST</div>
+                                <div id="hotlap-overtake-indicator" style="padding:3px 6px; border-radius:3px; font-size:9px; font-weight:bold; background:#333; color:#666; transition: all 0.2s;">OVERTAKE</div>
+                            </div>
+                            <div id="hotlap-trap-indicator" style="font-size:10px; color:#aaa; text-align:right;">Speed Trap<br><span id="hotlap-trap-speed" style="color:#fff; font-size:12px; font-weight:bold;">--</span></div>
+                        </div>
+
+                        <div style="border-top:1px solid #222; margin:5px 0;"></div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="color:#fff; font-size:14px; font-weight:bold;" id="hotlap-lap-number">Lap 1</div>
+                            <div style="color:#ff1801; font-size:18px; font-family:'JetBrains Mono', monospace;" id="hotlap-time-readout">0:00.000</div>
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono', monospace;">
+                            <div style="color:#aaa;">Sector 1</div><div style="color:#fff;" id="hotlap-sec1-time">--</div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono', monospace;">
+                            <div style="color:#aaa;">Sector 2</div><div style="color:#fff;" id="hotlap-sec2-time">--</div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono', monospace;">
+                            <div style="color:#aaa;">Sector 3</div><div style="color:#fff;" id="hotlap-sec3-time">--</div>
+                        </div>
+
+                        <div style="border-top:1px solid #222; margin:5px 0;"></div>
+                        
+                        <div style="display:flex; justify-content:space-between; font-size:12px; font-family:'JetBrains Mono', monospace;">
+                            <div style="color:#b138ff; font-weight:bold;">Fastest Lap</div><div style="color:#b138ff; font-weight:bold;" id="hotlap-fastest-readout">--</div>
+                        </div>
+
+                        <div id="hotlap-sector-warning" style="display:none; padding:8px; margin-top:10px; background:#4a1515; border:1px solid #e10600; border-radius:4px; color:#ffb3b3; font-size:11px; text-align:center;">
+                            Sectors not fully mapped. Sector timing disabled.
+                        </div>
+
+                        <div style="border-top:1px solid #222; margin:10px 0;"></div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px; font-family:'JetBrains Mono', monospace;">
+                            <span style="color:#888; text-transform:uppercase;">MGU-K Battery</span>
+                            <span id="tele-soc-text" style="color:#00a1e8; font-weight:bold;">100%</span>
+                        </div>
+                        <div style="width:100%; background:#222; height:12px; border-radius:6px; overflow:hidden; border:1px solid #333; position:relative;">
+                            <div id="tele-battery-bar" style="width:100%; height:100%; background:#00a1e8; transition: width 0.1s linear, background 0.3s;"></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#666; margin-top:4px; font-family:'JetBrains Mono', monospace;">
+                            <span id="tele-mj-text">8.5 MJ</span>
+                            <span id="tele-aero-text">Corner Mode</span>
+                        </div>
+
+                        <div style="margin-top:10px;">
+                            <div style="font-size:11px; color:#aaa; margin-bottom:5px; text-transform:uppercase; letter-spacing:1px;">Lap History</div>
+                            <div style="max-height:120px; overflow-y:auto; border:1px solid #222; border-radius:4px; background:#0a0a0a;" id="hotlap-history-table">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/ml-models.js?v=101"></script>
+    <script src="js/circuit-data.js?v=101"></script>
+    <script src="js/track-editor.js?v=101"></script>
+    <script src="js/canvas-renderer.js?v=101"></script>
+    <script src="js/preview-renderer.js?v=101"></script>
+    <script src="js/svg-exporter.js?v=101"></script>
+    <script src="js/tools.js?v=101"></script>
+    <script src="js/hotlap-simulator.js?v=101"></script>
+    <script src="js/ui-manager.js?v=101"></script>
+    <script src="js/app.js?v=101"></script>
 </body>
 
 </html>
