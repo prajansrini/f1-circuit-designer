@@ -71,21 +71,6 @@ class SelectTool extends BaseTool {
     _hitRotationHandle(wx, wy) {
         const sel = this.app.selection; if (!sel) return null;
         const thr = 15 / this.renderer.scale;
-<<<<<<< HEAD
-        // Grandstand / Garage
-        if (sel.type === 'grandstand' || sel.type === 'garage') {
-            const obj = sel.type === 'grandstand' ? this.data.getGrandstandById(sel.id) : this.data.getGarageById(sel.id);
-            if (!obj) return null;
-            const rad = (obj.rotation || 0) * Math.PI / 180;
-            const hd = ((obj.height || 16) / 2) + 20 / this.renderer.scale;
-            const hx = obj.x, hy = obj.y - Math.cos(rad) * hd / this.renderer.scale;
-            // Use screen space for handle hit
-            const sObj = this.renderer.w2s(obj.x, obj.y);
-            const dist = ((obj.height || 16) * this.renderer.scale / 2) + 20;
-            const sHx = sObj.x + Math.sin(rad) * dist, sHy = sObj.y - Math.cos(rad) * dist;
-            const sWx = this.renderer.w2s(wx, wy);
-            if (Math.hypot(sWx.x - sHx, sWx.y - sHy) < 20) return obj;
-=======
         if (sel.type === 'grandstand' || sel.type === 'garage') {
             const obj = sel.type === 'grandstand' ? this.data.getGrandstandById(sel.id) : this.data.garage;
             if (!obj) return null;
@@ -104,7 +89,6 @@ class SelectTool extends BaseTool {
                 const sWx = this.renderer.w2s(wx, wy);
                 if (Math.hypot(sWx.x - sHx, sWx.y - sHy) < 20) return obj;
             }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             return null;
         }
         // Zone label
@@ -298,11 +282,6 @@ class SelectTool extends BaseTool {
 
 
 
-<<<<<<< HEAD
-        // 9. Pit lane points
-        const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
-        if (pp) { this.data.snapshot(); this.app.setSelection({ type: 'pit', id: pp.id }); this.dragging = { type: 'pit', obj: pp }; return; }
-=======
         // 8. Garage
         if (this.data.garage) {
             const g = this.data.garage;
@@ -319,7 +298,6 @@ class SelectTool extends BaseTool {
             const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
             if (pp) { this.data.snapshot(); this.app.setSelection({ type: 'pit', id: pp.id }); this.dragging = { type: 'pit', obj: pp }; return; }
         }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         // 9b. Click near track to select zones generally (Highest priority along edge)
         let zone = this.editor.findNearestZone(wx, wy, 20 / this.renderer.scale);
@@ -412,13 +390,6 @@ class SelectTool extends BaseTool {
         }
 
         const cp = this.editor.findNearestControlPoint(wx, wy, 30 / this.renderer.scale);
-<<<<<<< HEAD
-        this.app.hoverPoint = cp;
-        const rotObj = this._hitRotationHandle(wx, wy);
-        if (rotObj) {
-            this.app.canvas.style.cursor = 'grab';
-        } else if (cp) {
-=======
         let hover = cp;
         let pp = null;
         if (!cp && this.data.showPitlaneNodes) {
@@ -430,7 +401,6 @@ class SelectTool extends BaseTool {
         if (rotObj) {
             this.app.canvas.style.cursor = 'grab';
         } else if (cp || pp) {
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             this.app.canvas.style.cursor = 'pointer';
         } else {
             // Check if hovering over any selectable element for move cursor
@@ -445,13 +415,10 @@ class SelectTool extends BaseTool {
                 const lx = pos.x + zone.labelOffsetX, ly = pos.y + zone.labelOffsetY;
                 if (pos && this._hitRotatedRect(wx, wy, lx, ly, zone.rotation, 45 / this.renderer.scale, 15 / this.renderer.scale)) { overElement = true; break; }
             }
-<<<<<<< HEAD
-=======
             if (!overElement && this.data.garage) {
                 const g = this.data.garage;
                 if (this._hitRotatedRect(wx, wy, g.x, g.y, g.rotation || 0, g.length / 2, g.width / 2)) overElement = true;
             }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             if (!overElement) {
                 for (const sl of this.data.sectorLabels) {
                     const pts = track.filter(pt => pt.sector === sl.sector);
@@ -547,10 +514,7 @@ class SelectTool extends BaseTool {
             else if (s.type === 'zone') this.data.removeZone(s.id);
             else if (s.type === 'turn') this.data.removeTurnMarker(s.id);
             else if (s.type === 'pit') { this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== s.id); }
-<<<<<<< HEAD
-=======
             else if (s.type === 'garage') { this.data.garage = null; }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             this.app.setSelection(null); this.app.requestRender();
         }
     }
@@ -936,16 +900,6 @@ class SectorTool extends BaseTool {
 
 /* ---- Pit Lane ---- */
 class PitLaneTool extends BaseTool {
-<<<<<<< HEAD
-    getCursor() { return 'crosshair'; }
-    onMouseDown(wx, wy) {
-        // Check if clicking near existing pit point to select it
-        const pp = this.editor.findNearestPitPoint(wx, wy, 12 / this.renderer.scale);
-        if (pp) { this.app.setSelection({ type: 'pit', id: pp.id }); this.app.requestRender(); return; }
-        this.data.snapshot(); this.data.addPitLanePoint(wx, wy); this.app.requestRender();
-    }
-    onMouseMove(wx, wy) { this.app.hoverPoint = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale); this.app.requestRender(); }
-=======
     constructor(app) { super(app); this.dragging = null; this.rotatingObj = null; }
     getCursor() { return this.rotatingObj ? 'grabbing' : (this.dragging ? 'grabbing' : (this.app.hoverPoint ? 'pointer' : 'crosshair')); }
     
@@ -1051,7 +1005,6 @@ class PitLaneTool extends BaseTool {
         this.dragging = null;
         this.rotatingObj = null;
     }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 }
 
 /* ---- Grandstand ---- */
@@ -1385,19 +1338,6 @@ class GarageTool extends BaseTool {
     getCursor() { return this.rotatingG ? 'grabbing' : 'crosshair'; }
 
     _hitExisting(wx, wy) {
-<<<<<<< HEAD
-        let best = null, bd = 30 / this.renderer.scale;
-        for (const g of this.data.garages) { const d = Math.hypot(g.x - wx, g.y - wy); if (d < bd) { bd = d; best = g; } }
-        return best;
-    }
-    _hitRotHandle(wx, wy) {
-        for (const g of this.data.garages) {
-            const rad = (g.rotation || 0) * Math.PI / 180;
-            const hd = (g.height / 2) + 20 / this.renderer.scale;
-            const hx = g.x + Math.sin(rad) * -hd, hy = g.y + Math.cos(rad) * hd;
-            if (Math.hypot(wx - hx, wy - hy) < 15 / this.renderer.scale) return g;
-        }
-=======
         const g = this.data.garage;
         if (!g) return null;
         return Math.hypot(g.x - wx, g.y - wy) < 30 / this.renderer.scale ? g : null;
@@ -1411,19 +1351,11 @@ class GarageTool extends BaseTool {
         // Canvas space: x = x - sin * y, y = y + cos * y
         const hx = g.x - Math.sin(rad) * hd, hy = g.y + Math.cos(rad) * hd;
         if (Math.hypot(wx - hx, wy - hy) < 15 / this.renderer.scale) return g;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         return null;
     }
 
     onMouseDown(wx, wy) {
         const rot = this._hitRotHandle(wx, wy);
-<<<<<<< HEAD
-        if (rot) { this.data.snapshot(); this.rotatingG = rot; this.app.setSelection({ type: 'garage', id: rot.id }); return; }
-        const g = this._hitExisting(wx, wy);
-        if (g) { this.data.snapshot(); this.app.setSelection({ type: 'garage', id: g.id }); this.dragging = g; return; }
-        this.data.snapshot(); const ng = this.data.addGarage(wx, wy);
-        this.app.setSelection({ type: 'garage', id: ng.id }); this.app.requestRender();
-=======
         if (rot) { this.data.snapshot(); this.rotatingG = rot; this.app.setSelection({ type: 'garage' }); return; }
         const g = this._hitExisting(wx, wy);
         if (g) { this.data.snapshot(); this.app.setSelection({ type: 'garage' }); this.dragging = g; return; }
@@ -1440,7 +1372,6 @@ class GarageTool extends BaseTool {
         
         // Auto-switch back to Pitlane Tool so they can continue placing nodes
         this.app.setTool('pitlane');
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
     onMouseMove(wx, wy) {
         if (this.rotatingG) {
@@ -1546,10 +1477,7 @@ class EraserTool extends BaseTool {
         else if (this._hitTurnMarker(wx, wy)) h = true;
         else if (this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale)) h = true;
         else if (this._hitPitLanePath(wx, wy)) h = true;
-<<<<<<< HEAD
-=======
         else if (this.data.garage && this._hitRotatedRect(wx, wy, this.data.garage.x, this.data.garage.y, this.data.garage.rotation || 0, this.data.garage.length / 2, this.data.garage.width / 2)) h = true;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         if (!h) {
             const trackPt = this.editor.findNearestTrackPoint(wx, wy);
@@ -1585,8 +1513,6 @@ class EraserTool extends BaseTool {
         const pp = this.editor.findNearestPitPoint(wx, wy, 15 / this.renderer.scale);
         if (pp) { this.data.snapshot(); this.data.pitLane.points = this.data.pitLane.points.filter(p => p.id !== pp.id); this.app.requestRender(); return; }
         if (this._hitPitLanePath(wx, wy)) { this.data.snapshot(); this.data.clearPitLane(); this.app.requestRender(); return; }
-<<<<<<< HEAD
-=======
         
         if (this.data.garage && this._hitRotatedRect(wx, wy, this.data.garage.x, this.data.garage.y, this.data.garage.rotation || 0, this.data.garage.length / 2, this.data.garage.width / 2)) {
             this.data.snapshot();
@@ -1594,7 +1520,6 @@ class EraserTool extends BaseTool {
             this.app.requestRender();
             return;
         }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         const trackPt = this.editor.findNearestTrackPoint(wx, wy);
         if (trackPt.point) {

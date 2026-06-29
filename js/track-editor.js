@@ -60,11 +60,7 @@ F1.TrackEditor = class TrackEditor {
 
     getInterpolatedPitLane() {
         const pts = this.data.pitLane.points, n = pts.length;
-<<<<<<< HEAD
-        if (n < 2) return pts.map(p => ({ ...p, nx: 0, ny: -1 }));
-=======
         if (n < 2) return pts.map(p => ({ ...p, nx: 0, ny: -1, segIndex: 0 }));
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         const result = [];
         for (let i = 0; i < n - 1; i++) {
             const p0 = i > 0 ? pts[i - 1] : this._mirror(pts[0], pts[1]);
@@ -75,19 +71,11 @@ F1.TrackEditor = class TrackEditor {
                 const pos = this._cr(p0, p1, p2, p3, t);
                 const tang = this._crDeriv(p0, p1, p2, p3, t);
                 const len = Math.hypot(tang.x, tang.y) || 1;
-<<<<<<< HEAD
-                result.push({ x: pos.x, y: pos.y, nx: -tang.y / len, ny: tang.x / len });
-            }
-        }
-        const last = result[result.length - 1];
-        result.push({ ...pts[n - 1], nx: last?.nx || 0, ny: last?.ny || -1 });
-=======
                 result.push({ x: pos.x, y: pos.y, nx: -tang.y / len, ny: tang.x / len, segIndex: i });
             }
         }
         const last = result[result.length - 1];
         result.push({ ...pts[n - 1], nx: last?.nx || 0, ny: last?.ny || -1, segIndex: n - 2 });
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         return result;
     }
 
@@ -202,8 +190,6 @@ F1.TrackEditor = class TrackEditor {
         }
         return { point: best, dist: bestD, index: bestIdx };
     }
-<<<<<<< HEAD
-=======
     findNearestPitLanePoint(wx, wy) {
         const pit = this.getInterpolatedPitLane();
         let best = null, bestD = Infinity, bestIdx = -1;
@@ -213,7 +199,6 @@ F1.TrackEditor = class TrackEditor {
         }
         return { point: best, dist: bestD, index: bestIdx };
     }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     isNearFirstPoint(wx, wy, threshold) {
         if (this.data.controlPoints.length < 3) return false;
         const f = this.data.controlPoints[0];

@@ -13,12 +13,8 @@ F1.ZONE_TYPES = [
 
 F1.PREVIEW_LAYERS = [
     { key: 'track', label: 'Track', default: true },
-<<<<<<< HEAD
-    { key: 'sectors', label: 'Sectors', default: true },
-=======
     { key: 'sectorEdges', label: 'Sectors', default: true },
     { key: 'sectors', label: 'Sector Label', default: true },
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     { key: 'turnNumbers', label: 'Turn Numbers', default: true },
     { key: 'zones', label: 'Zones', default: true },
     { key: 'straightMode', label: 'Straight Mode Zones', default: true },
@@ -29,10 +25,7 @@ F1.PREVIEW_LAYERS = [
     { key: 'chequeredFlag', label: 'Chequered Flag', default: true },
     { key: 'name', label: 'Circuit Name', default: true },
     { key: 'info', label: 'Circuit Info', default: true },
-<<<<<<< HEAD
-=======
     { key: 'sectorLegend', label: 'Sector Legend', default: true },
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 ];
 
 F1.CircuitData = class CircuitData {
@@ -43,10 +36,7 @@ F1.CircuitData = class CircuitData {
         this.startNodeId = null;
         this.gridSize = 50;
         this.pitLane = { points: [], width: 8 };
-<<<<<<< HEAD
-=======
         this.garage = null;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this.zones = [];
         this.turnMarkers = []; // User-placed turn numbers
         this.sectorLabels = [
@@ -55,10 +45,7 @@ F1.CircuitData = class CircuitData {
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
         ];
         this.overlapInversions = [];
-<<<<<<< HEAD
-=======
         this.showPitlaneNodes = true;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         this._nextId = 1;
         this._undoStack = [];
         this._redoStack = [];
@@ -218,13 +205,8 @@ F1.CircuitData = class CircuitData {
     clearPitLane() { this.pitLane.points = []; }
 
     getTurnMarkerById(id) { return this.turnMarkers.find(t => t.id === id) || null; }
-<<<<<<< HEAD
-
-    addPitLanePoint(x, y) { const pt = { id: this._genId(), x, y }; this.pitLane.points.push(pt); return pt; }
-=======
     addPitLanePoint(x, y) { const pt = { id: this._genId(), x, y }; this.pitLane.points.push(pt); return pt; }
     insertPitLanePoint(x, y, index) { const pt = { id: this._genId(), x, y }; this.pitLane.points.splice(index, 0, pt); return pt; }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     clearPitLane() { this.pitLane.points = []; }
     addZone(type, segIndex, t, labelOffsetX, labelOffsetY) {
         const zt = F1.ZONE_TYPES.find(z => z.key === type);
@@ -365,15 +347,6 @@ F1.CircuitData = class CircuitData {
         }
     }
 
-<<<<<<< HEAD
-    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), zones: JSON.parse(JSON.stringify(this.zones)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), _nextId: this._nextId }; }
-    _deserialize(d) {
-        this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.zones = d.zones || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
-            { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
-            { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
-            { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ]; this.overlapInversions = d.overlapInversions || []; this._nextId = d._nextId;
-=======
     _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), garage: JSON.parse(JSON.stringify(this.garage)), zones: JSON.parse(JSON.stringify(this.zones)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), showPitlaneNodes: this.showPitlaneNodes, _nextId: this._nextId }; }
     _deserialize(d) {
         this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.garage = d.garage || null; this.zones = d.zones || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
@@ -381,23 +354,14 @@ F1.CircuitData = class CircuitData {
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
         ]; this.overlapInversions = d.overlapInversions || []; this.showPitlaneNodes = d.showPitlaneNodes !== false; this._nextId = d._nextId;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
     toJSON() { return JSON.stringify(this._serialize()); }
     fromJSON(json) { this._deserialize(JSON.parse(json)); this._undoStack = []; this._redoStack = []; }
     clear() {
-<<<<<<< HEAD
-        this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.namePos = { x: 20, y: 16 }; this.pitLane = { points: [], width: 8 }; this.zones = []; this.turnMarkers = []; this.sectorLabels = [
-            { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
-            { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
-            { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ]; this.overlapInversions = [];
-=======
         this.controlPoints = []; this.isClosed = false; this.startNodeId = null; this.gridSize = 50; this.namePos = { x: 20, y: 16 }; this.pitLane = { points: [], width: 8 }; this.garage = null; this.zones = []; this.turnMarkers = []; this.sectorLabels = [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
         ]; this.overlapInversions = []; this.showPitlaneNodes = true;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 };

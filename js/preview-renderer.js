@@ -58,11 +58,6 @@ F1.PreviewRenderer = class PreviewRenderer {
         const track = editor.getInterpolatedTrack();
         if (track.length < 2) { this._placeholder(W, H); return; }
         const tf = this._tf(track, data, W, H);
-<<<<<<< HEAD
-        if (this.layers.track) {
-            this._trackBase(ctx, track, tf);
-            this._sectorEdges(ctx, track, tf, data);
-=======
         if (this.layers.pitLane) {
             this._pitLane(ctx, editor, tf);
             this._garage(ctx, data, tf);
@@ -70,15 +65,10 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (this.layers.track) {
             this._trackBase(ctx, track, tf);
             if (this.layers.sectorEdges !== false) this._sectorEdges(ctx, track, tf, data);
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
             this._renderIntersections(ctx, track, data, tf);
         }
         this._startFinish(ctx, track, data, tf, editor);
-<<<<<<< HEAD
-        if (this.layers.pitLane) this._pitLane(ctx, editor, tf);
-=======
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
         if (this.layers.turnNumbers) this._turnMarkers(ctx, data, editor, track, tf);
         if (this.layers.sectors) this._sectorLabels(ctx, track, data, tf);
@@ -95,15 +85,12 @@ F1.PreviewRenderer = class PreviewRenderer {
             this._info(ctx, data, editor, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
             ctx.restore();
         }
-<<<<<<< HEAD
-=======
         if (this.layers.sectorLegend !== false) {
             ctx.save();
             if (this.exportRatio) ctx.scale(this.exportRatio, this.exportRatio);
             this._sectorLegend(ctx, W / (this.exportRatio || 1), H / (this.exportRatio || 1));
             ctx.restore();
         }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 
     _placeholder(W, H) {
@@ -126,11 +113,7 @@ F1.PreviewRenderer = class PreviewRenderer {
     }
 
     _trackBase(ctx, track, tf) {
-<<<<<<< HEAD
-        ctx.strokeStyle = '#111111'; ctx.lineWidth = 40 * tf.scale; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-=======
         ctx.strokeStyle = this.roadColor || '#000000'; ctx.lineWidth = 40 * tf.scale; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const s = tf.toScreen(track[i].x, track[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
 
@@ -258,22 +241,9 @@ F1.PreviewRenderer = class PreviewRenderer {
             }
             if (subTrack.length < 2) return;
 
-<<<<<<< HEAD
-            // Mask
-            ctx.strokeStyle = this.bgColor || '#0f1a0f';
-            ctx.lineWidth = lwBase;
-            ctx.beginPath();
-            subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
-            ctx.stroke();
-
-            // Base
-            ctx.strokeStyle = '#111111';
-            ctx.lineWidth = lwBase - 2 * tf.scale;
-=======
             // Base
             ctx.strokeStyle = this.roadColor || '#000000';
             ctx.lineWidth = 40 * tf.scale;
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
             ctx.beginPath();
             subTrack.forEach((p, i) => { const s = tf.toScreen(p.x, p.y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); });
             ctx.stroke();
@@ -509,13 +479,13 @@ F1.PreviewRenderer = class PreviewRenderer {
 
         // Checkered flag spanning track width, aligned with direction
         if (this.layers.chequeredFlag !== false) {
-            if (this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
+            const tw = 40 * tf.scale;
+            const th = 14 * tf.scale;
+            if (this.chequeredImg && this.chequeredImg.complete && this.chequeredImg.naturalWidth > 0) {
                 ctx.save();
                 const s = tf.toScreen(p.x, p.y);
                 ctx.translate(s.x, s.y);
                 ctx.rotate(angle + Math.PI / 2);
-                const tw = 40 * tf.scale;
-                const th = 14 * tf.scale;
                 ctx.drawImage(this.chequeredImg, -tw / 2, -th / 2, tw, th);
                 ctx.restore();
             } else {
@@ -524,11 +494,9 @@ F1.PreviewRenderer = class PreviewRenderer {
                 const s = tf.toScreen(p.x, p.y);
                 ctx.translate(s.x, s.y);
                 ctx.rotate(angle + Math.PI / 2);
-                const tw = 40 * tf.scale;
-                const th = 14 * tf.scale;
-                const checks = 8;
+                const checks = Math.max(6, Math.round(tw / 4));
                 const cw = tw / checks;
-                const ch = th / 2;
+                const ch = Math.max(3, th / 2);
                 for (let row = 0; row < 2; row++) {
                     for (let col = 0; col < checks; col++) {
                         ctx.fillStyle = (row + col) % 2 === 0 ? '#fff' : '#000';
@@ -545,9 +513,9 @@ F1.PreviewRenderer = class PreviewRenderer {
             const s2 = tf.toScreen(p.x, p.y);
             ctx.translate(s2.x, s2.y);
             ctx.rotate(angle);
-            ctx.translate(19 * tf.scale, 0); // 7px flag half + 8px gap + 4px arrow base
+            ctx.translate(17 * tf.scale, 0); // 7px flag half + 6px gap + 4px arrow base
 
-            const svgScale = tf.scale;
+            const svgScale = 0.9 * tf.scale;
             ctx.scale(svgScale, svgScale);
             ctx.rotate(Math.PI / 4); // point it forward
             ctx.translate(-12, -12); // center the 24x24 SVG
@@ -560,15 +528,6 @@ F1.PreviewRenderer = class PreviewRenderer {
 
     _pitLane(ctx, editor, tf) {
         const pit = editor.getInterpolatedPitLane(); if (pit.length < 2) return;
-<<<<<<< HEAD
-        ctx.strokeStyle = '#383838'; ctx.lineWidth = Math.max(8, 10 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
-        ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, 1.5 * tf.scale); ctx.setLineDash([4, 4]);
-        ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke(); ctx.setLineDash([]);
-    }
-
-
-=======
         ctx.strokeStyle = this.roadColor || '#000000'; ctx.lineWidth = Math.max(8, 10 * tf.scale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); for (let i = 0; i < pit.length; i++) { const s = tf.toScreen(pit[i].x, pit[i].y); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
     }
@@ -588,7 +547,6 @@ F1.PreviewRenderer = class PreviewRenderer {
         ctx.fillRect(-l/2, -w/2, l, w);
         ctx.restore();
     }
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
 
     /* Turn markers on the SIDE of the track (user-placed, like reference image) */
     _turnMarkers(ctx, data, editor, track, tf) {
@@ -719,30 +677,6 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (len > 0) { ctx.fillStyle = this.infoColor || '#ccc'; ctx.font = '14px Outfit'; ctx.fillText(`Track Length: ${len.toFixed(0)}m (${(len / 1000).toFixed(3)} km)`, 0, 30); }
         ctx.fillStyle = this.infoColor || '#999'; ctx.font = '12px Outfit'; ctx.fillText(`${data.turnMarkers.length} Turns`, 0, 52);
         ctx.restore();
-<<<<<<< HEAD
-
-        // Sector Legend
-        if (legSet.scale > 0) {
-            ctx.save();
-            const lx = 20 + legSet.x;
-            const ly = H - 40 + legSet.y; // Moved closer to bottom
-            ctx.translate(lx, ly);
-            ctx.scale(legSet.scale, legSet.scale);
-
-            ctx.font = 'bold 12px Outfit';
-            let currX = 0;
-            [{ l: 'SECTOR 1', c: this.sectorColors[1] }, { l: 'SECTOR 2', c: this.sectorColors[2] }, { l: 'SECTOR 3', c: this.sectorColors[3] }].forEach(item => {
-                ctx.fillStyle = item.c;
-                ctx.fillRect(currX, 0, 14, 14);
-                ctx.fillStyle = this.infoColor || '#ccc';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(item.l, currX + 22, 7);
-                currX += 100; // Horizontal spacing
-            });
-            ctx.restore();
-        }
-=======
     }
 
     _sectorLegend(ctx, W, H) {
@@ -766,6 +700,5 @@ F1.PreviewRenderer = class PreviewRenderer {
             currX += 100; // Horizontal spacing
         });
         ctx.restore();
->>>>>>> 5c86d62 (v6.0_ml-powered circuit analysis)
     }
 };
