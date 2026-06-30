@@ -556,7 +556,7 @@ body {
 
 #panel-content {
     flex: 1;
-    padding: 12px 14px;
+    padding: 0 14px 12px 14px;
     overflow-y: auto;
 }
 
@@ -565,6 +565,17 @@ body {
     font-weight: 600;
     margin-bottom: 8px;
     color: var(--text);
+    position: sticky;
+    top: 0;
+    background: var(--bg-panel);
+    z-index: 10;
+    padding-top: 12px;
+    padding-bottom: 8px;
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+    backdrop-filter: blur(20px);
 }
 
 .prop-hint {
@@ -851,7 +862,7 @@ kbd {
     transition: box-shadow 0.6s;
 }
 
-#preview-canvas {
+#preview-canvas, #preview-3d-canvas {
     display: block;
     width: 100%;
     height: 100%;

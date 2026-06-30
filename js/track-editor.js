@@ -11,9 +11,11 @@ F1.TrackEditor = class TrackEditor {
 
     _cr(p0, p1, p2, p3, t) {
         const t2 = t * t, t3 = t2 * t;
+        const z0 = p0.z || 0, z1 = p1.z || 0, z2 = p2.z || 0, z3 = p3.z || 0;
         return {
             x: .5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-            y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+            y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+            z: .5 * ((2 * z1) + (-z0 + z2) * t + (2 * z0 - 5 * z1 + 4 * z2 - z3) * t2 + (-z0 + 3 * z1 - 3 * z2 + z3) * t3)
         };
     }
     _crDeriv(p0, p1, p2, p3, t) {
@@ -23,7 +25,7 @@ F1.TrackEditor = class TrackEditor {
             y: .5 * ((-p0.y + p2.y) + (4 * p0.y - 10 * p1.y + 8 * p2.y - 2 * p3.y) * t + (-3 * p0.y + 9 * p1.y - 9 * p2.y + 3 * p3.y) * t2)
         };
     }
-    _mirror(a, b) { return { x: 2 * a.x - b.x, y: 2 * a.y - b.y, widthLeft: a.widthLeft, widthRight: a.widthRight }; }
+    _mirror(a, b) { return { x: 2 * a.x - b.x, y: 2 * a.y - b.y, z: 2 * (a.z || 0) - (b.z || 0), widthLeft: a.widthLeft, widthRight: a.widthRight }; }
 
     getInterpolatedTrack() {
         const pts = this.data.controlPoints, n = pts.length;
@@ -43,11 +45,11 @@ F1.TrackEditor = class TrackEditor {
                 const tang = this._crDeriv(p0, p1, p2, p3, t);
                 const len = Math.hypot(tang.x, tang.y) || 1;
                 result.push({
-                    x: pos.x, y: pos.y, nx: -tang.y / len, ny: tang.x / len,
+                    x: pos.x, y: pos.y, z: pos.z, nx: -tang.y / len, ny: tang.x / len,
                     widthLeft: p1.widthLeft + (p2.widthLeft - p1.widthLeft) * t,
                     widthRight: p1.widthRight + (p2.widthRight - p1.widthRight) * t,
-                    surfaceWidthLeft: p1.surfaceWidthLeft + (p2.surfaceWidthLeft - p1.surfaceWidthLeft) * t,
-                    surfaceWidthRight: p1.surfaceWidthRight + (p2.surfaceWidthRight - p1.surfaceWidthRight) * t,
+                    surfaceWidthLeft: (p1.surfaceWidthLeft ?? 10) + ((p2.surfaceWidthLeft ?? 10) - (p1.surfaceWidthLeft ?? 10)) * t,
+                    surfaceWidthRight: (p1.surfaceWidthRight ?? 10) + ((p2.surfaceWidthRight ?? 10) - (p1.surfaceWidthRight ?? 10)) * t,
                     surfaceLeft: p1.surfaceLeft, surfaceRight: p1.surfaceRight,
                     barrierLeft: p1.barrierLeft, barrierRight: p1.barrierRight,
                     sector: p1.sector, segIndex: i, t
@@ -71,11 +73,11 @@ F1.TrackEditor = class TrackEditor {
                 const pos = this._cr(p0, p1, p2, p3, t);
                 const tang = this._crDeriv(p0, p1, p2, p3, t);
                 const len = Math.hypot(tang.x, tang.y) || 1;
-                result.push({ x: pos.x, y: pos.y, nx: -tang.y / len, ny: tang.x / len, segIndex: i });
+                result.push({ x: pos.x, y: pos.y, z: pos.z, nx: -tang.y / len, ny: tang.x / len, segIndex: i });
             }
         }
         const last = result[result.length - 1];
-        result.push({ ...pts[n - 1], nx: last?.nx || 0, ny: last?.ny || -1, segIndex: n - 2 });
+        result.push({ ...pts[n - 1], nx: last?.nx || 0, ny: last?.ny || -1, segIndex: n - 2, z: pts[n - 1].z || 0 });
         return result;
     }
 

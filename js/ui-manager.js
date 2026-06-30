@@ -40,10 +40,11 @@ F1.UIManager = class UIManager {
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthLeft * sm).toFixed(1)}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${(pt.widthLeft * sm).toFixed(1)}" step="${0.5 * sm}" min="${5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthRight * sm).toFixed(1)}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${(pt.widthRight * sm).toFixed(1)}" step="${0.5 * sm}" min="${5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row" style="margin-top: 6px;"><span class="prop-label" style="width:30px" title="Elevation (m)">E</span><input type="range" min="-100" max="100" step="0.5" value="${(pt.z || 0).toFixed(1)}" id="prop-z" class="prop-slider"><input type="number" id="prop-z-val" value="${(pt.z || 0).toFixed(1)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-tw">Reset Track Width</button></div>`;
         h += `<div class="prop-group"><label>Run-off Width <span style="text-transform:none">(m)</span></label>
-            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${(pt.surfaceWidthLeft * sm).toFixed(1)}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${(pt.surfaceWidthLeft * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${(pt.surfaceWidthRight * sm).toFixed(1)}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${(pt.surfaceWidthRight * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${((pt.surfaceWidthLeft ?? 10) * sm).toFixed(1)}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${((pt.surfaceWidthLeft ?? 10) * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${((pt.surfaceWidthRight ?? 10) * sm).toFixed(1)}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${((pt.surfaceWidthRight ?? 10) * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-swb" class="prop-slider"><input type="number" id="prop-swb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-sw">Reset Run-off Width</button></div>`;
         h += `<div class="prop-group"><label>Sector</label><div class="sector-btns" style="display:flex; flex-wrap:nowrap;">
@@ -52,6 +53,8 @@ F1.UIManager = class UIManager {
             <button class="sector-btn s3 ${pt.sector === 3 ? 'active' : ''}" data-sec="3">S3</button></div></div>`;
         return h;
     }
+
+
 
     _nodeProps(sel) {
         let h = `<h3 class="prop-title">Insert Nodes</h3>
@@ -426,14 +429,15 @@ F1.UIManager = class UIManager {
 
         runoffs.sort((a, b) => this.app.data.getLogicalNodeIndex(a.pt.id) - this.app.data.getLogicalNodeIndex(b.pt.id));
 
-        // Ensure there is always a valid selection for the dropdown if none is set
-        if (!sel || (sel.type !== 'runoff' && sel.type !== 'barrier')) {
-            sel = { type: 'runoff', id: runoffs[0]?.pt.id, side: 'left' };
-            this.app.selection = sel; // Auto-select the first one
-        }
-
         h += `<div class="prop-group" style="margin-top: 5px;"><label class="chk-label prop-hint">Select a Run-off to edit</label>
             <select class="prop-input" id="prop-runoff-selector" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 5px;">`;
+
+        const isNoneSelected = !sel || (sel.type !== 'runoff' && sel.type !== 'barrier');
+        if (isNoneSelected) {
+            h += `<option value="" disabled selected>-- Select Run-off --</option>`;
+        } else {
+            h += `<option value="" disabled>-- Select Run-off --</option>`;
+        }
 
         runoffs.forEach(r => {
             const isSelected = sel && (sel.type === 'runoff' || sel.type === 'barrier') && sel.id === r.pt.id && sel.side === r.side;
@@ -444,8 +448,10 @@ F1.UIManager = class UIManager {
         });
         h += `</select></div>`;
 
-        if (sel && (sel.type === 'runoff' || sel.type === 'barrier')) {
+        if (!isNoneSelected) {
             h += this._runoffBarrierProps(sel);
+        } else {
+            h += `<p class="prop-hint" style="margin-top: 10px;">Select a run-off from the dropdown or click on the map to edit its properties.</p>`;
         }
 
         return h;
@@ -1440,7 +1446,15 @@ F1.UIManager = class UIManager {
             b.onclick = () => {
                 const s = parseInt(b.dataset.sec);
                 if (this.app.activeToolName === 'sector') this.app.tools.sector.currentSector = s;
-                else if (this.app.selection && this.app.selection.type === 'cp') { const pt = this.app.data.getPointById(this.app.selection.id); if (pt) { this.app.data.snapshot(); pt.sector = s; } }
+                else if (this.app.selection && this.app.selection.type === 'cp') { 
+                    const pt = this.app.data.getPointById(this.app.selection.id); 
+                    if (pt) { 
+                        this.app.data.snapshot(); 
+                        pt.sector = s; 
+                        this.app.editor._needsUpdate = true;
+                        if (this.app.preview3D) this.app.preview3D.app.editor._needsUpdate = true;
+                    } 
+                }
                 this.updateProperties(); this.app.requestRender();
             };
         });
@@ -1633,6 +1647,17 @@ F1.UIManager = class UIManager {
                 if (px) px.onchange = () => { pt.x = parseFloat(px.value); this.app.requestRender(); };
                 const py = document.getElementById('prop-y-val');
                 if (py) py.onchange = () => { pt.y = parseFloat(py.value); this.app.requestRender(); };
+                
+                const pz = document.getElementById('prop-z');
+                const pzv = document.getElementById('prop-z-val');
+                if (pz && pzv) {
+                    pz.oninput = () => { pt.z = parseFloat(pz.value); pzv.value = pz.value; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                    pzv.onchange = () => { let v = parseFloat(pzv.value); if(isNaN(v)) v=0; pt.z = v; pz.value = v; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                }
+                const btnResElev = document.getElementById('btn-reset-elev');
+                if (btnResElev) {
+                    btnResElev.onclick = () => { pt.z = 0; if(pz) pz.value = 0; if(pzv) pzv.value = 0; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                }
 
                 const sm = (this.app.data.gridSize || 50) / 50.0;
                 const b = (sl, inp, key) => {

@@ -79,7 +79,7 @@
                     <path d="M12 19l7-7 3 3-7 7-3-3z" />
                     <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
                 </svg><span>Draw</span></button>
-            <button class="tool-btn" data-tool="eraser" title="Eraser (E)"><svg width="20" height="20"
+            <button class="tool-btn" data-tool="eraser" title="Eraser (X)"><svg width="20" height="20"
                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 20H7L3 16l10-10 8 8-4 4" />
                     <path d="M6 11l8 8" />
@@ -104,7 +104,7 @@
                     <path d="M16 3l5 5-9.5 9.5" />
                 </svg><span>Run-off</span></button>
 
-            <button class="tool-btn" data-tool="sector" title="Sectors (1)"><svg width="20" height="20"
+            <button class="tool-btn" data-tool="sector" title="Sectors (O)"><svg width="20" height="20"
                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 2a10 10 0 014.5 1.5" />
@@ -169,7 +169,20 @@
                 </svg>
                 <span>Full View</span>
             </button>
+            <button id="btn-toggle-editor-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+                <span>3D View</span>
+            </button>
+            <div id="view-3d-controls-editor" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:8px; padding:6px; z-index:100; gap:8px;">
+                <button class="prop-btn" data-view="top" title="Top View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Top</button>
+                <button class="prop-btn" data-view="front" title="Front View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Front</button>
+                <button class="prop-btn" data-view="side" title="Side View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Side</button>
+                <button class="prop-btn" data-view="iso" title="Isometric View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Iso</button>
+            </div>
             <canvas id="main-canvas"></canvas>
+            <canvas id="editor-3d-canvas" style="display:none; width:100%; height:100%;"></canvas>
             <div id="canvas-hint"><span>Scroll to zoom · Alt+Drag to pan</span></div>
         </div>
 
@@ -194,11 +207,11 @@
                                 <div
                                     style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
                                     <div class="color-circle" data-for="editor-bg-color"
-                                        style="width:24px;height:24px;border-radius:50%;background:#0f1a0f;border:2px solid #444;cursor:pointer;flex-shrink:0;"
+                                        style="width:24px;height:24px;border-radius:50%;background:#11223A;border:2px solid #444;cursor:pointer;flex-shrink:0;"
                                         title="Click to pick color"></div>
-                                    <input type="text" id="editor-bg-color-hex" value="#0f1a0f" maxlength="7"
+                                    <input type="text" id="editor-bg-color-hex" value="#11223A" maxlength="7"
                                         style="width:55px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#ddd;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px;text-transform:uppercase;">
-                                    <input type="color" id="editor-bg-color" value="#0f1a0f"
+                                    <input type="color" id="editor-bg-color" value="#11223A"
                                         style="position:absolute; left:0; top:0; width:24px; height:24px; padding:0; border:0; opacity:0; pointer-events:none;">
                                 </div>
                                 <div class="color-swatches" data-target="editor-bg-color"
@@ -246,11 +259,11 @@
                                 <div
                                     style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
                                     <div class="color-circle" data-for="preview-bg-color"
-                                        style="width:24px;height:24px;border-radius:50%;background:#0f1a0f;border:2px solid #444;cursor:pointer;flex-shrink:0;"
+                                        style="width:24px;height:24px;border-radius:50%;background:#11223A;border:2px solid #444;cursor:pointer;flex-shrink:0;"
                                         title="Click to pick color"></div>
-                                    <input type="text" id="preview-bg-color-hex" value="#0f1a0f" maxlength="7"
+                                    <input type="text" id="preview-bg-color-hex" value="#11223A" maxlength="7"
                                         style="width:55px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#ddd;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px;text-transform:uppercase;">
-                                    <input type="color" id="preview-bg-color" value="#0f1a0f"
+                                    <input type="color" id="preview-bg-color" value="#11223A"
                                         style="position:absolute; left:0; top:0; width:24px; height:24px; padding:0; border:0; opacity:0; pointer-events:none;">
                                 </div>
                                 <div class="color-swatches" data-target="preview-bg-color"
@@ -298,11 +311,11 @@
                                 <div
                                     style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
                                     <div class="color-circle" data-for="name-text-color"
-                                        style="width:24px;height:24px;border-radius:50%;background:#7081FF;border:2px solid #444;cursor:pointer;flex-shrink:0;"
+                                        style="width:24px;height:24px;border-radius:50%;background:#ffffff;border:2px solid #444;cursor:pointer;flex-shrink:0;"
                                         title="Click to pick color"></div>
-                                    <input type="text" id="name-text-color-hex" value="#7081FF" maxlength="7"
+                                    <input type="text" id="name-text-color-hex" value="#ffffff" maxlength="7"
                                         style="width:55px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#ddd;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px;text-transform:uppercase;">
-                                    <input type="color" id="name-text-color" value="#7081FF"
+                                    <input type="color" id="name-text-color" value="#ffffff"
                                         style="position:absolute; left:0; top:0; width:24px; height:24px; padding:0; border:0; opacity:0; pointer-events:none;">
                                 </div>
                                 <div class="color-swatches" data-target="name-text-color"
@@ -326,11 +339,11 @@
                                 <div
                                     style="position:relative; display:flex; align-items:center; gap:6px; margin-top:4px;">
                                     <div class="color-circle" data-for="info-text-color"
-                                        style="width:24px;height:24px;border-radius:50%;background:#2B44BF;border:2px solid #444;cursor:pointer;flex-shrink:0;"
+                                        style="width:24px;height:24px;border-radius:50%;background:#ffffff;border:2px solid #444;cursor:pointer;flex-shrink:0;"
                                         title="Click to pick color"></div>
-                                    <input type="text" id="info-text-color-hex" value="#2B44BF" maxlength="7"
+                                    <input type="text" id="info-text-color-hex" value="#ffffff" maxlength="7"
                                         style="width:55px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#ddd;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px;text-transform:uppercase;">
-                                    <input type="color" id="info-text-color" value="#2B44BF"
+                                    <input type="color" id="info-text-color" value="#ffffff"
                                         style="position:absolute; left:0; top:0; width:24px; height:24px; padding:0; border:0; opacity:0; pointer-events:none;">
                                 </div>
                                 <div class="color-swatches" data-target="info-text-color"
@@ -426,13 +439,15 @@
 
                         <div class="shortcut"><kbd>A</kbd> Auto Fit</div>
                         <div class="shortcut"><kbd>F</kbd> Full View</div>
+                        <div class="shortcut"><kbd>V</kbd> Toggle 3D</div>
                         <div class="shortcut"><kbd>W</kbd> Width</div>
                         <div class="shortcut"><kbd>B</kbd> Barrier</div>
                         <div class="shortcut"><kbd>T</kbd> Turns</div>
                         <div class="shortcut"><kbd>M</kbd> Straight Mode</div>
                         <div class="shortcut"><kbd>Z</kbd> Zones</div>
-                        <div class="shortcut"><kbd>1</kbd> Sectors</div>
-                        <div class="shortcut"><kbd>E</kbd> Eraser</div>
+                        <div class="shortcut"><kbd>O</kbd> Sectors</div>
+                        <div class="shortcut"><kbd>E</kbd> Elevation</div>
+                        <div class="shortcut"><kbd>X</kbd> Eraser</div>
                         <div class="shortcut"><kbd>Ctrl+M</kbd> Gen. Map</div>
                         <div class="shortcut"><kbd>Ctrl+S</kbd> Save</div>
                         <div class="shortcut"><kbd>Ctrl+O</kbd> Load</div>
@@ -454,7 +469,20 @@
                 </svg>
                 <span>Full View</span>
             </button>
+            <button id="btn-toggle-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+                <span>3D View</span>
+            </button>
+            <div id="view-3d-controls" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:8px; padding:6px; z-index:100; gap:8px;">
+                <button class="prop-btn" data-view="top" title="Top View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Top</button>
+                <button class="prop-btn" data-view="front" title="Front View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Front</button>
+                <button class="prop-btn" data-view="side" title="Side View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Side</button>
+                <button class="prop-btn" data-view="iso" title="Isometric View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Iso</button>
+            </div>
             <canvas id="preview-canvas"></canvas>
+            <canvas id="preview-3d-canvas" style="display:none;"></canvas>
         </div>
     </div>
 
@@ -856,16 +884,21 @@
         </div>
     </div>
 
-    <script src="js/ml-models.js?v=101"></script>
-    <script src="js/circuit-data.js?v=101"></script>
-    <script src="js/track-editor.js?v=101"></script>
-    <script src="js/canvas-renderer.js?v=101"></script>
-    <script src="js/preview-renderer.js?v=101"></script>
-    <script src="js/svg-exporter.js?v=101"></script>
-    <script src="js/tools.js?v=101"></script>
-    <script src="js/hotlap-simulator.js?v=101"></script>
-    <script src="js/ui-manager.js?v=101"></script>
-    <script src="js/app.js?v=101"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <script src="js/ml-models.js?v=103"></script>
+    <script src="js/circuit-data.js?v=103"></script>
+    <script src="js/track-editor.js?v=110"></script>
+    <script src="js/3d-editor.js?v=126"></script>
+    <script src="js/canvas-renderer.js?v=107"></script>
+    <script src="js/preview-renderer.js?v=104"></script>
+    <script src="js/svg-exporter.js?v=103"></script>
+    <script src="js/tools.js?v=108"></script>
+    <script src="js/hotlap-simulator.js?v=103"></script>
+    <script src="js/ui-manager.js?v=110"></script>
+    <script src="js/app.js?v=115"></script>
 </body>
 
 </html>

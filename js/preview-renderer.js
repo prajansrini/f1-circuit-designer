@@ -14,9 +14,9 @@ F1.PreviewRenderer = class PreviewRenderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.sectorColors = { 1: '#E70E6C', 2: '#FBCF02', 3: '#369BE5' };
-        this.bgColor = '#0f1a0f';
-        this.infoColor = '#2B44BF';
-        this.nameColor = '#7081FF';
+        this.bgColor = '#11223A';
+        this.infoColor = '#ffffff';
+        this.nameColor = '#ffffff';
         this.layers = {};
         F1.PREVIEW_LAYERS.forEach(l => this.layers[l.key] = l.default);
 

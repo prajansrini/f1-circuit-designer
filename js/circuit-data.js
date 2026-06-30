@@ -80,10 +80,12 @@ F1.CircuitData = class CircuitData {
             p0 = i > 0 ? pts[i - 1] : { x: 2 * pts[0].x - pts[1].x, y: 2 * pts[0].y - pts[1].y };
             p3 = i < n - 2 ? pts[i + 2] : { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
         }
+        const z0 = p0.z || 0, z1 = p1.z || 0, z2 = p2.z || 0, z3 = p3.z || 0;
         const t2 = t * t, t3 = t2 * t;
         return {
             x: .5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-            y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+            y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+            z: .5 * ((2 * z1) + (-z0 + z2) * t + (2 * z0 - 5 * z1 + 4 * z2 - z3) * t2 + (-z0 + 3 * z1 - 3 * z2 + z3) * t3)
         };
     }
 
@@ -148,7 +150,7 @@ F1.CircuitData = class CircuitData {
     insertControlPoint(x, y, index) {
         const saved = this._saveZoneWorldPositions();
         const pt = {
-            id: this._genId(), x, y, widthLeft: 12, widthRight: 12,
+            id: this._genId(), x, y, z: 0, widthLeft: 12, widthRight: 12,
             surfaceLeft: 'grass', surfaceRight: 'grass',
             surfaceWidthLeft: 10, surfaceWidthRight: 10,
             barrierLeft: false, barrierRight: false, sector: 0
