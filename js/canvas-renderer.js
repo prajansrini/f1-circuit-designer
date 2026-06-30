@@ -16,7 +16,7 @@ F1.Renderer = class Renderer {
         this.showGrid = true; this.showCtrlPts = true;
         this.gridColor = '#ffffff'; this.gridOpacity = 0.04;
         this.C = {
-            bg: '#0f1a0f', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
+            bg: '#11223A', grass: '#1e3d1e', track: '#2a2a2a', trackEdge: '#cccccc',
             gravel: '#b8a070', asphaltRun: '#444', barrier: '#e10600',
             pitLane: '#111', pitLine: '#ffff00',
             s1: '#E70E6C', s2: '#FBCF02', s3: '#369BE5',
@@ -32,6 +32,7 @@ F1.Renderer = class Renderer {
         this.stripsImg = new Image();
         this.stripsImg.src = 'resources/strips.svg';
 
+        this.hideBarriers = false;
         this.resize();
     }
     resize() { const c = this.canvas.parentElement; if (c) { this.canvas.width = c.clientWidth; this.canvas.height = c.clientHeight; } }
@@ -104,7 +105,8 @@ F1.Renderer = class Renderer {
         this._garage(data, sel);
         if (track.length > 1) {
             this._surfaces(track); this._sectorStripes(track, data); this._trackSurface(track);
-            this._barriers(track); this._highlightSelection(track, data, sel); this._straightModeZones(data, editor, track, sel);
+            if (!this.hideBarriers) this._barriers(track); 
+            this._highlightSelection(track, data, sel); this._straightModeZones(data, editor, track, sel);
             this._renderIntersections(track, data, editor, sel);
             this._startFinish(track, data);
         }
@@ -156,16 +158,46 @@ F1.Renderer = class Renderer {
             if (st === 'none') { i++; continue; }
             let j = i; while (j < track.length - 1 && (isL ? track[j].surfaceLeft : track[j].surfaceRight) === st) j++;
             ctx.fillStyle = st === 'gravel' ? this.C.gravel : st === 'asphalt' ? this.C.asphaltRun : this.C.grass;
-            ctx.beginPath();
-            for (let k = i; k <= Math.min(j, track.length - 1); k++) {
-                const p = track[k], sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10), w = (isL ? p.widthLeft : p.widthRight) + sw, sgn = isL ? -1 : 1;
-                const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn); k === i ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
+            // Draw segment by segment to avoid self-intersection holes on sharp corners
+            for (let k = i; k < Math.min(j, track.length - 1); k++) {
+                const p1 = track[k], p2 = track[k+1];
+                const sw1 = isL ? (p1.surfaceWidthLeft ?? 10) : (p1.surfaceWidthRight ?? 10);
+                const sw2 = isL ? (p2.surfaceWidthLeft ?? 10) : (p2.surfaceWidthRight ?? 10);
+                const w1_outer = (isL ? p1.widthLeft : p1.widthRight) + sw1;
+                const w2_outer = (isL ? p2.widthLeft : p2.widthRight) + sw2;
+                const w1_inner = isL ? p1.widthLeft : p1.widthRight;
+                const w2_inner = isL ? p2.widthLeft : p2.widthRight;
+                const sgn = isL ? -1 : 1;
+                
+                let o1 = this.w2s(p1.x + p1.nx * w1_outer * sgn, p1.y + p1.ny * w1_outer * sgn);
+                let o2 = this.w2s(p2.x + p2.nx * w2_outer * sgn, p2.y + p2.ny * w2_outer * sgn);
+                const i2 = this.w2s(p2.x + p2.nx * w2_inner * sgn, p2.y + p2.ny * w2_inner * sgn);
+                const i1 = this.w2s(p1.x + p1.nx * w1_inner * sgn, p1.y + p1.ny * w1_inner * sgn);
+                
+                const denom = (o2.y - i2.y) * (o1.x - i1.x) - (o2.x - i2.x) * (o1.y - i1.y);
+                if (denom !== 0) {
+                    const ua = ((o2.x - i2.x) * (i1.y - i2.y) - (o2.y - i2.y) * (i1.x - i2.x)) / denom;
+                    const ub = ((o1.x - i1.x) * (i1.y - i2.y) - (o1.y - i1.y) * (i1.x - i2.x)) / denom;
+                    if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                        const ix = i1.x + ua * (o1.x - i1.x);
+                        const iy = i1.y + ua * (o1.y - i1.y);
+                        o1 = { x: ix, y: iy };
+                        o2 = { x: ix, y: iy };
+                    }
+                }
+                
+                ctx.beginPath();
+                ctx.moveTo(o1.x, o1.y);
+                ctx.lineTo(o2.x, o2.y);
+                ctx.lineTo(i2.x, i2.y);
+                ctx.lineTo(i1.x, i1.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
             }
-            for (let k = Math.min(j, track.length - 1); k >= i; k--) {
-                const p = track[k], w = isL ? p.widthLeft : p.widthRight, sgn = isL ? -1 : 1;
-                const s = this.w2s(p.x + p.nx * w * sgn, p.y + p.ny * w * sgn); ctx.lineTo(s.x, s.y);
-            }
-            ctx.closePath(); ctx.fill(); i = j;
+            i = j;
         }
     }
 
@@ -178,10 +210,41 @@ F1.Renderer = class Renderer {
         ctx.beginPath(); for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); } ctx.stroke();
 
         // 2. Draw road fill ON TOP, masking any edge lines or sector stripes that cross inward
-        ctx.fillStyle = this.C.track; ctx.beginPath();
-        for (let i = 0; i < track.length; i++) { const p = track[i], s = this.w2s(p.x - p.nx * p.widthLeft, p.y - p.ny * p.widthLeft); i === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y); }
-        for (let i = track.length - 1; i >= 0; i--) { const p = track[i], s = this.w2s(p.x + p.nx * p.widthRight, p.y + p.ny * p.widthRight); ctx.lineTo(s.x, s.y); }
-        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = this.C.track; 
+        for (let i = 0; i < track.length - 1; i++) {
+            const p1 = track[i], p2 = track[i+1];
+            let o1 = this.w2s(p1.x - p1.nx * p1.widthLeft, p1.y - p1.ny * p1.widthLeft);
+            let o2 = this.w2s(p2.x - p2.nx * p2.widthLeft, p2.y - p2.ny * p2.widthLeft);
+            let i2 = this.w2s(p2.x + p2.nx * p2.widthRight, p2.y + p2.ny * p2.widthRight);
+            let i1 = this.w2s(p1.x + p1.nx * p1.widthRight, p1.y + p1.ny * p1.widthRight);
+            
+            // Left side bowtie check
+            const cx = this.w2s(p1.x, p1.y);
+            const cx2 = this.w2s(p2.x, p2.y);
+            let denomL = (o2.y - cx2.y) * (o1.x - cx.x) - (o2.x - cx2.x) * (o1.y - cx.y);
+            if (denomL !== 0) {
+                const ua = ((o2.x - cx2.x) * (cx.y - cx2.y) - (o2.y - cx2.y) * (cx.x - cx2.x)) / denomL;
+                const ub = ((o1.x - cx.x) * (cx.y - cx2.y) - (o1.y - cx.y) * (cx.x - cx2.x)) / denomL;
+                if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                    const ix = cx.x + ua * (o1.x - cx.x), iy = cx.y + ua * (o1.y - cx.y);
+                    o1 = { x: ix, y: iy }; o2 = { x: ix, y: iy };
+                }
+            }
+            // Right side bowtie check
+            let denomR = (i2.y - cx2.y) * (i1.x - cx.x) - (i2.x - cx2.x) * (i1.y - cx.y);
+            if (denomR !== 0) {
+                const ua = ((i2.x - cx2.x) * (cx.y - cx2.y) - (i2.y - cx2.y) * (cx.x - cx2.x)) / denomR;
+                const ub = ((i1.x - cx.x) * (cx.y - cx2.y) - (i1.y - cx.y) * (cx.x - cx2.x)) / denomR;
+                if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                    const ix = cx.x + ua * (i1.x - cx.x), iy = cx.y + ua * (i1.y - cx.y);
+                    i1 = { x: ix, y: iy }; i2 = { x: ix, y: iy };
+                }
+            }
+            
+            ctx.beginPath(); ctx.moveTo(o1.x, o1.y); ctx.lineTo(o2.x, o2.y); ctx.lineTo(i2.x, i2.y); ctx.lineTo(i1.x, i1.y); ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.5; ctx.stroke();
+        }
 
         // 3. Draw center dash line last
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = Math.max(.5, .8 * this.scale); ctx.setLineDash([8 * this.scale, 12 * this.scale]);
@@ -221,7 +284,7 @@ F1.Renderer = class Renderer {
     }
 
     _barriers(track) {
-        const ctx = this.ctx; ctx.strokeStyle = this.C.barrier; ctx.lineWidth = Math.max(3, 4 * this.scale);
+        const ctx = this.ctx; ctx.strokeStyle = this.C.barrier; ctx.lineWidth = Math.max(1, 2 * this.scale);
         let i = 0;
         while (i < track.length - 1) {
             const hasL = track[i].barrierLeft, hasR = track[i].barrierRight;
@@ -791,10 +854,8 @@ F1.Renderer = class Renderer {
             const isSel = sel && sel.type === 'cp' && sel.id === pt.id;
             const isHov = hoverPt && hoverPt.id === pt.id;
             if (isSel || isHov) {
-                ctx.strokeStyle = 'rgba(0,255,136,0.15)'; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.arc(s.x, s.y, (pt.widthLeft + (pt.surfaceWidthLeft ?? 10)) * this.scale, 0, Math.PI * 2); ctx.stroke();
-                ctx.strokeStyle = 'rgba(0,255,136,0.25)';
-                ctx.beginPath(); ctx.arc(s.x, s.y, pt.widthLeft * this.scale, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = 'rgba(0,255,136,0.5)'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(s.x, s.y, 12, 0, Math.PI * 2); ctx.stroke();
             }
             ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
             ctx.fillStyle = isSel ? this.C.cpSel : isHov ? this.C.cpHover : this.C.cp; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();

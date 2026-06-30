@@ -11,6 +11,30 @@ class BaseTool {
     activate() { } deactivate() { }
     onMouseDown(wx, wy, e) { } onMouseMove(wx, wy, e) { } onMouseUp(wx, wy, e) { } onKeyDown(e) { }
     getCursor() { return 'default'; }
+    
+    applySnapping(wx, wy, e, refNode = null) {
+        if (!e) return { x: wx, y: wy };
+        
+        let snappedX = wx, snappedY = wy;
+        // Grid Snapping (Alt)
+        if (e.altKey) {
+            const gridSize = this.data.gridSize || 50;
+            snappedX = Math.round(snappedX / gridSize) * gridSize;
+            snappedY = Math.round(snappedY / gridSize) * gridSize;
+        } 
+        // Angle Snapping (Shift)
+        else if (e.shiftKey && refNode) {
+            const dx = wx - refNode.x;
+            const dy = wy - refNode.y;
+            const angle = Math.atan2(dy, dx);
+            const dist = Math.hypot(dx, dy);
+            // Snap to 15 degree increments (PI / 12)
+            const snapAngle = Math.round(angle / (Math.PI / 12)) * (Math.PI / 12);
+            snappedX = refNode.x + Math.cos(snapAngle) * dist;
+            snappedY = refNode.y + Math.sin(snapAngle) * dist;
+        }
+        return { x: snappedX, y: snappedY };
+    }
 
     _hitRotatedRect(wx, wy, cx, cy, rot, hw, hh) {
         const dx = wx - cx, dy = wy - cy, angle = -(rot || 0) * Math.PI / 180;
@@ -329,19 +353,23 @@ class SelectTool extends BaseTool {
         this.app.setSelection(null);
     }
 
-    onMouseMove(wx, wy) {
+    onMouseMove(wx, wy, e) {
         if (this.rotatingObj) {
             // For objects with direct x/y
             if (this.rotatingObj.x !== undefined && this.rotatingObj.y !== undefined) {
                 const a = Math.atan2(wx - this.rotatingObj.x, this.rotatingObj.y - wy) * 180 / Math.PI;
-                this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+                let snapAngle = a;
+                if (e && e.shiftKey) snapAngle = Math.round(a / 15) * 15;
+                this.rotatingObj.rotation = ((snapAngle % 360) + 360) % 360;
             } else if (this.rotatingObj.labelOffsetX !== undefined || this.rotatingObj.side !== undefined) {
                 // For labels and turn markers, use screen center
                 const s = this.renderer.w2s(wx, wy);
                 const rc = this._getRotatingCenter();
                 if (rc) {
                     const a = Math.atan2(s.x - rc.x, rc.y - s.y) * 180 / Math.PI;
-                    this.rotatingObj.rotation = ((a % 360) + 360) % 360;
+                    let snapAngle = a;
+                    if (e && e.shiftKey) snapAngle = Math.round(a / 15) * 15;
+                    this.rotatingObj.rotation = ((snapAngle % 360) + 360) % 360;
                 }
             }
             this.app.uiManager.updateProperties(); this.app.requestRender(); return;
@@ -352,7 +380,14 @@ class SelectTool extends BaseTool {
             const obj = this.dragging.obj;
 
             if (type === 'cp' || type === 'grandstand' || type === 'garage' || type === 'pit') {
-                obj.x = wx; obj.y = wy;
+                let refNode = null;
+                if (type === 'cp') {
+                    const idx = this.data.controlPoints.indexOf(obj);
+                    if (idx > 0) refNode = this.data.controlPoints[idx - 1];
+                    else if (idx === 0 && this.data.isClosed) refNode = this.data.controlPoints[this.data.controlPoints.length - 1];
+                }
+                const snap = this.applySnapping(wx, wy, e, refNode);
+                obj.x = snap.x; obj.y = snap.y;
             }
             else if (type === 'turn') {
                 const n = this.editor.findNearestTrackPoint(wx, wy);
@@ -615,7 +650,7 @@ class TurnTool extends BaseTool {
 /* ---- Draw Track ---- */
 class DrawTrackTool extends BaseTool {
     getCursor() { return 'crosshair'; }
-    onMouseDown(wx, wy) {
+    onMouseDown(wx, wy, e) {
         if (this.data.isClosed) return;
         if (this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale)) {
             this.data.snapshot(); this.data.closeTrack();
@@ -624,10 +659,12 @@ class DrawTrackTool extends BaseTool {
             this.app.requestRender(); return;
         }
         this.data.snapshot();
-        const pt = this.data.addControlPoint(wx, wy);
+        const refNode = this.data.controlPoints.length > 0 ? this.data.controlPoints[this.data.controlPoints.length - 1] : null;
+        const snap = this.applySnapping(wx, wy, e, refNode);
+        const pt = this.data.addControlPoint(snap.x, snap.y);
         this.app.setSelection({ type: 'cp', id: pt.id }); this.app.requestRender();
     }
-    onMouseMove(wx, wy) {
+    onMouseMove(wx, wy, e) {
         this.app.hoverPoint = !this.data.isClosed && this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale) ? this.data.controlPoints[0] : null;
         this.app.requestRender();
     }
@@ -641,14 +678,20 @@ class NodeTool extends BaseTool {
         this.draggingNode = null;
     }
     getCursor() { return (this.hoverNode || this.draggingNode) ? 'move' : 'crosshair'; }
-    onMouseMove(wx, wy) {
+    onMouseMove(wx, wy, e) {
         if (this.draggingNode) {
-            this.draggingNode.x = wx;
-            this.draggingNode.y = wy;
+            let refNode = null;
+            const idx = this.data.controlPoints.findIndex(p => p.id === this.draggingNode.id);
+            if (idx > 0) refNode = this.data.controlPoints[idx - 1];
+            else if (idx === 0 && this.data.isClosed) refNode = this.data.controlPoints[this.data.controlPoints.length - 1];
+
+            const snap = this.applySnapping(wx, wy, e, refNode);
+            this.draggingNode.x = snap.x;
+            this.draggingNode.y = snap.y;
             const px = document.getElementById('prop-x-val');
-            if (px) px.value = wx.toFixed(2);
+            if (px) px.value = snap.x.toFixed(2);
             const py = document.getElementById('prop-y-val');
-            if (py) py.value = wy.toFixed(2);
+            if (py) py.value = snap.y.toFixed(2);
             this.app.requestRender();
             return;
         }
@@ -725,31 +768,10 @@ class WidthTool extends BaseTool {
 class SurfacePainterTool extends BaseTool {
     constructor(app) { 
         super(app); 
-        this.paintMode = 'surface'; // 'surface' or 'barrier'
-        this.surfaceType = 'gravel'; 
-        this.barrierOn = true;
-        this.painting = false; 
     }
-    getCursor() { return 'cell'; }
-    _apply(wx, wy) {
-        const n = this.editor.findNearestTrackPoint(wx, wy);
-        if (!n.point || n.dist > 80 / this.renderer.scale) return;
-        const pt = this.data.controlPoints[n.point.segIndex]; if (!pt) return;
-        const p = n.point;
-        
-        if (this.paintMode === 'surface') {
-            const dL = Math.hypot(wx - (p.x - p.nx * p.widthLeft), wy - (p.y - p.ny * p.widthLeft));
-            const dR = Math.hypot(wx - (p.x + p.nx * p.widthRight), wy - (p.y + p.ny * p.widthRight));
-            if (dL < dR) pt.surfaceLeft = this.surfaceType; else pt.surfaceRight = this.surfaceType;
-        } else if (this.paintMode === 'barrier') {
-            const dL = Math.hypot(wx - (p.x - p.nx * (p.widthLeft + (p.surfaceWidthLeft ?? 10))), wy - (p.y - p.ny * (p.widthLeft + (p.surfaceWidthLeft ?? 10))));
-            const dR = Math.hypot(wx - (p.x + p.nx * (p.widthRight + (p.surfaceWidthRight ?? 10))), wy - (p.y + p.ny * (p.widthRight + (p.surfaceWidthRight ?? 10))));
-            if (dL < dR) pt.barrierLeft = this.barrierOn; else pt.barrierRight = this.barrierOn;
-        }
-        this.app.requestRender();
-    }
+    getCursor() { return 'default'; }
+    
     onMouseDown(wx, wy) { 
-        // 1. Try to select an existing run-off/barrier first
         const trackPt = this.editor.findNearestTrackPoint(wx, wy);
         if (trackPt.point) {
             const p = trackPt.point;
@@ -763,33 +785,54 @@ class SurfacePainterTool extends BaseTool {
                 const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
                 if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) {
                     this.app.setSelection({ type: 'barrier', id: pt.id, side: isL ? 'left' : 'right' }); 
-                    this.painting = false;
                     return;
                 } else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) {
                     this.app.setSelection({ type: 'runoff', id: pt.id, side: isL ? 'left' : 'right' }); 
-                    this.painting = false;
                     return;
                 }
             }
         }
 
-        // 2. Otherwise start painting
-        this.data.snapshot(); 
-        this.painting = true; 
-        this._apply(wx, wy); 
+        // If missed, clear selection
+        this.app.setSelection(null);
     }
+    
     onMouseMove(wx, wy) { 
         this.app.hoverPoint = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale);
+        
+        let cursor = 'default';
+        const trackPt = this.editor.findNearestTrackPoint(wx, wy);
+        if (trackPt.point) {
+            const p = trackPt.point;
+            const pt = this.data.controlPoints[p.segIndex];
+            const sd = (wx - p.x) * p.nx + (wy - p.y) * p.ny;
+            const isL = sd < 0;
+            const d = Math.abs(sd);
+            
+            if (pt) {
+                const w = isL ? p.widthLeft : p.widthRight;
+                const sw = isL ? (p.surfaceWidthLeft ?? 10) : (p.surfaceWidthRight ?? 10);
+                if (Math.abs(d - (w + sw)) < 15 / this.renderer.scale && (isL ? pt.barrierLeft : pt.barrierRight)) {
+                    cursor = 'pointer';
+                } else if (d > w && d < w + sw + 5 / this.renderer.scale && (isL ? pt.surfaceLeft !== 'none' : pt.surfaceRight !== 'none')) {
+                    cursor = 'pointer';
+                }
+            }
+        }
+        
+        if (this.app.canvas.style.cursor !== 'grabbing') {
+            this.app.canvas.style.cursor = cursor;
+        }
+        
         this.app.requestRender();
-        if (this.painting) this._apply(wx, wy); 
     }
-    onMouseUp() { this.painting = false; }
+    onMouseUp() { }
 }
 
 /* ---- Sector ---- */
 class SectorTool extends BaseTool {
     constructor(app) { super(app); this.currentSector = 1; this.painting = false; this.dragging = null; this.rotatingObj = null; }
-    getCursor() { return this.rotatingObj ? 'grabbing' : 'pointer'; }
+    getCursor() { return this.rotatingObj ? 'grabbing' : 'crosshair'; }
 
     _hitRotationHandle(wx, wy) {
         const sel = this.app.selection;
@@ -892,7 +935,7 @@ class SectorTool extends BaseTool {
             const cp = this.editor.findNearestControlPoint(wx, wy, 10 / this.renderer.scale);
             this.app.hoverPoint = cp;
             this.app.requestRender();
-            this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : (cp ? 'crosshair' : 'pointer'));
+            this.app.canvas.style.cursor = rotObj ? 'grab' : (ex ? 'move' : (cp ? 'pointer' : 'crosshair'));
         }
     }
     onMouseUp() { this.painting = false; this.dragging = null; this.rotatingObj = null; }
@@ -1755,5 +1798,4 @@ class ScaleTool extends BaseTool {
         }
     }
 }
-
 F1.Tools = { BaseTool, SelectTool, DrawTrackTool, NodeTool, WidthTool, SurfacePainterTool, SectorTool, PitLaneTool, GrandstandTool, ZoneTool, StraightModeTool, GarageTool, EraserTool, TurnTool, ScaleTool };

@@ -36,6 +36,16 @@ F1.App = class App {
         this.renderer = new F1.Renderer(this.canvas);
         this.previewCanvas = document.getElementById('preview-canvas');
         this.preview = new F1.PreviewRenderer(this.previewCanvas);
+        this.preview3DCanvas = document.getElementById('preview-3d-canvas');
+        if (this.preview3DCanvas && window.F1.Editor3D) {
+            this.preview3D = new F1.Editor3D(this.preview3DCanvas, this, 'preview');
+        }
+        this.editor3DCanvas = document.getElementById('editor-3d-canvas');
+        if (this.editor3DCanvas && window.F1.Editor3D) {
+            this.editor3D = new F1.Editor3D(this.editor3DCanvas, this, 'editor');
+        }
+        this.is3DPreview = false;
+        this.isEditor3D = false;
         this.uiManager = new F1.UIManager(this);
         this.hotlapSimulator = new F1.HotlapSimulator(this);
 
@@ -52,6 +62,7 @@ F1.App = class App {
             pitlane: new F1.Tools.PitLaneTool(this),
             zone: new F1.Tools.ZoneTool(this),
             straightMode: new F1.Tools.StraightModeTool(this),
+
             hotlap: new F1.Tools.BaseTool(this),
             analysis: new F1.Tools.BaseTool(this),
             eraser: new F1.Tools.EraserTool(this),
@@ -93,6 +104,13 @@ F1.App = class App {
         this.activeTool = this.tools[name];
         this.activeTool.activate();
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
+
+        // Auto-switch back to 2D view if tool is not supported in 3D
+        if (this.isEditor3D && !['node', 'width', 'select'].includes(name)) {
+            this.isEditor3D = false;
+            const btn = document.getElementById('btn-toggle-editor-3d');
+            if (btn) btn.classList.remove('active');
+        }
 
         if (name !== 'scale' && this.rulerMode) {
             this.rulerMode = false;
@@ -177,13 +195,41 @@ F1.App = class App {
             // Always recalculate intersections so bridges dynamically follow node movement
             // regardless of which tool (select, draw, node, width…) is active.
             this._updateIntersections();
-            this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName);
+            const view3DControlsEditor = document.getElementById('view-3d-controls-editor');
+            if (this.isEditor3D && this.editor3D) {
+                this.editor3DCanvas.style.display = 'block';
+                if (view3DControlsEditor) view3DControlsEditor.style.display = 'flex';
+                this.canvas.style.display = 'none';
+                this.editor3D.resize();
+                this.editor3D.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName);
+            } else {
+                if (this.editor3DCanvas) this.editor3DCanvas.style.display = 'none';
+                if (view3DControlsEditor) view3DControlsEditor.style.display = 'none';
+                this.canvas.style.display = 'block';
+                this.renderer.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName);
+            }
             this._needsRender = false;
         }
         requestAnimationFrame(() => this._renderLoop());
     }
 
-    _renderPreview() { this._updateIntersections(); this.preview.resize(); this.preview.render(this.data, this.editor); }
+    _renderPreview() {
+        this._updateIntersections(); 
+        const view3DControls = document.getElementById('view-3d-controls');
+        if (this.is3DPreview && this.preview3D) {
+            this.preview3DCanvas.style.display = 'block';
+            if (view3DControls) view3DControls.style.display = 'flex';
+            this.previewCanvas.style.display = 'none';
+            this.preview3D.resize();
+            this.preview3D.render(this.data, this.editor, this.selection, this.hoverPoint, this.activeToolName);
+        } else {
+            if (this.preview3DCanvas) this.preview3DCanvas.style.display = 'none';
+            if (view3DControls) view3DControls.style.display = 'none';
+            this.previewCanvas.style.display = 'block';
+            this.preview.resize(); 
+            this.preview.render(this.data, this.editor); 
+        }
+    }
 
     _saveProjectsToStorage() {
         if (this._saveTimer) clearTimeout(this._saveTimer);
@@ -269,12 +315,13 @@ F1.App = class App {
     _initEvents() {
         const canvas = this.canvas;
         let isSpaceDown = false;
-        let hoveredCanvas = 'editor';
-        canvas.addEventListener('mouseenter', () => hoveredCanvas = 'editor');
-        this.previewCanvas.addEventListener('mouseenter', () => hoveredCanvas = 'preview');
+        this.hoveredCanvas = 'editor';
+        document.getElementById('editor-container').addEventListener('mouseenter', () => this.hoveredCanvas = 'editor');
+        document.getElementById('preview-container').addEventListener('mouseenter', () => this.hoveredCanvas = 'preview');
 
         document.addEventListener('keydown', e => {
-            if (e.code === 'Space' && (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'))) { isSpaceDown = true; e.preventDefault(); }
+            const isTextInput = e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && ['text', 'number', 'password', 'search'].includes(e.target.type));
+            if (e.code === 'Space' && !isTextInput) { isSpaceDown = true; e.preventDefault(); }
         });
         document.addEventListener('keyup', e => { if (e.code === 'Space') isSpaceDown = false; });
 
@@ -354,7 +401,7 @@ F1.App = class App {
                 if (key === 'y' || (e.shiftKey && key === 'z')) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             }
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
-            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', '1': 'sector', z: 'zone', m: 'straightMode', e: 'eraser', t: 'turn', '#': 'scale', '3': 'scale', g: 'hotlap' };
+            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', o: 'sector', z: 'zone', m: 'straightMode', x: 'eraser', t: 'turn', g: 'hotlap' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'a') {
                 if (document.getElementById('hotlap-modal').style.display === 'flex') {
@@ -374,11 +421,13 @@ F1.App = class App {
                 }
                 if (document.getElementById('export-modal').style.display === 'flex') {
                     document.getElementById('btn-export-fit').click();
-                } else if (hoveredCanvas === 'editor') {
+                } else if (this.hoveredCanvas === 'editor') {
                     this.renderer.fitToScreen(this.data, this.editor);
+                    if (this.isEditor3D && this.editor3D) this.editor3D.fitToScreen(this.data);
                     this.requestRender();
                 } else {
                     this.preview.fitToScreen(this.data, this.editor);
+                    if (this.is3DPreview && this.preview3D) this.preview3D.fitToScreen(this.data);
                     this._renderPreview();
                 }
                 return;
@@ -386,10 +435,22 @@ F1.App = class App {
             if (e.key.toLowerCase() === 'f') {
                 if (document.getElementById('export-modal').style.display === 'flex') return;
                 if (document.getElementById('hotlap-modal').style.display === 'flex') return;
-                if (hoveredCanvas === 'editor') {
+                if (this.hoveredCanvas === 'editor') {
                     document.getElementById('btn-full-editor').click();
                 } else {
                     document.getElementById('btn-full-preview').click();
+                }
+                return;
+            }
+            if (e.key.toLowerCase() === 'v') {
+                if (document.getElementById('export-modal').style.display === 'flex') return;
+                if (document.getElementById('hotlap-modal').style.display === 'flex') return;
+                if (this.hoveredCanvas === 'editor') {
+                    const btn = document.getElementById('btn-toggle-editor-3d');
+                    if (btn) btn.click();
+                } else {
+                    const btn = document.getElementById('btn-toggle-3d');
+                    if (btn) btn.click();
                 }
                 return;
             }
@@ -578,8 +639,37 @@ F1.App = class App {
                 document.getElementById('btn-full-editor').querySelector('span').innerText = 'Full View';
             }
             this.renderer.resize(); this.requestRender();
+            if (this.preview3D) this.preview3D.resize();
             this.preview.resize(); this._renderPreview();
         });
+
+        const btnToggle3D = document.getElementById('btn-toggle-3d');
+        if (btnToggle3D) {
+            btnToggle3D.onclick = () => {
+                this.is3DPreview = !this.is3DPreview;
+                btnToggle3D.classList.toggle('active', this.is3DPreview);
+                const span = btnToggle3D.querySelector('span');
+                if (span) span.textContent = this.is3DPreview ? '2D View' : '3D View';
+                this._renderPreview();
+            };
+        }
+
+        const btnToggleEditor3D = document.getElementById('btn-toggle-editor-3d');
+        if (btnToggleEditor3D) {
+            btnToggleEditor3D.onclick = () => {
+                this.isEditor3D = !this.isEditor3D;
+                btnToggleEditor3D.classList.toggle('active', this.isEditor3D);
+                const span = btnToggleEditor3D.querySelector('span');
+                if (span) span.textContent = this.isEditor3D ? '2D View' : '3D View';
+                
+                // If entering 3D view and current tool is not supported, switch to 'select'
+                if (this.isEditor3D && !['node', 'width', 'select'].includes(this.activeToolName)) {
+                    this.setTool('select');
+                }
+                
+                this.requestRender();
+            };
+        }
     }
     _initHelp() {
         const loadExample = async (name, url) => {
