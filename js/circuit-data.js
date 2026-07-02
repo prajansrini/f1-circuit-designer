@@ -81,11 +81,13 @@ F1.CircuitData = class CircuitData {
             p3 = i < n - 2 ? pts[i + 2] : { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
         }
         const z0 = p0.z || 0, z1 = p1.z || 0, z2 = p2.z || 0, z3 = p3.z || 0;
+        const b0 = p0.banking || 0, b1 = p1.banking || 0, b2 = p2.banking || 0, b3 = p3.banking || 0;
         const t2 = t * t, t3 = t2 * t;
         return {
             x: .5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
             y: .5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
-            z: .5 * ((2 * z1) + (-z0 + z2) * t + (2 * z0 - 5 * z1 + 4 * z2 - z3) * t2 + (-z0 + 3 * z1 - 3 * z2 + z3) * t3)
+            z: .5 * ((2 * z1) + (-z0 + z2) * t + (2 * z0 - 5 * z1 + 4 * z2 - z3) * t2 + (-z0 + 3 * z1 - 3 * z2 + z3) * t3),
+            banking: .5 * ((2 * b1) + (-b0 + b2) * t + (2 * b0 - 5 * b1 + 4 * b2 - b3) * t2 + (-b0 + 3 * b1 - 3 * b2 + b3) * t3)
         };
     }
 
@@ -150,7 +152,7 @@ F1.CircuitData = class CircuitData {
     insertControlPoint(x, y, index) {
         const saved = this._saveZoneWorldPositions();
         const pt = {
-            id: this._genId(), x, y, z: 0, widthLeft: 12, widthRight: 12,
+            id: this._genId(), x, y, z: 0, banking: 0, widthLeft: 12, widthRight: 12,
             surfaceLeft: 'grass', surfaceRight: 'grass',
             surfaceWidthLeft: 10, surfaceWidthRight: 10,
             barrierLeft: false, barrierRight: false, sector: 0
@@ -168,6 +170,7 @@ F1.CircuitData = class CircuitData {
             pt.surfaceWidthLeft = prev.surfaceWidthLeft; pt.surfaceWidthRight = prev.surfaceWidthRight;
             pt.barrierLeft = prev.barrierLeft; pt.barrierRight = prev.barrierRight;
             pt.sector = prev.sector;
+            pt.banking = prev.banking || 0;
         }
         this.controlPoints.splice(index, 0, pt);
         if (this.startNodeId === null) this.startNodeId = pt.id;
@@ -272,6 +275,7 @@ F1.CircuitData = class CircuitData {
             // Point properties: Swap L/R in place (they stay at the same physical node)
             const tmpWidth = cp.widthLeft; cp.widthLeft = cp.widthRight; cp.widthRight = tmpWidth;
             const tmpSWidth = cp.surfaceWidthLeft; cp.surfaceWidthLeft = cp.surfaceWidthRight; cp.surfaceWidthRight = tmpSWidth;
+            cp.banking = -(cp.banking || 0);
             
             // Edge properties: Apply the shifted properties
             Object.assign(cp, newEdgeProps[i]);

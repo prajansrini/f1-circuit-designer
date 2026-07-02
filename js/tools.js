@@ -649,13 +649,19 @@ class TurnTool extends BaseTool {
 
 /* ---- Draw Track ---- */
 class DrawTrackTool extends BaseTool {
-    getCursor() { return 'crosshair'; }
+    getCursor() { 
+        if (this.data.isClosed) return this.app.tools.select.getCursor();
+        return 'crosshair'; 
+    }
     onMouseDown(wx, wy, e) {
-        if (this.data.isClosed) return;
+        if (this.data.isClosed) {
+            return this.app.tools.select.onMouseDown(wx, wy, e);
+        }
         if (this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale)) {
             this.data.snapshot(); this.data.closeTrack();
             this.app.setStatus('Circuit closed! You can now manually assign sectors.');
             this.app.uiManager.updateProperties();
+            this.app.setTool('select');
             this.app.requestRender(); return;
         }
         this.data.snapshot();
@@ -665,8 +671,21 @@ class DrawTrackTool extends BaseTool {
         this.app.setSelection({ type: 'cp', id: pt.id }); this.app.requestRender();
     }
     onMouseMove(wx, wy, e) {
+        if (this.data.isClosed) {
+            return this.app.tools.select.onMouseMove(wx, wy, e);
+        }
         this.app.hoverPoint = !this.data.isClosed && this.editor.isNearFirstPoint(wx, wy, 20 / this.renderer.scale) ? this.data.controlPoints[0] : null;
         this.app.requestRender();
+    }
+    onMouseUp(wx, wy, e) {
+        if (this.data.isClosed) {
+            return this.app.tools.select.onMouseUp(wx, wy, e);
+        }
+    }
+    onKeyDown(e) {
+        if (this.data.isClosed) {
+            return this.app.tools.select.onKeyDown(e);
+        }
     }
 }
 
