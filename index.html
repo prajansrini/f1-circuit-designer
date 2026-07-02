@@ -137,11 +137,11 @@
                     <line x1="18" y1="20" x2="18" y2="10"></line>
                     <line x1="12" y1="20" x2="12" y2="4"></line>
                     <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg><span>Analysis</span></button>
+                </svg><span>Analysis (Beta)</span></button>
 
             <div style="flex-grow: 1;"></div>
             
-            <button class="tool-btn" data-tool="hotlap" title="Hot Lap Preview (G)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Simulate</span></button>
+            <button class="tool-btn" data-tool="hotlap" title="Hot Lap Preview (G)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Simulate (Beta)</span></button>
 
             <button class="tool-btn" data-tool="help" title="Help & Tips (H)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -169,11 +169,11 @@
                 </svg>
                 <span>Full View</span>
             </button>
-            <button id="btn-toggle-editor-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View">
+            <button id="btn-toggle-editor-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View (Beta)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                 </svg>
-                <span>3D View</span>
+                <span>3D View (Beta)</span>
             </button>
             <div id="view-3d-controls-editor" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:8px; padding:6px; z-index:100; gap:8px;">
                 <button class="prop-btn" data-view="top" title="Top View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Top</button>
@@ -183,7 +183,7 @@
             </div>
             <canvas id="main-canvas"></canvas>
             <canvas id="editor-3d-canvas" style="display:none; width:100%; height:100%;"></canvas>
-            <div id="canvas-hint"><span>Scroll to zoom · Alt+Drag to pan</span></div>
+
         </div>
 
         <div id="center-column">
@@ -456,6 +456,10 @@
                         <div class="shortcut"><kbd>Ctrl+D</kbd> Duplicate</div>
                         <div class="shortcut"><kbd>G</kbd> Simulate</div>
                         <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Ctrl+/</kbd> Name Circuit</div>
+                        <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Scroll</kbd> Zoom View</div>
+                        <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Alt+Drag</kbd> Pan View</div>
+                        <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Hold Alt</kbd> Snap to Grid</div>
+                        <div class="shortcut" style="grid-column: 1 / span 2;"><kbd>Hold Shift</kbd> Angle Snap</div>
                     </div>
                 </details>
             </div>
@@ -469,11 +473,11 @@
                 </svg>
                 <span>Full View</span>
             </button>
-            <button id="btn-toggle-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View">
+            <button id="btn-toggle-3d" class="view-toggle-btn" style="right: 120px;" title="Toggle 3D View (Beta)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                 </svg>
-                <span>3D View</span>
+                <span>3D View (Beta)</span>
             </button>
             <div id="view-3d-controls" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:8px; padding:6px; z-index:100; gap:8px;">
                 <button class="prop-btn" data-view="top" title="Top View" style="padding:4px 10px; font-size:12px; margin:0; width:auto;">Top</button>
@@ -889,16 +893,16 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
     <script src="js/ml-models.js?v=103"></script>
-    <script src="js/circuit-data.js?v=103"></script>
-    <script src="js/track-editor.js?v=110"></script>
-    <script src="js/3d-editor.js?v=126"></script>
-    <script src="js/canvas-renderer.js?v=107"></script>
-    <script src="js/preview-renderer.js?v=104"></script>
+    <script src="js/circuit-data.js?v=104"></script>
+    <script src="js/track-editor.js?v=111"></script>
+    <script src="js/3d-editor.js?v=146"></script>
+    <script src="js/canvas-renderer.js?v=108"></script>
+    <script src="js/preview-renderer.js?v=105"></script>
     <script src="js/svg-exporter.js?v=103"></script>
     <script src="js/tools.js?v=108"></script>
     <script src="js/hotlap-simulator.js?v=103"></script>
-    <script src="js/ui-manager.js?v=110"></script>
-    <script src="js/app.js?v=115"></script>
+    <script src="js/ui-manager.js?v=112"></script>
+    <script src="js/app.js?v=116"></script>
 </body>
 
 </html>

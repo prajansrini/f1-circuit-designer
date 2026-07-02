@@ -99,9 +99,9 @@ F1.Editor3D = class Editor3D {
         this._lastHover = null;
         this._lastSel = null;
         
-        this.nodeMat = new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x004422 });
-        this.selNodeMat = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff4400 });
-        this.hoverNodeMat = new THREE.MeshStandardMaterial({ color: 0x66ffbb, emissive: 0x338855 });
+        this.nodeMat = new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x004422, polygonOffset: true, polygonOffsetFactor: -20, polygonOffsetUnits: -20 });
+        this.selNodeMat = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff4400, polygonOffset: true, polygonOffsetFactor: -20, polygonOffsetUnits: -20 });
+        this.hoverNodeMat = new THREE.MeshStandardMaterial({ color: 0x66ffbb, emissive: 0x338855, polygonOffset: true, polygonOffsetFactor: -20, polygonOffsetUnits: -20 });
         
         this.resize();
         
@@ -337,10 +337,40 @@ F1.Editor3D = class Editor3D {
         texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
         texture.generateMipmaps = true;
 
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of track) { 
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); 
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); 
+        }
+        const width = Math.max(1500, (maxX - minX) + 1200);
+        const height = Math.max(1500, (maxY - minY) + 1200);
+
+        // Generate a simple procedural grass texture using canvas
+        const grassTexCanvas = document.createElement('canvas');
+        grassTexCanvas.width = 512; grassTexCanvas.height = 512;
+        const gctx = grassTexCanvas.getContext('2d');
+        gctx.fillStyle = '#1e3d1e'; gctx.fillRect(0, 0, 512, 512);
+        for(let i=0; i<5000; i++) {
+            gctx.fillStyle = Math.random() > 0.5 ? '#1a331a' : '#234723';
+            gctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+        }
+        const grassTex = new THREE.CanvasTexture(grassTexCanvas);
+        grassTex.wrapS = THREE.RepeatWrapping;
+        grassTex.wrapT = THREE.RepeatWrapping;
+        grassTex.repeat.set(width/50, height/50);
+
         // Draw track mesh covering road + runoffs
         const geometry = new THREE.BufferGeometry();
         const vertices = [];
         const uvs = [];
+        const getBanked = (p, w, isLeft) => {
+            const B = (p.banking || 0) * Math.PI / 180;
+            const w_h = w * Math.cos(B);
+            const w_v = w * Math.sin(B);
+            const sgn = isLeft ? -1 : 1;
+            return { x: p.x + p.nx * w_h * sgn, z: p.y + p.ny * w_h * sgn, y: (p.z || 0) + w_v * -sgn };
+        };
+
         for (let i = 0; i < track.length; i++) {
             const p = track[i];
             let wL = p.widthLeft;
@@ -349,16 +379,17 @@ F1.Editor3D = class Editor3D {
                 wL += (p.surfaceWidthLeft ?? 15) + (p.barrierLeft ? 5 : 0);
                 wR += (p.surfaceWidthRight ?? 15) + (p.barrierRight ? 5 : 0);
             } else {
-                // Match the fixed 40 width of the PreviewRenderer texture exactly
-                wL = 20;
-                wR = 20;
+                wL = 20; wR = 20;
             }
             
-            const p1x = p.x - p.nx * wL, p1z = p.y - p.ny * wL;
-            const p2x = p.x + p.nx * wR, p2z = p.y + p.ny * wR;
+            const bL = getBanked(p, wL, true);
+            const bR = getBanked(p, wR, false);
             
-            vertices.push(p1x, p.z || 0, p1z);
-            vertices.push(p2x, p.z || 0, p2z);
+            const p1x = bL.x, p1y = bL.y, p1z = bL.z;
+            const p2x = bR.x, p2y = bR.y, p2z = bR.z;
+            
+            vertices.push(p1x, p1y, p1z);
+            vertices.push(p2x, p2y, p2z);
             
             const s1 = s2wFn(p1x, p1z);
             const s2 = s2wFn(p2x, p2z);
@@ -380,10 +411,68 @@ F1.Editor3D = class Editor3D {
         geometry.setIndex(indices);
         geometry.computeVertexNormals();
         
-        const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+        const material = new THREE.MeshBasicMaterial({ 
+            map: texture, 
+            side: THREE.DoubleSide, 
+            transparent: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -10,
+            polygonOffsetUnits: -10
+        });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.y = 0.1; // Place slightly above the grid to avoid clipping
         this.trackGroup.add(mesh);
+
+        // 2b. Build Track Skirt (Sidewalls to hide empty space beneath banked track)
+        const skirtGeo = new THREE.BufferGeometry();
+        const skirtVerts = [];
+        const skirtIndices = [];
+        const skirtUvs = [];
+        let sIdx = 0;
+        const skirtDepth = 40.0; // Drop 40 units deep to thoroughly cover high banking
+        
+        for (let i = 0; i < track.length - 1; i++) {
+            const p1 = track[i];
+            const p2 = track[i + 1];
+            
+            let wL1 = p1.widthLeft; let wL2 = p2.widthLeft;
+            let wR1 = p1.widthRight; let wR2 = p2.widthRight;
+            if (this.textureType === 'editor') {
+                wL1 += (p1.surfaceWidthLeft ?? 15) + (p1.barrierLeft ? 5 : 0);
+                wL2 += (p2.surfaceWidthLeft ?? 15) + (p2.barrierLeft ? 5 : 0);
+                wR1 += (p1.surfaceWidthRight ?? 15) + (p1.barrierRight ? 5 : 0);
+                wR2 += (p2.surfaceWidthRight ?? 15) + (p2.barrierRight ? 5 : 0);
+            } else {
+                wL1 = 20; wL2 = 20; wR1 = 20; wR2 = 20;
+            }
+            
+            const bL1 = getBanked(p1, wL1, true);
+            const bL2 = getBanked(p2, wL2, true);
+            
+            // Left skirt
+            skirtVerts.push(bL1.x, bL1.y, bL1.z, bL1.x, bL1.y - skirtDepth, bL1.z, bL2.x, bL2.y, bL2.z, bL2.x, bL2.y - skirtDepth, bL2.z);
+            skirtIndices.push(sIdx, sIdx + 1, sIdx + 2, sIdx + 1, sIdx + 3, sIdx + 2);
+            skirtUvs.push(bL1.x/width, bL1.y/height, bL1.x/width, (bL1.y - skirtDepth)/height, bL2.x/width, bL2.y/height, bL2.x/width, (bL2.y - skirtDepth)/height);
+            sIdx += 4;
+            
+            const bR1 = getBanked(p1, wR1, false);
+            const bR2 = getBanked(p2, wR2, false);
+            
+            // Right skirt
+            skirtVerts.push(bR1.x, bR1.y, bR1.z, bR1.x, bR1.y - skirtDepth, bR1.z, bR2.x, bR2.y, bR2.z, bR2.x, bR2.y - skirtDepth, bR2.z);
+            skirtIndices.push(sIdx, sIdx + 2, sIdx + 1, sIdx + 1, sIdx + 2, sIdx + 3);
+            skirtUvs.push(bR1.x/width, bR1.y/height, bR1.x/width, (bR1.y - skirtDepth)/height, bR2.x/width, bR2.y/height, bR2.x/width, (bR2.y - skirtDepth)/height);
+            sIdx += 4;
+        }
+        
+        skirtGeo.setAttribute('position', new THREE.Float32BufferAttribute(skirtVerts, 3));
+        skirtGeo.setAttribute('uv', new THREE.Float32BufferAttribute(skirtUvs, 2));
+        skirtGeo.setIndex(skirtIndices);
+        skirtGeo.computeVertexNormals();
+        const skirtMat = new THREE.MeshLambertMaterial({ map: grassTex, side: THREE.DoubleSide });
+        const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
+        skirtMesh.position.y = 0.1;
+        this.trackGroup.add(skirtMesh);
 
         // 3D Barriers
         const barrierGeo = new THREE.BufferGeometry();
@@ -398,25 +487,22 @@ F1.Editor3D = class Editor3D {
 
             // Left barrier
             if (p1.barrierLeft && p2.barrierLeft) {
-                let w1 = p1.widthLeft + (p1.surfaceWidthLeft ?? 10);
-                let w2 = p2.widthLeft + (p2.surfaceWidthLeft ?? 10);
-                // Adjust width slightly outward for 3D barriers so it doesn't z-fight with edge
-                w1 += 1.0; w2 += 1.0;
-                const b1x = p1.x - p1.nx * w1, b1z = p1.y - p1.ny * w1;
-                const b2x = p2.x - p2.nx * w2, b2z = p2.y - p2.ny * w2;
-                bVerts.push(b1x, p1.z || 0, b1z, b1x, (p1.z || 0) + bHeight, b1z, b2x, p2.z || 0, b2z, b2x, (p2.z || 0) + bHeight, b2z);
+                let w1 = p1.widthLeft + (p1.surfaceWidthLeft ?? 10) + 1.0;
+                let w2 = p2.widthLeft + (p2.surfaceWidthLeft ?? 10) + 1.0;
+                const b1 = getBanked(p1, w1, true);
+                const b2 = getBanked(p2, w2, true);
+                bVerts.push(b1.x, b1.y, b1.z, b1.x, b1.y + bHeight, b1.z, b2.x, b2.y, b2.z, b2.x, b2.y + bHeight, b2.z);
                 bIndices.push(bIdx, bIdx + 2, bIdx + 1, bIdx + 1, bIdx + 2, bIdx + 3);
                 bIdx += 4;
             }
 
             // Right barrier
             if (p1.barrierRight && p2.barrierRight) {
-                let w1 = p1.widthRight + (p1.surfaceWidthRight ?? 10);
-                let w2 = p2.widthRight + (p2.surfaceWidthRight ?? 10);
-                w1 += 1.0; w2 += 1.0;
-                const b1x = p1.x + p1.nx * w1, b1z = p1.y + p1.ny * w1;
-                const b2x = p2.x + p2.nx * w2, b2z = p2.y + p2.ny * w2;
-                bVerts.push(b1x, p1.z || 0, b1z, b1x, (p1.z || 0) + bHeight, b1z, b2x, p2.z || 0, b2z, b2x, (p2.z || 0) + bHeight, b2z);
+                let w1 = p1.widthRight + (p1.surfaceWidthRight ?? 10) + 1.0;
+                let w2 = p2.widthRight + (p2.surfaceWidthRight ?? 10) + 1.0;
+                const b1 = getBanked(p1, w1, false);
+                const b2 = getBanked(p2, w2, false);
+                bVerts.push(b1.x, b1.y, b1.z, b1.x, b1.y + bHeight, b1.z, b2.x, b2.y, b2.z, b2.x, b2.y + bHeight, b2.z);
                 // Reverse winding order for right side so it faces track
                 bIndices.push(bIdx, bIdx + 1, bIdx + 2, bIdx + 1, bIdx + 3, bIdx + 2);
                 bIdx += 4;
@@ -435,14 +521,7 @@ F1.Editor3D = class Editor3D {
 
         // Procedural Terrain
         if (data.controlPoints.length > 0) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (const p of track) { 
-                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); 
-                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); 
-            }
-            const width = Math.max(1500, (maxX - minX) + 1200);
-            const height = Math.max(1500, (maxY - minY) + 1200);
-            const segments = 100;
+            const segments = 250;
             const terrainGeo = new THREE.PlaneGeometry(width, height, segments, segments);
             terrainGeo.rotateX(-Math.PI / 2); // Lay flat
             
@@ -457,37 +536,80 @@ F1.Editor3D = class Editor3D {
                 
                 let minDist = Infinity;
                 let nearestZ = 0;
+                let nearestTrackPt = null;
+                let totalWeight = 0;
+                let weightedZ = 0;
                 
-                // Sample track points for distance mapping
-                for (let j = 0; j < track.length; j += 4) {
+                // Inverse Distance Weighting for smooth terrain bridging
+                for (let j = 0; j < track.length; j++) {
                     const p = track[j];
                     const d = Math.hypot(vx - p.x, vz - p.y);
                     if (d < minDist) {
                         minDist = d;
                         nearestZ = p.z || 0;
+                        nearestTrackPt = p;
+                    }
+                    
+                    if (d < 400) {
+                        const w = 1 / Math.pow(d + 1, 3);
+                        weightedZ += (p.z || 0) * w;
+                        totalWeight += w;
                     }
                 }
                 
-                const influence = Math.max(0, 1 - (minDist / 250));
-                const smoothInfluence = influence * influence * (3 - 2 * influence);
-                // Lower slightly so it sits beneath the track surface mesh
-                posAttr.setY(i, (nearestZ * smoothInfluence) - 0.5);
+                let baseZ = 0;
+                if (totalWeight > 0) baseZ = weightedZ / totalWeight;
+
+                // Calculate the exact physical width of the track+runoff+barrier at this specific point
+                let maxW = 25; // Safe default
+                let lW = 12, rW = 12, lat_dist = 0;
+                if (nearestTrackPt) {
+                    lW = nearestTrackPt.widthLeft + (nearestTrackPt.surfaceWidthLeft ?? 15) + (nearestTrackPt.barrierLeft ? 5 : 0);
+                    rW = nearestTrackPt.widthRight + (nearestTrackPt.surfaceWidthRight ?? 15) + (nearestTrackPt.barrierRight ? 5 : 0);
+                    maxW = Math.max(lW, rW) + 5; // Add 5 units padding
+                    
+                    // Calculate the exact banked height of the track surface at this terrain vertex
+                    const dx = vx - nearestTrackPt.x;
+                    const dz = vz - nearestTrackPt.y;
+                    lat_dist = dx * nearestTrackPt.nx + dz * nearestTrackPt.ny;
+                    
+                    // Clamp lateral distance so the banking elevation effect doesn't grow infinitely into the distance
+                    const clamped_lat = Math.max(-lW - 5, Math.min(rW + 5, lat_dist));
+                    const bankOffset = -clamped_lat * Math.tan((nearestTrackPt.banking || 0) * Math.PI / 180);
+                    
+                    nearestZ = (nearestTrackPt.z || 0) + bankOffset;
+                }
+
+                // Force the terrain to perfectly match the local track height when underneath it
+                if (minDist < maxW + 25) {
+                    baseZ = nearestZ;
+                } else if (minDist < maxW + 125) {
+                    // Smoothly blend from exact local height to the smoothed IDW height
+                    const t = (minDist - (maxW + 25)) / 100;
+                    baseZ = nearestZ * (1 - t) + baseZ * t;
+                }
+
+                // Create a guaranteed flat plateau near the road
+                let falloff = 1.0;
+                if (minDist > maxW + 25) {
+                    let t = 1.0 - Math.min(1.0, (minDist - (maxW + 25)) / 350);
+                    falloff = t * t * (3 - 2 * t);
+                }
+
+                // Extreme internal trench to physically prevent clipping at high zoom levels
+                let trenchOffset = 0;
+                if (nearestTrackPt) {
+                    const currentW = lat_dist < 0 ? lW : rW;
+                    // Start digging down exactly 2 units inside the physical edge
+                    if (Math.abs(lat_dist) < currentW - 2) {
+                        trenchOffset = -15 * (1 - (Math.abs(lat_dist) / (currentW - 2)));
+                    }
+                }
+
+                // Make it perfectly flush at the exact edge, but hollow underneath
+                posAttr.setY(i, (baseZ * falloff) + trenchOffset);
             }
             terrainGeo.computeVertexNormals();
-            
-            // Generate a simple procedural grass texture using canvas
-            const grassTexCanvas = document.createElement('canvas');
-            grassTexCanvas.width = 512; grassTexCanvas.height = 512;
-            const gctx = grassTexCanvas.getContext('2d');
-            gctx.fillStyle = '#1e3d1e'; gctx.fillRect(0, 0, 512, 512);
-            for(let i=0; i<5000; i++) {
-                gctx.fillStyle = Math.random() > 0.5 ? '#1a331a' : '#234723';
-                gctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
-            }
-            const grassTex = new THREE.CanvasTexture(grassTexCanvas);
-            grassTex.wrapS = THREE.RepeatWrapping;
-            grassTex.wrapT = THREE.RepeatWrapping;
-            grassTex.repeat.set(width/50, height/50);
             
             const terrainMat = new THREE.MeshLambertMaterial({ map: grassTex, side: THREE.DoubleSide });
             const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
@@ -594,14 +716,16 @@ F1.Editor3D = class Editor3D {
         // Add nodes
         this.nodeMeshes = [];
         if (this.textureType !== 'preview') {
-            const nodeGeo = new THREE.SphereGeometry(3, 16, 16);
+            // Hemisphere (semi-circle over the road)
+            const nodeGeo = new THREE.SphereGeometry(3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
             
             this.app.data.controlPoints.forEach(pt => {
                 const isSel = sel && sel.type === 'cp' && sel.id === pt.id;
                 const isHov = hoverPt && hoverPt.id === pt.id;
                 const mat = isSel ? this.selNodeMat : isHov ? this.hoverNodeMat : this.nodeMat;
                 const sphere = new THREE.Mesh(nodeGeo, mat);
-                sphere.position.set(pt.x, pt.z || 0, pt.y);
+                // Rest perfectly on top of the track
+                sphere.position.set(pt.x, (pt.z || 0) + 0.1, pt.y);
                 sphere.userData = { node: pt };
                 this.trackGroup.add(sphere);
                 this.nodeMeshes.push(sphere);

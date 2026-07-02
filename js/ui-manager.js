@@ -40,8 +40,20 @@ F1.UIManager = class UIManager {
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthLeft * sm).toFixed(1)}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${(pt.widthLeft * sm).toFixed(1)}" step="${0.5 * sm}" min="${5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="${5 * sm}" max="${40 * sm}" step="${0.5 * sm}" value="${(pt.widthRight * sm).toFixed(1)}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${(pt.widthRight * sm).toFixed(1)}" step="${0.5 * sm}" min="${5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
-            <div class="prop-row" style="margin-top: 6px;"><span class="prop-label" style="width:30px" title="Elevation (m)">E</span><input type="range" min="-100" max="100" step="0.5" value="${(pt.z || 0).toFixed(1)}" id="prop-z" class="prop-slider"><input type="number" id="prop-z-val" value="${(pt.z || 0).toFixed(1)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-tw">Reset Track Width</button></div>`;
+        h += `<div class="prop-group"><label>Elevation & Banking (Beta)</label>
+            <div class="prop-row" style="margin-bottom: 6px;"><span class="prop-label" style="width:30px" title="Elevation (m)">E</span><input type="range" min="-100" max="100" step="0.5" value="${(pt.z || 0).toFixed(1)}" id="prop-z" class="prop-slider"><input type="number" id="prop-z-val" value="${(pt.z || 0).toFixed(1)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                <button class="side-btn ${(pt.banking || 0) >= 0 ? 'active' : ''}" style="flex:1; margin-right:4px;" id="btn-bank-left">Left</button>
+                <button class="side-btn ${(pt.banking || 0) < 0 ? 'active' : ''}" style="flex:1; margin-left:4px;" id="btn-bank-right">Right</button>
+            </div>
+            <div class="prop-row">
+                <span class="prop-label" style="width:30px" title="Banking Degree">D</span>
+                <input type="range" min="0" max="90" step="1" value="${Math.abs(pt.banking || 0)}" id="prop-banking" class="prop-slider">
+                <input type="number" id="prop-banking-val" value="${Math.abs(pt.banking || 0)}" step="1" min="0" max="90" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;">
+            </div>
+            <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-elev-bank">Reset Elevation & Banking</button>
+        </div>`;
         h += `<div class="prop-group"><label>Run-off Width <span style="text-transform:none">(m)</span></label>
             <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${((pt.surfaceWidthLeft ?? 10) * sm).toFixed(1)}" id="prop-swl" class="prop-slider"><input type="number" id="prop-swl-val" value="${((pt.surfaceWidthLeft ?? 10) * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
             <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="0" max="${50 * sm}" step="${0.5 * sm}" value="${((pt.surfaceWidthRight ?? 10) * sm).toFixed(1)}" id="prop-swr" class="prop-slider"><input type="number" id="prop-swr-val" value="${((pt.surfaceWidthRight ?? 10) * sm).toFixed(1)}" step="${0.5 * sm}" min="0" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
@@ -379,6 +391,9 @@ F1.UIManager = class UIManager {
                     <button class="prop-btn" id="btn-reverse-track" style="margin-top: 10px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>
                   </div>`;
         }
+
+        // Ensure intersections are up-to-date before rendering UI
+        this.app._updateIntersections();
 
         // Track Intersections
         if (this.app.intersections && this.app.intersections.length > 0) {
@@ -1654,9 +1669,50 @@ F1.UIManager = class UIManager {
                     pz.oninput = () => { pt.z = parseFloat(pz.value); pzv.value = pz.value; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
                     pzv.onchange = () => { let v = parseFloat(pzv.value); if(isNaN(v)) v=0; pt.z = v; pz.value = v; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
                 }
-                const btnResElev = document.getElementById('btn-reset-elev');
-                if (btnResElev) {
-                    btnResElev.onclick = () => { pt.z = 0; if(pz) pz.value = 0; if(pzv) pzv.value = 0; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                const btnResElevBank = document.getElementById('btn-reset-elev-bank');
+                if (btnResElevBank) {
+                    btnResElevBank.onclick = () => { 
+                        pt.z = 0; if(pz) pz.value = 0; if(pzv) pzv.value = 0; 
+                        pt.banking = 0;
+                        this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender();
+                        const pBank = document.getElementById('prop-banking');
+                        const pBankVal = document.getElementById('prop-banking-val');
+                        if (pBank) pBank.value = 0;
+                        if (pBankVal) pBankVal.value = 0;
+                        const bl = document.getElementById('btn-bank-left');
+                        const br = document.getElementById('btn-bank-right');
+                        if (bl) bl.classList.add('active');
+                        if (br) br.classList.remove('active');
+                    };
+                }
+                
+                const pBank = document.getElementById('prop-banking');
+                const pBankVal = document.getElementById('prop-banking-val');
+                const btnBankLeft = document.getElementById('btn-bank-left');
+                const btnBankRight = document.getElementById('btn-bank-right');
+                if (pBank && pBankVal && btnBankLeft && btnBankRight) {
+                    const updateBankingUI = () => {
+                        const val = Math.abs(pt.banking || 0);
+                        const isLeft = (pt.banking || 0) >= 0;
+                        pBank.value = val;
+                        pBankVal.value = val;
+                        btnBankLeft.classList.toggle('active', isLeft);
+                        btnBankRight.classList.toggle('active', !isLeft);
+                    };
+                    const setBanking = (val, isLeft) => {
+                        pt.banking = isLeft ? Math.abs(val) : -Math.abs(val);
+                        this.app.requestRender();
+                        if (this.app.preview3D) this.app.preview3D.app.requestRender();
+                        updateBankingUI();
+                    };
+                    pBank.oninput = () => setBanking(parseFloat(pBank.value), btnBankLeft.classList.contains('active'));
+                    pBankVal.onchange = () => {
+                        let v = parseFloat(pBankVal.value);
+                        if (isNaN(v)) v = 0;
+                        setBanking(v, btnBankLeft.classList.contains('active'));
+                    };
+                    btnBankLeft.onclick = () => setBanking(Math.abs(pt.banking || 0), true);
+                    btnBankRight.onclick = () => setBanking(Math.abs(pt.banking || 0), false);
                 }
 
                 const sm = (this.app.data.gridSize || 50) / 50.0;

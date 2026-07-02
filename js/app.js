@@ -93,7 +93,7 @@ F1.App = class App {
         const nameInput = document.getElementById('circuit-name');
         if (nameInput) nameInput.value = this.data.name || '';
 
-        this.setTool('draw');
+        this.setTool(this.data.isClosed ? 'select' : 'draw');
         this._renderLoop();
         setTimeout(() => this._renderPreview(), 100);
     }
@@ -330,7 +330,8 @@ F1.App = class App {
             if (e.button === 0) {
                 const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top);
                 this.activeTool.onMouseDown(w.x, w.y, e);
-                if (this.activeTool.constructor.name === 'SelectTool' && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection) {
+                const isSelectOrClosedDraw = this.activeTool.constructor.name === 'SelectTool' || (this.activeTool.constructor.name === 'DrawTrackTool' && this.data.isClosed);
+                if (isSelectOrClosedDraw && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection) {
                     this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing';
                 }
             }
@@ -649,7 +650,7 @@ F1.App = class App {
                 this.is3DPreview = !this.is3DPreview;
                 btnToggle3D.classList.toggle('active', this.is3DPreview);
                 const span = btnToggle3D.querySelector('span');
-                if (span) span.textContent = this.is3DPreview ? '2D View' : '3D View';
+                if (span) span.textContent = this.is3DPreview ? '2D View' : '3D View (Beta)';
                 this._renderPreview();
             };
         }
@@ -660,7 +661,7 @@ F1.App = class App {
                 this.isEditor3D = !this.isEditor3D;
                 btnToggleEditor3D.classList.toggle('active', this.isEditor3D);
                 const span = btnToggleEditor3D.querySelector('span');
-                if (span) span.textContent = this.isEditor3D ? '2D View' : '3D View';
+                if (span) span.textContent = this.isEditor3D ? '2D View' : '3D View (Beta)';
                 
                 // If entering 3D view and current tool is not supported, switch to 'select'
                 if (this.isEditor3D && !['node', 'width', 'select'].includes(this.activeToolName)) {
