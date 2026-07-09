@@ -66,6 +66,7 @@ F1.TrackEditor = class TrackEditor {
         const pts = this.data.pitLane.points, n = pts.length;
         if (n < 2) return pts.map(p => ({ ...p, nx: 0, ny: -1, segIndex: 0 }));
         const result = [];
+        const defaultW = (this.data.pitLane.width || 8) / 2;
         for (let i = 0; i < n - 1; i++) {
             const p0 = i > 0 ? pts[i - 1] : this._mirror(pts[0], pts[1]);
             const p1 = pts[i], p2 = pts[i + 1];
@@ -75,11 +76,23 @@ F1.TrackEditor = class TrackEditor {
                 const pos = this._cr(p0, p1, p2, p3, t);
                 const tang = this._crDeriv(p0, p1, p2, p3, t);
                 const len = Math.hypot(tang.x, tang.y) || 1;
-                result.push({ x: pos.x, y: pos.y, z: pos.z, nx: -tang.y / len, ny: tang.x / len, segIndex: i });
+                result.push({ 
+                    x: pos.x, y: pos.y, z: pos.z, 
+                    nx: -tang.y / len, ny: tang.x / len, 
+                    segIndex: i,
+                    widthLeft: (p1.widthLeft ?? defaultW) + ((p2.widthLeft ?? defaultW) - (p1.widthLeft ?? defaultW)) * t,
+                    widthRight: (p1.widthRight ?? defaultW) + ((p2.widthRight ?? defaultW) - (p1.widthRight ?? defaultW)) * t
+                });
             }
         }
         const last = result[result.length - 1];
-        result.push({ ...pts[n - 1], nx: last?.nx || 0, ny: last?.ny || -1, segIndex: n - 2, z: pts[n - 1].z || 0 });
+        result.push({ 
+            ...pts[n - 1], 
+            nx: last?.nx || 0, ny: last?.ny || -1, 
+            segIndex: n - 2, z: pts[n - 1].z || 0,
+            widthLeft: pts[n - 1].widthLeft ?? defaultW,
+            widthRight: pts[n - 1].widthRight ?? defaultW
+        });
         return result;
     }
 

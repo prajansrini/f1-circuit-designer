@@ -16,8 +16,8 @@ F1.UIManager = class UIManager {
             node: () => this._nodeProps(sel), width: () => this._widthProps(sel), surface: () => this._surfaceProps(sel),
             barrier: () => this._barrierProps(), sector: () => this._sectorProps(),
             turn: () => this._turnProps(sel),
-            pitlane: () => this._pitLaneProps(),
-            garage: () => this._pitLaneProps(),
+            pitlane: () => this._pitLaneProps(sel),
+            garage: () => this._pitLaneProps(sel),
             analysis: () => this._analysisProps(),
             zone: () => this._zoneProps(sel),
             straightMode: () => this._straightModeProps(sel),
@@ -66,6 +66,32 @@ F1.UIManager = class UIManager {
         return h;
     }
 
+    _pitNodeProps(pt) {
+        let h = `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Position</label>
+            <div class="prop-row" style="gap:10px;">
+                <span class="prop-label" style="width:10px">X</span><input type="number" id="prop-x-val" value="${pt.x.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+                <span class="prop-label" style="width:10px">Y</span><input type="number" id="prop-y-val" value="${pt.y.toFixed(3)}" step="0.001" class="prop-input" style="flex:1;padding:2px 4px;font-size:11px;">
+            </div></div>`;
+        const sm = (this.app.data.gridSize || 50) / 50.0;
+        const defaultW = (this.app.data.pitLane.width || 8) / 2;
+        const wl = pt.widthLeft ?? defaultW;
+        const wr = pt.widthRight ?? defaultW;
+        h += `<div class="prop-group"><label>Track Width <span style="text-transform:none">(m)</span></label>
+            <div class="prop-row"><span class="prop-label" style="width:30px">L</span><input type="range" min="${2 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="${(wl * sm).toFixed(1)}" id="prop-wl" class="prop-slider"><input type="number" id="prop-wl-val" value="${(wl * sm).toFixed(1)}" step="${0.5 * sm}" min="${2 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">R</span><input type="range" min="${2 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="${(wr * sm).toFixed(1)}" id="prop-wr" class="prop-slider"><input type="number" id="prop-wr-val" value="${(wr * sm).toFixed(1)}" step="${0.5 * sm}" min="${2 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <div class="prop-row"><span class="prop-label" style="width:30px">B</span><input type="range" min="${-20 * sm}" max="${20 * sm}" step="${0.5 * sm}" value="0" id="prop-wb" class="prop-slider"><input type="number" id="prop-wb-val" value="0" step="${0.5 * sm}" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-tw">Reset Track Width</button></div>`;
+        h += `<div class="prop-group"><label>Elevation (m)</label>
+            <div class="prop-row" style="margin-bottom: 6px;"><span class="prop-label" style="width:30px" title="Elevation (m)">E</span><input type="range" min="${-100 * sm}" max="${100 * sm}" step="${0.5 * sm}" value="${((pt.z || 0) * sm).toFixed(1)}" id="prop-z" class="prop-slider"><input type="number" id="prop-z-val" value="${((pt.z || 0) * sm).toFixed(1)}" step="0.5" class="prop-input" style="width:60px;padding:2px 4px;font-size:11px;"></div>
+            <button class="prop-btn" style="width:100%; margin-top: 6px;" id="btn-reset-elev">Reset Elevation</button>
+        </div>`;
+        h += `<div class="prop-group"><label>Pit Node Name</label>
+            <input type="text" id="prop-pitname" value="${pt.name || ''}" placeholder="e.g. Pit Entry" class="prop-input" style="width:100%; padding: 4px;">
+            <button class="prop-btn danger" id="btn-del-pit-node" style="margin-top: 10px;">Delete Pit Node</button>
+        </div>`;
+        return h;
+    }
+
 
 
     _nodeProps(sel) {
@@ -80,12 +106,20 @@ F1.UIManager = class UIManager {
                 <div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Select a Node</label>
                     <select id="prop-node-selector" class="prop-input" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">
                         <option value="">-- Choose a node --</option>
-                        ${[...this.app.data.controlPoints].sort((a, b) => this.app.data.getLogicalNodeIndex(a.id) - this.app.data.getLogicalNodeIndex(b.id)).map(p => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>Node ${this.app.data.getLogicalNodeIndex(p.id)}</option>`).join('')}
+                        <optgroup label="Track Nodes">
+                        ${[...this.app.data.controlPoints].sort((a, b) => this.app.data.getLogicalNodeIndex(a.id) - this.app.data.getLogicalNodeIndex(b.id)).map(p => `<option value="${p.id}" ${sel && sel.type === 'cp' && sel.id === p.id ? 'selected' : ''}>Node ${this.app.data.getLogicalNodeIndex(p.id)}</option>`).join('')}
+                        </optgroup>
+                        ${this.app.data.pitLane.points.length > 0 ? `<optgroup label="Pit Lane Nodes">
+                            ${this.app.data.pitLane.points.map((p, i) => `<option value="pit_${p.id}" ${sel && sel.type === 'pit' && sel.id === p.id ? 'selected' : ''}>${p.name || `Pitlane Node ${i + 1}`}</option>`).join('')}
+                        </optgroup>` : ''}
                     </select>
                 </div>`;
         if (sel && sel.type === 'cp') {
             const pt = this.app.data.getPointById(sel.id);
             if (pt) h += this._cpProps(pt);
+        } else if (sel && sel.type === 'pit') {
+            const pt = this.app.data.pitLane.points.find(p => p.id === sel.id);
+            if (pt) h += this._pitNodeProps(pt);
         }
         return h;
     }
@@ -222,6 +256,10 @@ F1.UIManager = class UIManager {
             label = `Turn ${idx}`;
         } else if (sel.type === 'sector_label') {
             label = `Sector ${sel.sector}`;
+        } else if (sel.type === 'pit') {
+            const ptIdx = this.app.data.pitLane.points.findIndex(p => p.id === sel.id);
+            const pt = this.app.data.pitLane.points[ptIdx];
+            label = pt && pt.name ? pt.name : `Pitlane Node ${ptIdx + 1}`;
         } else if (sel.type === 'cp' || sel.type === 'runoff' || sel.type === 'barrier') {
             const idx = this.app.data.getLogicalNodeIndex(sel.id);
             let nextIdx = idx + 1;
@@ -246,6 +284,9 @@ F1.UIManager = class UIManager {
         } else if (sel.type === 'zone') {
             const z = this.app.data.getZoneById(sel.id);
             if (z) h += this._getZoneUI(z);
+        } else if (sel.type === 'pit') {
+            const pt = this.app.data.pitLane.points.find(p => p.id === sel.id);
+            if (pt) h += this._pitNodeProps(pt);
         } else if (sel.type === 'sector_label') {
             const sl = this.app.data.sectorLabels.find(s => s.sector === sel.sector);
             if (sl) h += this._getSectorLabelUI(sl);
@@ -396,6 +437,9 @@ F1.UIManager = class UIManager {
         this.app._updateIntersections();
 
         // Track Intersections
+        const activeKeys = this.app.intersections ? this.app.intersections.map(ix => ix.key) : [];
+        const orphanKeys = Object.keys(this.app.data.bridges || {}).filter(k => !activeKeys.includes(k));
+
         if (this.app.intersections && this.app.intersections.length > 0) {
             h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
                     <label>Track Intersections <span style="font-size:10px;">${this.app.intersections.length}</span></label>
@@ -409,13 +453,30 @@ F1.UIManager = class UIManager {
                 const dB2 = this._getNodeDisplayNum((ix.cpB + 1) % n);
                 h += `<option value="${ix.id}" ${isSelected ? 'selected' : ''}>Intersection ${index + 1} (Nodes ${dA1}-${dA2} & ${dB1}-${dB2})</option>`;
             });
+            let selectedIxId = this.app.uiState && this.app.uiState.selectedIntersection;
+            if (!selectedIxId && this.app.intersections.length > 0) selectedIxId = this.app.intersections[0].id;
+            const activeIx = this.app.intersections.find(i => i.id == selectedIxId);
+            const isBridged = activeIx && this.app.data.bridges && this.app.data.bridges[activeIx.key];
+            const btnColor = isBridged ? '#ff4444' : '#888';
+            const btnText = isBridged ? 'Remove Bridge' : 'Auto Bridge (20m Clearance)';
+            const hoverColor = isBridged ? '#ff0000' : '#00ff88';
+
             h += `  </select>
                     <button class="prop-btn" id="btn-invert-overlap" style="margin-top: 10px; width: 100%;">Invert Overlap</button>
+                    <button class="prop-btn" id="btn-auto-bridge" style="margin-top: 10px; width: 100%; border-color: ${btnColor}; color: ${btnColor}; transition: all 0.2s;" onmouseover="this.style.borderColor='${hoverColor}';this.style.color='${hoverColor}';" onmouseout="this.style.borderColor='${btnColor}';this.style.color='${btnColor}';">${btnText}</button>
                   </div>`;
         } else {
             h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
                     <label>Track Intersections</label>
                     <p class="prop-hint dim">No intersections detected.</p>
+                  </div>`;
+        }
+
+        if (orphanKeys.length > 0) {
+            h += `<div class="prop-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+                    <label>Orphaned Bridges ${orphanKeys.length}</label>
+                    <p class="prop-hint dim">Bridges that lost their track intersections.</p>
+                    <button class="prop-btn danger" id="btn-clean-orphans" style="margin-top: 10px; width: 100%; border-color: #ff4444; color: #ff4444; transition: all 0.2s;" onmouseover="this.style.borderColor='#ff0000';this.style.color='#ff0000';" onmouseout="this.style.borderColor='#ff4444';this.style.color='#ff4444';">Remove Orphaned Bridges</button>
                   </div>`;
         }
 
@@ -553,20 +614,21 @@ F1.UIManager = class UIManager {
 
             h += `<div class="prop-group" style="margin-top:15px; background: #1a1a1a; padding: 10px; border-radius: 6px; border: 1px solid #333;">
                 <label style="margin-bottom: 8px; display: block; color: #fff;">Flow Validation</label>
-                <div style="font-size:11px; line-height:1.4;">
+                <div style="font-size:11px; line-height:1.4; margin-bottom: 12px;">
                     ${mkChk(c1, 'All 3 sectors used')}
                     ${mkChk(c2, 'No unassigned nodes')}
                     ${mkChk(c3, 'Sector 1 starts at S/F line')}
                     ${mkChk(c4, 'Sector 3 ends at S/F line')}
                     ${mkChk(c5, 'Continuous flow (S1 → S2 → S3)')}
                 </div>
+                <button class="prop-btn" id="btn-auto-assign-sectors" style="width: 100%; border-color: #555;">Auto Assign Sectors</button>
             </div>`;
             h += `<button class="prop-btn" id="btn-reverse-track-sector" style="margin-top: 15px; width: 100%; border-color: #555;">Reverse Track Direction ⮂</button>`;
         }
         return h;
     }
 
-    _pitLaneProps() {
+    _pitLaneProps(sel) {
         const n = this.app.data.pitLane.points.length;
         let h = '<h3 class="prop-title">Pit Lane</h3>';
         h += `<p class="prop-hint dim">Pitlane Nodes: <strong>${n}</strong></p>`;
@@ -582,11 +644,25 @@ F1.UIManager = class UIManager {
                     <span style="margin-top: 2px; color: #aaa; font-size: 12px; font-weight: normal; letter-spacing: normal; text-transform: none;">Show Pitlane Nodes</span>
                 </label>
               </div>`;
+        if (n > 0) {
+            h += `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;"><label>Select a Pit Node</label>
+                <select id="prop-pit-node-selector" class="prop-input" style="width:100%; padding: 4px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                    <option value="">-- Choose a node --</option>
+                    ${this.app.data.pitLane.points.map((p, i) => `<option value="${p.id}" ${sel && sel.type === 'pit' && sel.id === p.id ? 'selected' : ''}>${p.name || `Pitlane Node ${i + 1}`}</option>`).join('')}
+                </select>
+            </div>`;
+        }
+
+        if (sel && sel.type === 'pit') {
+            const pt = this.app.data.pitLane.points.find(p => p.id === sel.id);
+            if (pt) h += this._pitNodeProps(pt);
+        }
+
         h += `<div class="prop-group" style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
                 <label>Garage Building</label>
-                ${!this.app.data.garage ? 
-                    `<button class="prop-btn" id="btn-add-garage">Place Garage</button>` :
-                    `
+                ${!this.app.data.garage ?
+                `<button class="prop-btn" id="btn-add-garage">Place Garage</button>` :
+                `
                     <div style="display:flex; gap:10px; margin-bottom:10px; margin-top: 8px;">
                         <div style="flex:1;">
                             <span style="font-size:11px;color:#aaa;">Length</span>
@@ -604,7 +680,7 @@ F1.UIManager = class UIManager {
                     </div>
                     <button class="prop-btn danger" id="btn-remove-garage" style="margin-top:12px;">Remove Garage</button>
                     `
-                }
+            }
               </div>`;
         h += '<button class="prop-btn danger" id="btn-clear-pit" style="margin-top: 15px;">Clear Pit Lane</button>';
         return h;
@@ -623,7 +699,7 @@ F1.UIManager = class UIManager {
                     Open Simulator
                 </button>
               </div>`;
-              
+
         return h;
     }
 
@@ -648,7 +724,7 @@ F1.UIManager = class UIManager {
             let angle = Math.atan2(dy, dx);
             points.push({ x: track[i].x * sf, y: track[i].y * sf, dist, angle, sector: track[i].sector || 0 });
             totalLength += dist;
-            
+
             let px = track[i].x * sf, py = track[i].y * sf;
             if (px < minX) minX = px; if (px > maxX) maxX = px;
             if (py < minY) minY = py; if (py > maxY) maxY = py;
@@ -857,16 +933,16 @@ F1.UIManager = class UIManager {
         let brakingZones = 0;
         let overtakingZones = 0;
         let goodExits = 0;
-        
+
         corners.forEach((c, i) => {
             let brakingDelta = c.es - c.cs;
             if (brakingDelta > 100) brakingZones++;
-            
+
             let exitStraight = straights[i + 1] || 0;
             if (i === corners.length - 1 && this.app.data.isClosed) exitStraight += straights[0];
-            
+
             if (exitStraight >= 300) goodExits++;
-            
+
             if (c.precStraight >= 400 && brakingDelta > 100) overtakingZones++;
             else if (c.es > 250 && brakingDelta > 100) overtakingZones++;
         });
@@ -889,9 +965,9 @@ F1.UIManager = class UIManager {
         let pitLen = 350;
         if (this.app.data.pitLane.points.length > 1) {
             pitLen = 0;
-            for(let i=1; i<this.app.data.pitLane.points.length; i++) {
-                let dx = this.app.data.pitLane.points[i].x - this.app.data.pitLane.points[i-1].x;
-                let dy = this.app.data.pitLane.points[i].y - this.app.data.pitLane.points[i-1].y;
+            for (let i = 1; i < this.app.data.pitLane.points.length; i++) {
+                let dx = this.app.data.pitLane.points[i].x - this.app.data.pitLane.points[i - 1].x;
+                let dy = this.app.data.pitLane.points[i].y - this.app.data.pitLane.points[i - 1].y;
                 pitLen += Math.hypot(dx, dy) * sf;
             }
         }
@@ -902,11 +978,11 @@ F1.UIManager = class UIManager {
         corners.forEach(c => { if (c.sector && secSpeeds[c.sector]) secSpeeds[c.sector].push(c.cs); });
         let secAvg = { 1: 0, 2: 0, 3: 0 };
         for (let s = 1; s <= 3; s++) {
-            if (secSpeeds[s].length > 0) secAvg[s] = secSpeeds[s].reduce((a,b)=>a+b,0) / secSpeeds[s].length;
+            if (secSpeeds[s].length > 0) secAvg[s] = secSpeeds[s].reduce((a, b) => a + b, 0) / secSpeeds[s].length;
             else secAvg[s] = 150;
         }
         let meanAvg = (secAvg[1] + secAvg[2] + secAvg[3]) / 3;
-        let variance = ((Math.pow(secAvg[1]-meanAvg,2) + Math.pow(secAvg[2]-meanAvg,2) + Math.pow(secAvg[3]-meanAvg,2)) / 3);
+        let variance = ((Math.pow(secAvg[1] - meanAvg, 2) + Math.pow(secAvg[2] - meanAvg, 2) + Math.pow(secAvg[3] - meanAvg, 2)) / 3);
         let stdDev = Math.sqrt(variance);
         let sectorBalanceScore = Math.min(100, 20 + stdDev * 3);
 
@@ -955,7 +1031,7 @@ F1.UIManager = class UIManager {
             numHairpins, numChicanes, numFastCorners, numMedCombined, numSlowCombined,
             techSectionLength, fastSectionLength, curvatureVariance, avgCornerAngle, sequences
         ];
-        
+
         let difficulty = typeof predict_DifficultyScore === 'function' ? predict_DifficultyScore(features) : 0;
         let overtaking = typeof predict_OvertakingScore === 'function' ? predict_OvertakingScore(features) : 0;
         let flow = typeof predict_FlowScore === 'function' ? predict_FlowScore(features) : 0;
@@ -1012,8 +1088,8 @@ F1.UIManager = class UIManager {
                         <div><span style="color:#888">Chicanes</span> <div style="float:right; color:#fff">${numChicanes}</div></div>
                         <div><span style="color:#888">Longest Straight</span> <div style="float:right; color:#fff">${maxStraight.toFixed(0)} m</div></div>
                         <div><span style="color:#888">Corner Density</span> <div style="float:right; color:#fff">${cornerDensity.toFixed(1)} /km</div></div>
-                        <div><span style="color:#888">Tech Section</span> <div style="float:right; color:#fff">${(totalTechLength/1000).toFixed(2)} km</div></div>
-                        <div><span style="color:#888">Fast Section</span> <div style="float:right; color:#fff">${(totalHighSpeedLength/1000).toFixed(2)} km</div></div>
+                        <div><span style="color:#888">Tech Section</span> <div style="float:right; color:#fff">${(totalTechLength / 1000).toFixed(2)} km</div></div>
+                        <div><span style="color:#888">Fast Section</span> <div style="float:right; color:#fff">${(totalHighSpeedLength / 1000).toFixed(2)} km</div></div>
                         <div><span style="color:#888">Dir. Changes</span> <div style="float:right; color:#fff">${numDirChanges}</div></div>
                     </div>
 
@@ -1148,7 +1224,23 @@ F1.UIManager = class UIManager {
         if (ns) {
             ns.onchange = () => {
                 if (ns.value) {
-                    this.app.setSelection({ type: 'cp', id: parseInt(ns.value) });
+                    if (ns.value.startsWith('pit_')) {
+                        this.app.setSelection({ type: 'pit', id: parseInt(ns.value.replace('pit_', '')) });
+                    } else {
+                        this.app.setSelection({ type: 'cp', id: parseInt(ns.value) });
+                    }
+                } else {
+                    this.app.setSelection(null);
+                }
+            };
+        }
+
+        // Pit Node Selector
+        const pns = document.getElementById('prop-pit-node-selector');
+        if (pns) {
+            pns.onchange = () => {
+                if (pns.value) {
+                    this.app.setSelection({ type: 'pit', id: parseInt(pns.value) });
                 } else {
                     this.app.setSelection(null);
                 }
@@ -1165,6 +1257,41 @@ F1.UIManager = class UIManager {
                     this.app._updateIntersections();
                     this.updateProperties();
                     this.app.requestRender();
+                }
+            };
+        }
+
+        // Pit Node Name
+        const pitNameInput = document.getElementById('prop-pitname');
+        if (pitNameInput) {
+            pitNameInput.oninput = () => {
+                const sel = this.app.selection;
+                if (sel && sel.type === 'pit') {
+                    const pt = this.app.data.pitLane.points.find(p => p.id === sel.id);
+                    if (pt) pt.name = pitNameInput.value;
+                }
+            };
+            pitNameInput.onchange = () => {
+                this.app.data.snapshot();
+                this.updateProperties();
+                this.app.requestRender();
+            };
+        }
+
+        // Pit Node Delete
+        const btnDelPitNode = document.getElementById('btn-del-pit-node');
+        if (btnDelPitNode) {
+            btnDelPitNode.onclick = () => {
+                const sel = this.app.selection;
+                if (sel && sel.type === 'pit') {
+                    this.app.data.snapshot();
+                    const ptIdx = this.app.data.pitLane.points.findIndex(p => p.id === sel.id);
+                    if (ptIdx >= 0) {
+                        this.app.data.pitLane.points.splice(ptIdx, 1);
+                        this.app.setSelection(null);
+                        this.updateProperties();
+                        this.app.requestRender();
+                    }
                 }
             };
         }
@@ -1367,11 +1494,14 @@ F1.UIManager = class UIManager {
             document.getElementById('btn-reset-tw').onclick = () => {
                 this.app.data.snapshot();
                 const sel = this.app.selection;
-                if (sel && sel.type === 'cp') {
-                    const pt = this.app.data.getPointById(sel.id);
+                if (sel && (sel.type === 'cp' || sel.type === 'pit')) {
+                    const pt = sel.type === 'cp'
+                        ? this.app.data.getPointById(sel.id)
+                        : this.app.data.pitLane.points.find(p => p.id === sel.id);
                     if (pt) {
-                        pt.widthLeft = 12.0;
-                        pt.widthRight = 12.0;
+                        const defaultW = sel.type === 'cp' ? 12.0 : (this.app.data.pitLane.width || 8) / 2;
+                        pt.widthLeft = defaultW;
+                        pt.widthRight = defaultW;
                         this.updateProperties();
                         this.app.requestRender();
                     }
@@ -1408,6 +1538,40 @@ F1.UIManager = class UIManager {
         const btnRevSec = document.getElementById('btn-reverse-track-sector');
         if (btnRevSec) btnRevSec.onclick = handleReverse;
 
+        const btnAutoAssign = document.getElementById('btn-auto-assign-sectors');
+        if (btnAutoAssign) {
+            btnAutoAssign.onclick = () => {
+                const cps = this.app.data.controlPoints;
+                const len = cps.length;
+                if (len < 3) return;
+                
+                this.app.data.snapshot();
+                
+                let startIdx = cps.findIndex(p => p.id === this.app.data.startNodeId);
+                if (startIdx === -1) startIdx = 0;
+
+                const third = Math.floor(len / 3);
+                const extra = len % 3;
+                
+                const s1Len = third + (extra > 0 ? 1 : 0);
+                const s2Len = third + (extra > 1 ? 1 : 0);
+                
+                for (let i = 0; i < len; i++) {
+                    const idx = (startIdx + i) % len;
+                    if (i < s1Len) {
+                        cps[idx].sector = 1;
+                    } else if (i < s1Len + s2Len) {
+                        cps[idx].sector = 2;
+                    } else {
+                        cps[idx].sector = 3;
+                    }
+                }
+                
+                this.updateProperties();
+                this.app.requestRender();
+            };
+        }
+
         const ixSel = document.getElementById('prop-intersection-selector');
         if (ixSel) {
             ixSel.onchange = () => {
@@ -1440,8 +1604,45 @@ F1.UIManager = class UIManager {
                 if (!ix) return;
 
                 this.app.data.snapshot();
-                const key = ix.key;
-                const legacyKey = `${ix.cpA}-${ix.cpB}`;
+                let key = ix.key;
+                let legacyKey = `${ix.cpA}-${ix.cpB}`;
+
+                const bKey = (this.app.data.bridges && this.app.data.bridges[key]) ? key : ((this.app.data.bridges && this.app.data.bridges[legacyKey]) ? legacyKey : null);
+                
+                if (bKey) {
+                    const nodeIds = this.app.data.bridges[bKey];
+                    nodeIds.forEach(id => {
+                        const idx = this.app.data.controlPoints.findIndex(p => p.id === id);
+                        if (idx !== -1) {
+                            this.app.data.controlPoints.splice(idx, 1);
+                            if (this.app.data.startNodeId === id) {
+                                this.app.data.startNodeId = this.app.data.controlPoints.length > 0 ? this.app.data.controlPoints[0].id : null;
+                            }
+                            this.app.data.clearZonesAt(idx);
+                        }
+                    });
+                    delete this.app.data.bridges[bKey];
+                    this.app.editor._needsUpdate = true;
+                    this.app.editor.getInterpolatedTrack();
+                    
+                    this.app._updateIntersections();
+                    const oldX = ix.x;
+                    const oldY = ix.y;
+                    const newIx = this.app.intersections.reduce((closest, current) => {
+                        const d1 = Math.hypot(current.x - oldX, current.y - oldY);
+                        const d2 = closest ? Math.hypot(closest.x - oldX, closest.y - oldY) : Infinity;
+                        return d1 < d2 ? current : closest;
+                    }, null);
+
+                    if (newIx) {
+                        ixSel.value = newIx.id;
+                        if (!this.app.uiState) this.app.uiState = {};
+                        this.app.uiState.selectedIntersection = newIx.id;
+                        key = newIx.key;
+                        legacyKey = `${newIx.cpA}-${newIx.cpB}`;
+                    }
+                }
+
                 const idx = this.app.data.overlapInversions.indexOf(key);
                 const legacyIdx = this.app.data.overlapInversions.indexOf(legacyKey);
 
@@ -1452,6 +1653,235 @@ F1.UIManager = class UIManager {
                 } else {
                     this.app.data.overlapInversions.push(key);
                 }
+
+                if (bKey && btnAutoBridge) {
+                    btnAutoBridge.onclick();
+                } else {
+                    this.app.requestRender();
+                }
+            };
+        }
+
+        const btnAutoBridge = document.getElementById('btn-auto-bridge');
+        if (btnAutoBridge) {
+            btnAutoBridge.onclick = () => {
+                if (!ixSel || !ixSel.value) return;
+                const ixId = parseInt(ixSel.value);
+                const ix = this.app.intersections.find(i => i.id === ixId);
+                if (!ix) return;
+
+                this.app.data.snapshot();
+                const sm = (this.app.data.gridSize || 50) / 50.0;
+                
+                const key = ix.key;
+                const legacyKey = `${ix.cpA}-${ix.cpB}`;
+                const inverted = this.app.data.overlapInversions && (this.app.data.overlapInversions.includes(key) || this.app.data.overlapInversions.includes(legacyKey));
+                
+                const isBridged = this.app.data.bridges && this.app.data.bridges[key];
+                
+                if (isBridged) {
+                    this.app.data.snapshot();
+                    const nodeIds = this.app.data.bridges[key];
+                    nodeIds.forEach(id => {
+                        const idx = this.app.data.controlPoints.findIndex(p => p.id === id);
+                        if (idx !== -1) {
+                            this.app.data.controlPoints.splice(idx, 1);
+                            if (this.app.data.startNodeId === id) {
+                                this.app.data.startNodeId = this.app.data.controlPoints.length > 0 ? this.app.data.controlPoints[0].id : null;
+                            }
+                            this.app.data.clearZonesAt(idx);
+                        }
+                    });
+                    delete this.app.data.bridges[key];
+                } else {
+                    this.app.data.snapshot();
+                    let idxA = ix.trackIdxA;
+                    let idxB = ix.trackIdxB;
+                    let topIdx = Math.max(idxA, idxB);
+                    if (inverted) topIdx = Math.min(idxA, idxB);
+                    
+                    const track = this.app.editor.getInterpolatedTrack();
+                    const topTrackPt = track[topIdx];
+                    const botIdx = topIdx === idxA ? idxB : idxA;
+                    const botTrackPt = track[botIdx];
+
+                    if (topTrackPt && botTrackPt) {
+                        const ptA = topTrackPt;
+                        const ptA1 = track[Math.min(topIdx + 1, track.length - 1)];
+                        const ptB = botTrackPt;
+                        const ptB1 = track[Math.min(botIdx + 1, track.length - 1)];
+                        
+                        const dx1 = ptA1.x - ptA.x, dy1 = ptA1.y - ptA.y;
+                        const dx2 = ptB1.x - ptB.x, dy2 = ptB1.y - ptB.y;
+                        const len1 = Math.hypot(dx1, dy1) || 1, len2 = Math.hypot(dx2, dy2) || 1;
+                        const dot = (dx1 * dx2 + dy1 * dy2) / (len1 * len2);
+                        let angle = Math.acos(Math.max(-1, Math.min(1, Math.abs(dot))));
+                        if (angle < 0.1) angle = 0.1;
+
+                        const botW = Math.max(
+                            botTrackPt.widthLeft + (botTrackPt.surfaceWidthLeft || 10) + (botTrackPt.barrierLeft ? 5 : 0),
+                            botTrackPt.widthRight + (botTrackPt.surfaceWidthRight || 10) + (botTrackPt.barrierRight ? 5 : 0)
+                        );
+                        const topW = Math.max(
+                            topTrackPt.widthLeft + (topTrackPt.surfaceWidthLeft || 10) + (topTrackPt.barrierLeft ? 5 : 0),
+                            topTrackPt.widthRight + (topTrackPt.surfaceWidthRight || 10) + (topTrackPt.barrierRight ? 5 : 0)
+                        );
+                        
+                        const topClearance = (botW / Math.sin(angle)) + 20; 
+                        const botClearance = (topW / Math.sin(angle)) + 20;
+
+                        const getPtAtDist = (startIdx, dist) => {
+                            let d = 0;
+                            let cur = startIdx;
+                            let step = dist >= 0 ? 1 : -1;
+                            let target = Math.abs(dist);
+                            for (let i = 0; i < track.length; i++) {
+                                let next = cur + step;
+                                if (next < 0) next = track.length - 1;
+                                if (next >= track.length) next = 0;
+                                d += Math.hypot(track[next].x - track[cur].x, track[next].y - track[cur].y);
+                                cur = next;
+                                if (d >= target) return track[cur];
+                            }
+                            return track[cur];
+                        };
+
+                        const ptsToInsert = [];
+                        const addInsert = (trackPt, isTop) => {
+                            ptsToInsert.push({
+                                segIndex: trackPt.segIndex,
+                                t: trackPt.t,
+                                x: trackPt.x,
+                                y: trackPt.y,
+                                isTop: isTop,
+                                pt: trackPt
+                            });
+                        };
+
+                        addInsert(getPtAtDist(topIdx, topClearance), true);
+                        addInsert(getPtAtDist(topIdx, -topClearance), true);
+                        
+                        addInsert(getPtAtDist(botIdx, botClearance), false);
+                        addInsert(getPtAtDist(botIdx, -botClearance), false);
+
+                        const getCpsInRange = (startIdx, dist) => {
+                            let step = dist >= 0 ? 1 : -1;
+                            let target = Math.abs(dist);
+                            let cur = startIdx;
+                            let d = 0;
+                            let cpRefs = [];
+                            if (track[cur].t === 0) {
+                                cpRefs.push(this.app.data.controlPoints[track[cur].segIndex]);
+                            }
+                            for (let i = 0; i < track.length; i++) {
+                                let next = cur + step;
+                                if (next < 0) next = track.length - 1;
+                                if (next >= track.length) next = 0;
+                                d += Math.hypot(track[next].x - track[cur].x, track[next].y - track[cur].y);
+                                cur = next;
+                                if (track[cur].t === 0) {
+                                    cpRefs.push(this.app.data.controlPoints[track[cur].segIndex]);
+                                }
+                                if (d >= target) break;
+                            }
+                            return cpRefs;
+                        };
+
+                        let existingTopCps = new Set([
+                            ...getCpsInRange(topIdx, topClearance),
+                            ...getCpsInRange(topIdx, -topClearance)
+                        ]);
+                        let existingBotCps = new Set([
+                            ...getCpsInRange(botIdx, botClearance),
+                            ...getCpsInRange(botIdx, -botClearance)
+                        ]);
+
+                        ptsToInsert.sort((a, b) => {
+                            if (a.segIndex !== b.segIndex) return b.segIndex - a.segIndex;
+                            return b.t - a.t;
+                        });
+
+                        let topNodes = [];
+                        let botNodes = [];
+                        let bridgeNodeIds = [];
+                        
+                        existingTopCps.forEach(cp => topNodes.push(cp));
+                        existingBotCps.forEach(cp => botNodes.push(cp));
+
+                        ptsToInsert.forEach(ins => {
+                            const baseCp = this.app.data.controlPoints[ins.segIndex];
+                            const newId = Math.max(...this.app.data.controlPoints.map(p => p.id), 0) + 1;
+                            const newCp = {
+                                id: newId,
+                                x: ins.x,
+                                y: ins.y,
+                                z: (baseCp.z || 0),
+                                widthLeft: ins.pt.widthLeft,
+                                widthRight: ins.pt.widthRight,
+                                surfaceWidthLeft: ins.pt.surfaceWidthLeft,
+                                surfaceWidthRight: ins.pt.surfaceWidthRight,
+                                barrierLeft: ins.pt.barrierLeft,
+                                barrierRight: ins.pt.barrierRight,
+                                sector: ins.pt.sector,
+                                banking: ins.pt.banking
+                            };
+                            this.app.data.controlPoints.splice(ins.segIndex + 1, 0, newCp);
+                            bridgeNodeIds.push(newId);
+                            if (ins.isTop) topNodes.push(newCp);
+                            else botNodes.push(newCp);
+                        });
+
+                        const botZMax = Math.max(botTrackPt.z || 0, 0);
+                        const targetTopZ = botZMax + (20 / sm);
+                        topNodes.forEach(n => n.z = targetTopZ);
+                        botNodes.forEach(n => n.z = botZMax);
+                        
+                        if (!this.app.data.bridges) this.app.data.bridges = {};
+                        this.app.data.bridges[key] = bridgeNodeIds;
+                    }
+                }
+
+                this.app.editor._needsUpdate = true;
+                this.app.editor.getInterpolatedTrack();
+                this.app._updateIntersections();
+                
+                const oldX = ix.x;
+                const oldY = ix.y;
+                const newIx = this.app.intersections.reduce((closest, current) => {
+                    const d1 = Math.hypot(current.x - oldX, current.y - oldY);
+                    const d2 = closest ? Math.hypot(closest.x - oldX, closest.y - oldY) : Infinity;
+                    return d1 < d2 ? current : closest;
+                }, null);
+
+                if (newIx) {
+                    if (!this.app.uiState) this.app.uiState = {};
+                    this.app.uiState.selectedIntersection = newIx.id;
+                    if (ixSel) ixSel.value = newIx.id;
+                }
+
+                if (this.app.preview3D) this.app.preview3D.app.editor._needsUpdate = true;
+                this.updateProperties();
+                this.app.requestRender();
+            };
+        }
+
+        const btnCleanOrphans = document.getElementById('btn-clean-orphans');
+        if (btnCleanOrphans) {
+            btnCleanOrphans.onclick = () => {
+                this.app.data.snapshot();
+                const activeKeys = this.app.intersections.map(ix => ix.key);
+                const orphanKeys = Object.keys(this.app.data.bridges || {}).filter(k => !activeKeys.includes(k));
+                orphanKeys.forEach(key => {
+                    const nodeIds = this.app.data.bridges[key];
+                    if (nodeIds && nodeIds.length > 0) {
+                        this.app.data.removeControlPoint(nodeIds[0]);
+                    } else {
+                        delete this.app.data.bridges[key];
+                    }
+                });
+                this.app.editor._needsUpdate = true;
+                if (this.app.preview3D) this.app.preview3D.app.editor._needsUpdate = true;
+                this.updateProperties();
                 this.app.requestRender();
             };
         }
@@ -1461,14 +1891,14 @@ F1.UIManager = class UIManager {
             b.onclick = () => {
                 const s = parseInt(b.dataset.sec);
                 if (this.app.activeToolName === 'sector') this.app.tools.sector.currentSector = s;
-                else if (this.app.selection && this.app.selection.type === 'cp') { 
-                    const pt = this.app.data.getPointById(this.app.selection.id); 
-                    if (pt) { 
-                        this.app.data.snapshot(); 
-                        pt.sector = s; 
+                else if (this.app.selection && this.app.selection.type === 'cp') {
+                    const pt = this.app.data.getPointById(this.app.selection.id);
+                    if (pt) {
+                        this.app.data.snapshot();
+                        pt.sector = s;
                         this.app.editor._needsUpdate = true;
                         if (this.app.preview3D) this.app.preview3D.app.editor._needsUpdate = true;
-                    } 
+                    }
                 }
                 this.updateProperties(); this.app.requestRender();
             };
@@ -1655,24 +2085,26 @@ F1.UIManager = class UIManager {
         const swl = document.getElementById('prop-swl'), swlv = document.getElementById('prop-swl-val');
         const swr = document.getElementById('prop-swr'), swrv = document.getElementById('prop-swr-val');
 
-        if (this.app.selection && this.app.selection.type === 'cp') {
-            const pt = this.app.data.getPointById(this.app.selection.id);
+        if (this.app.selection && (this.app.selection.type === 'cp' || this.app.selection.type === 'pit')) {
+            const pt = this.app.selection.type === 'cp'
+                ? this.app.data.getPointById(this.app.selection.id)
+                : this.app.data.pitLane.points.find(p => p.id === this.app.selection.id);
             if (pt) {
                 const px = document.getElementById('prop-x-val');
                 if (px) px.onchange = () => { pt.x = parseFloat(px.value); this.app.requestRender(); };
                 const py = document.getElementById('prop-y-val');
                 if (py) py.onchange = () => { pt.y = parseFloat(py.value); this.app.requestRender(); };
-                
+
                 const pz = document.getElementById('prop-z');
                 const pzv = document.getElementById('prop-z-val');
                 if (pz && pzv) {
-                    pz.oninput = () => { pt.z = parseFloat(pz.value); pzv.value = pz.value; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
-                    pzv.onchange = () => { let v = parseFloat(pzv.value); if(isNaN(v)) v=0; pt.z = v; pz.value = v; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                    pz.oninput = () => { pt.z = parseFloat(pz.value) / sm; pzv.value = pz.value; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
+                    pzv.onchange = () => { let v = parseFloat(pzv.value); if (isNaN(v)) v = 0; pt.z = v / sm; pz.value = v; this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender(); };
                 }
                 const btnResElevBank = document.getElementById('btn-reset-elev-bank');
                 if (btnResElevBank) {
-                    btnResElevBank.onclick = () => { 
-                        pt.z = 0; if(pz) pz.value = 0; if(pzv) pzv.value = 0; 
+                    btnResElevBank.onclick = () => {
+                        pt.z = 0; if (pz) pz.value = 0; if (pzv) pzv.value = 0;
                         pt.banking = 0;
                         this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender();
                         const pBank = document.getElementById('prop-banking');
@@ -1685,7 +2117,14 @@ F1.UIManager = class UIManager {
                         if (br) br.classList.remove('active');
                     };
                 }
-                
+                const btnResElev = document.getElementById('btn-reset-elev');
+                if (btnResElev) {
+                    btnResElev.onclick = () => {
+                        pt.z = 0; if (pz) pz.value = 0; if (pzv) pzv.value = 0;
+                        this.app.requestRender(); if (this.app.preview3D) this.app.preview3D.app.requestRender();
+                    };
+                }
+
                 const pBank = document.getElementById('prop-banking');
                 const pBankVal = document.getElementById('prop-banking-val');
                 const btnBankLeft = document.getElementById('btn-bank-left');
@@ -1735,29 +2174,41 @@ F1.UIManager = class UIManager {
                 if (wb && wbv) {
                     let lastV = 0;
                     const applyDelta = (v) => {
+                        if (isNaN(v)) return;
                         const d = (v - lastV) / sm; lastV = v;
-                        pt.widthLeft = Math.max(1, pt.widthLeft + d); pt.widthRight = Math.max(1, pt.widthRight + d);
+                        const ptWLeft = parseFloat(pt.widthLeft);
+                        const ptWRight = parseFloat(pt.widthRight);
+                        const defaultW = !isNaN(ptWLeft) ? ptWLeft : (this.app.selection.type === 'pit' ? (this.app.data.pitLane.width || 8) / 2 : 12);
+                        const defaultWR = !isNaN(ptWRight) ? ptWRight : (this.app.selection.type === 'pit' ? (this.app.data.pitLane.width || 8) / 2 : 12);
+                        pt.widthLeft = Math.max(1, defaultW + d);
+                        pt.widthRight = Math.max(1, defaultWR + d);
                         if (wl) wl.value = (pt.widthLeft * sm).toFixed(1); if (wlv) wlv.value = (pt.widthLeft * sm).toFixed(1);
                         if (wr) wr.value = (pt.widthRight * sm).toFixed(1); if (wrv) wrv.value = (pt.widthRight * sm).toFixed(1);
                         this.app.requestRender();
                     };
                     wb.oninput = () => { wbv.value = wb.value; applyDelta(parseFloat(wb.value)); };
                     wb.onchange = () => { wb.value = 0; wbv.value = 0; lastV = 0; };
-                    wbv.onchange = () => { wb.value = wbv.value; applyDelta(parseFloat(wbv.value)); wb.value = 0; wbv.value = 0; lastV = 0; };
+                    wbv.onchange = () => { let v = parseFloat(wbv.value); if (!isNaN(v)) { wb.value = v; applyDelta(v); } wb.value = 0; wbv.value = 0; lastV = 0; };
                 }
                 const swb = document.getElementById('prop-swb'), swbv = document.getElementById('prop-swb-val');
                 if (swb && swbv) {
                     let lastV = 0;
                     const applyDelta = (v) => {
+                        if (isNaN(v)) return;
                         const d = (v - lastV) / sm; lastV = v;
-                        pt.surfaceWidthLeft = Math.max(0, pt.surfaceWidthLeft + d); pt.surfaceWidthRight = Math.max(0, pt.surfaceWidthRight + d);
+                        const ptSWLeft = parseFloat(pt.surfaceWidthLeft);
+                        const ptSWRight = parseFloat(pt.surfaceWidthRight);
+                        const defaultSW = !isNaN(ptSWLeft) ? ptSWLeft : 10;
+                        const defaultSWR = !isNaN(ptSWRight) ? ptSWRight : 10;
+                        pt.surfaceWidthLeft = Math.max(0, defaultSW + d);
+                        pt.surfaceWidthRight = Math.max(0, defaultSWR + d);
                         if (swl) swl.value = (pt.surfaceWidthLeft * sm).toFixed(1); if (swlv) swlv.value = (pt.surfaceWidthLeft * sm).toFixed(1);
                         if (swr) swr.value = (pt.surfaceWidthRight * sm).toFixed(1); if (swrv) swrv.value = (pt.surfaceWidthRight * sm).toFixed(1);
                         this.app.requestRender();
                     };
                     swb.oninput = () => { swbv.value = swb.value; applyDelta(parseFloat(swb.value)); };
                     swb.onchange = () => { swb.value = 0; swbv.value = 0; lastV = 0; };
-                    swbv.onchange = () => { swb.value = swbv.value; applyDelta(parseFloat(swbv.value)); swb.value = 0; swbv.value = 0; lastV = 0; };
+                    swbv.onchange = () => { let v = parseFloat(swbv.value); if (!isNaN(v)) { swb.value = v; applyDelta(v); } swb.value = 0; swbv.value = 0; lastV = 0; };
                 }
             }
         }
@@ -1798,7 +2249,7 @@ F1.UIManager = class UIManager {
         }
         const cp = document.getElementById('btn-clear-pit');
         if (cp) cp.onclick = () => { this.app.data.snapshot(); this.app.data.clearPitLane(); this.updateProperties(); this.app.requestRender(); };
-        
+
         const showPitNodes = document.getElementById('prop-show-pit-nodes');
         if (showPitNodes) {
             showPitNodes.onchange = () => {
@@ -1815,14 +2266,14 @@ F1.UIManager = class UIManager {
         if (btnRemG) btnRemG.onclick = () => { this.app.data.snapshot(); this.app.data.garage = null; this.app.setTool('pitlane'); this.app.requestRender(); this.updateProperties(); };
 
         const glen = document.getElementById('prop-garage-len');
-        if (glen) glen.oninput = () => { if(this.app.data.garage) { this.app.data.garage.length = parseFloat(glen.value) || 250; this.app.requestRender(); }};
+        if (glen) glen.oninput = () => { if (this.app.data.garage) { this.app.data.garage.length = parseFloat(glen.value) || 250; this.app.requestRender(); } };
         const gwid = document.getElementById('prop-garage-wid');
-        if (gwid) gwid.oninput = () => { if(this.app.data.garage) { this.app.data.garage.width = parseFloat(gwid.value) || 20; this.app.requestRender(); }};
+        if (gwid) gwid.oninput = () => { if (this.app.data.garage) { this.app.data.garage.width = parseFloat(gwid.value) || 20; this.app.requestRender(); } };
         const grotRange = document.getElementById('prop-garage-rot-range');
         const grotNum = document.getElementById('prop-garage-rot-num');
         if (grotRange && grotNum) {
             const updateRot = (val) => {
-                if(this.app.data.garage) {
+                if (this.app.data.garage) {
                     let r = parseFloat(val) || 0;
                     this.app.data.garage.rotation = r;
                     grotRange.value = r;
@@ -1836,7 +2287,7 @@ F1.UIManager = class UIManager {
 
         const dz = document.getElementById('btn-del-zone');
         if (dz) dz.onclick = () => { if (this.app.selection && this.app.selection.type === 'zone') { this.app.data.snapshot(); this.app.data.removeZone(this.app.selection.id); this.app.setSelection(null); this.app.requestRender(); } };
-        
+
         // Hot Lap Preview Controls
         const btnOpenHotlap = document.getElementById('btn-open-hotlap-modal');
         if (btnOpenHotlap) {

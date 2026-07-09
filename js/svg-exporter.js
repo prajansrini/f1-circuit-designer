@@ -450,7 +450,7 @@ F1.SVGExporter = class SVGExporter {
                 svg += `<rect x="${-tw / 2}" y="${-th / 2}" width="${tw}" height="${th}" rx="${4 * scale}" ry="${4 * scale}" fill="${zt.color}" />`;
                 
                 lines.forEach((l, i) => {
-                    const lineY = (i - (lines.length - 1) / 2) * 14 * scale;
+                    const lineY = (i - (lines.length - 1) / 2) * 16 * scale;
                     svg += `<text x="0" y="${lineY + 1 * scale}" fill="${zt.textColor || '#fff'}" font-family="Outfit" font-size="${10 * scale}" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${l}</text>`;
                 });
                 svg += `</g>`;
