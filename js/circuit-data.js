@@ -45,6 +45,7 @@ F1.CircuitData = class CircuitData {
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
         ];
         this.overlapInversions = [];
+        this.bridges = {};
         this.showPitlaneNodes = true;
         this._nextId = 1;
         this._undoStack = [];
@@ -182,6 +183,25 @@ F1.CircuitData = class CircuitData {
     addControlPoint(x, y) { return this.insertControlPoint(x, y, this.controlPoints.length); }
     
     removeControlPoint(id) {
+        if (this.bridges) {
+            let bridgeKeyToRemove = null;
+            for (const key in this.bridges) {
+                if (this.bridges[key].includes(id)) {
+                    bridgeKeyToRemove = key;
+                    break;
+                }
+            }
+            if (bridgeKeyToRemove) {
+                const nodesToRemove = this.bridges[bridgeKeyToRemove];
+                delete this.bridges[bridgeKeyToRemove];
+                nodesToRemove.forEach(nodeId => {
+                    if (nodeId !== id) {
+                        this.removeControlPoint(nodeId);
+                    }
+                });
+            }
+        }
+
         const index = this.controlPoints.findIndex(p => p.id === id);
         if (index === -1) return;
         const saved = this._saveZoneWorldPositions();
@@ -353,13 +373,13 @@ F1.CircuitData = class CircuitData {
         }
     }
 
-    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), garage: JSON.parse(JSON.stringify(this.garage)), zones: JSON.parse(JSON.stringify(this.zones)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), showPitlaneNodes: this.showPitlaneNodes, _nextId: this._nextId }; }
+    _serialize() { return { name: this.name, namePos: this.namePos, gridSize: this.gridSize, controlPoints: JSON.parse(JSON.stringify(this.controlPoints)), isClosed: this.isClosed, startNodeId: this.startNodeId, pitLane: JSON.parse(JSON.stringify(this.pitLane)), garage: JSON.parse(JSON.stringify(this.garage)), zones: JSON.parse(JSON.stringify(this.zones)), turnMarkers: JSON.parse(JSON.stringify(this.turnMarkers)), sectorLabels: JSON.parse(JSON.stringify(this.sectorLabels)), overlapInversions: JSON.parse(JSON.stringify(this.overlapInversions)), bridges: JSON.parse(JSON.stringify(this.bridges || {})), showPitlaneNodes: this.showPitlaneNodes, _nextId: this._nextId }; }
     _deserialize(d) {
         this.name = d.name; this.namePos = d.namePos || { x: 20, y: 16 }; this.gridSize = d.gridSize || 50; this.controlPoints = d.controlPoints; this.isClosed = d.isClosed; this.startNodeId = d.startNodeId || null; this.pitLane = d.pitLane; this.garage = d.garage || null; this.zones = d.zones || []; this.turnMarkers = d.turnMarkers || []; this.sectorLabels = d.sectorLabels || [
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ]; this.overlapInversions = d.overlapInversions || []; this.showPitlaneNodes = d.showPitlaneNodes !== false; this._nextId = d._nextId;
+        ]; this.overlapInversions = d.overlapInversions || []; this.bridges = d.bridges || {}; this.showPitlaneNodes = d.showPitlaneNodes !== false; this._nextId = d._nextId;
     }
     toJSON() { return JSON.stringify(this._serialize()); }
     fromJSON(json) { this._deserialize(JSON.parse(json)); this._undoStack = []; this._redoStack = []; }
@@ -368,6 +388,6 @@ F1.CircuitData = class CircuitData {
             { sector: 1, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 2, labelOffsetX: 40, labelOffsetY: -30 },
             { sector: 3, labelOffsetX: 40, labelOffsetY: -30 }
-        ]; this.overlapInversions = []; this.showPitlaneNodes = true;
+        ]; this.overlapInversions = []; this.bridges = {}; this.showPitlaneNodes = true;
     }
 };

@@ -182,7 +182,11 @@ F1.App = class App {
         }
         const counts = {};
         intersections.forEach(ix => {
-            const baseKey = `${ix.cpA}-${ix.cpB}`;
+            const idA = this.data.controlPoints[ix.cpA].id;
+            const idB = this.data.controlPoints[ix.cpB].id;
+            const minId = Math.min(idA, idB);
+            const maxId = Math.max(idA, idB);
+            const baseKey = `${minId}-${maxId}`;
             counts[baseKey] = (counts[baseKey] || 0) + 1;
             ix.key = `${baseKey}-${counts[baseKey] - 1}`;
         });
@@ -330,8 +334,9 @@ F1.App = class App {
             if (e.button === 0) {
                 const r = canvas.getBoundingClientRect(); const w = this.renderer.s2w(e.clientX - r.left, e.clientY - r.top);
                 this.activeTool.onMouseDown(w.x, w.y, e);
-                const isSelectOrClosedDraw = this.activeTool.constructor.name === 'SelectTool' || (this.activeTool.constructor.name === 'DrawTrackTool' && this.data.isClosed);
-                if (isSelectOrClosedDraw && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection) {
+                const isPannableTool = ['SelectTool', 'SectorTool'].includes(this.activeTool.constructor.name) || 
+                                       (this.activeTool.constructor.name === 'DrawTrackTool' && this.data.isClosed);
+                if (isPannableTool && !this.activeTool.dragging && !this.activeTool.rotatingObj && !this.selection && !this.activeTool.painting) {
                     this._isPanning = true; this._panStart = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing';
                 }
             }
@@ -402,7 +407,7 @@ F1.App = class App {
                 if (key === 'y' || (e.shiftKey && key === 'z')) { e.preventDefault(); this.data.redo(); this.requestRender(); this.uiManager.updateProperties(); return; }
             }
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'n') { e.preventDefault(); document.getElementById('btn-new-project').click(); return; }
-            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', o: 'sector', z: 'zone', m: 'straightMode', x: 'eraser', t: 'turn', g: 'hotlap' };
+            const sc = { s: 'select', p: 'pitlane', d: 'draw', r: 'surface', n: 'node', w: 'width', b: 'barrier', o: 'sector', z: 'zone', m: 'straightMode', e: 'eraser', x: 'scale', c: 'analysis', t: 'turn', g: 'hotlap' };
             if (!e.ctrlKey && !e.metaKey && sc[e.key.toLowerCase()]) { this.setTool(sc[e.key.toLowerCase()]); return; }
             if (e.key.toLowerCase() === 'a') {
                 if (document.getElementById('hotlap-modal').style.display === 'flex') {

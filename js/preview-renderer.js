@@ -66,7 +66,7 @@ F1.PreviewRenderer = class PreviewRenderer {
             this._trackBase(ctx, track, tf);
             if (this.layers.sectorEdges !== false) this._sectorEdges(ctx, track, tf, data);
             if (this.layers.straightMode) this._straightModeZones(ctx, data, editor, track, tf);
-            this._renderIntersections(ctx, track, data, tf);
+            this._renderIntersections(ctx, track, data, tf, this.isFor3DTextureBottom);
         }
         this._startFinish(ctx, track, data, tf, editor);
 
@@ -144,7 +144,7 @@ F1.PreviewRenderer = class PreviewRenderer {
         if (pathStarted) ctx.stroke();
     }
 
-    _renderIntersections(ctx, track, data, tf) {
+    _renderIntersections(ctx, track, data, tf, drawBottomInstead = false) {
         if (!window.app || !window.app.intersections) return;
 
         // Merge overlapping bridge ranges so continuous bridges form a single subTrack
@@ -155,6 +155,15 @@ F1.PreviewRenderer = class PreviewRenderer {
             const inverted = data.overlapInversions && (data.overlapInversions.includes(key) || data.overlapInversions.includes(legacyKey));
             let topIdx = Math.max(ix.trackIdxA, ix.trackIdxB);
             if (inverted) topIdx = Math.min(ix.trackIdxA, ix.trackIdxB);
+
+            // Override with physical elevation if present
+            const ptA_z = track[ix.trackIdxA]?.z || 0;
+            const ptB_z = track[ix.trackIdxB]?.z || 0;
+            if (Math.abs(ptA_z - ptB_z) > 2) {
+                topIdx = ptA_z > ptB_z ? ix.trackIdxA : ix.trackIdxB;
+            }
+
+            if (drawBottomInstead) topIdx = topIdx === ix.trackIdxA ? ix.trackIdxB : ix.trackIdxA;
 
             // Compute crossing angle to determine how far the bridge must extend
             const ptA = track[ix.trackIdxA];
@@ -349,7 +358,8 @@ F1.PreviewRenderer = class PreviewRenderer {
                 const n = stripPoints.length;
                 for (let idx = 0; idx < n; idx++) {
                     const sp = stripPoints[idx];
-                    const taper = (idx === 0 || idx === n - 1) ? 1.0 : 0.35;
+                    // All strips extend fully laterally (same height)
+                    const taper = 1.0;
                     const L_half = sw * taper;
 
                     const s = tf.toScreen(sp.x, sp.y);
@@ -357,7 +367,10 @@ F1.PreviewRenderer = class PreviewRenderer {
 
                     const shiftX = -(sw - L_half) * tf.scale;
                     const len = L_half * 2 * tf.scale;
-                    const thick = sw * 0.6 * tf.scale;
+                    
+                    // Border strips are twice the thickness of middle strips
+                    const thickBase = sw * 0.6 * tf.scale;
+                    const thick = (idx === 0 || idx === n - 1) ? thickBase * 2.0 : thickBase;
 
                     if (this.stripsImg.complete && this.stripsImg.naturalWidth > 0) {
                         ctx.drawImage(this.stripsImg, shiftX - len / 2, -thick / 2, len, thick);
@@ -592,13 +605,13 @@ F1.PreviewRenderer = class PreviewRenderer {
             // Label container
             const text = `SECTOR ${sl.sector}`;
             const sf = tf.scale;
-            ctx.font = `bold ${14 * sf}px Outfit`;
-            const tw = ctx.measureText(text).width + 18 * sf, th = 22 * sf;
+            ctx.font = `bold ${10 * sf}px Outfit`;
+            const tw = ctx.measureText(text).width + 16 * sf, th = 22 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((sl.rotation || 0) * Math.PI / 180);
             ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
             ctx.strokeStyle = sl.sector === 1 ? '#f20089' : sl.sector === 2 ? '#ffb700' : '#00aaff';
-            ctx.lineWidth = 2.0; ctx.stroke();
+            ctx.lineWidth = 1.5; ctx.stroke();
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0);
             ctx.restore();
         });
@@ -618,30 +631,32 @@ F1.PreviewRenderer = class PreviewRenderer {
             ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, ly); ctx.lineTo(lx, ly); ctx.stroke();
 
             // Draw anchor circle on track ON TOP of the line
-            ctx.beginPath(); ctx.arc(s.x, s.y, 9.5 * tf.scale, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(s.x, s.y, 5 * tf.scale, 0, Math.PI * 2);
             ctx.fillStyle = zt.color; ctx.fill();
             if (zone.type === 'overtake_activation') {
-                ctx.beginPath(); ctx.arc(s.x, s.y, 4 * tf.scale, 0, Math.PI * 2);
+                ctx.beginPath(); ctx.arc(s.x, s.y, 2 * tf.scale, 0, Math.PI * 2);
                 ctx.fillStyle = '#181818'; ctx.fill();
             } else {
-                ctx.strokeStyle = '#111'; ctx.lineWidth = 2.0; ctx.stroke();
+                ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
             }
 
             // Label container
             const sf = tf.scale;
-            ctx.font = `bold ${13 * sf}px Outfit`;
+            ctx.font = `bold ${10 * sf}px Outfit`;
             const text = (zone.label || zt.label || '').toUpperCase();
             const lines = text.split('\n');
-            const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * sf;
-            const th = lines.length * 18 * sf + 8 * sf;
+            let tw = 0;
+            for (let l of lines) { tw = Math.max(tw, ctx.measureText(l).width); }
+            tw += 16 * sf;
+            const th = lines.length * 16 * sf + 6 * sf;
 
             ctx.save(); ctx.translate(lx, ly); ctx.rotate((zone.rotation || 0) * Math.PI / 180);
-            ctx.fillStyle = zt.color; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4); ctx.fill();
+            ctx.fillStyle = zt.color; ctx.beginPath(); ctx.roundRect(-tw / 2, -th / 2, tw, th, 4 * sf); ctx.fill();
             ctx.fillStyle = zt.textColor || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             if (lines.length === 1) {
                 ctx.fillText(text, 0, 0);
             } else {
-                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 18 * sf));
+                lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * 16 * sf));
             }
             ctx.restore();
         });

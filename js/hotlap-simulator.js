@@ -84,8 +84,12 @@ F1.HotlapSimulator = class HotlapSimulator {
 
         this.followCam.onchange = () => {
             this.followZoomContainer.style.display = this.followCam.checked ? 'flex' : 'none';
+            if (!this.playing || this.paused) this.update(0);
         };
         this.followZoomContainer.style.display = 'none';
+        this.followZoom.oninput = () => {
+            if (!this.playing || this.paused) this.update(0);
+        };
 
         if (this.carTeam) {
             this.carTeam.onchange = () => {
@@ -101,7 +105,7 @@ F1.HotlapSimulator = class HotlapSimulator {
         let isDragging = false;
         let lastX = 0, lastY = 0;
         this.canvas.onmousedown = (e) => {
-            if (this.followCam.checked && this.playing) return;
+            if (this.followCam.checked) return;
             isDragging = true;
             lastX = e.clientX;
             lastY = e.clientY;
@@ -127,7 +131,17 @@ F1.HotlapSimulator = class HotlapSimulator {
             this.canvas.style.cursor = 'grab';
         });
         this.canvas.onwheel = (e) => {
-            if (this.followCam.checked && this.playing) return;
+            if (this.followCam.checked) {
+                e.preventDefault();
+                let currentZoom = parseFloat(this.followZoom.value) || 1.0;
+                let factor = e.deltaY > 0 ? 0.9 : 1.1;
+                let newZoom = Math.max(0.1, Math.min(10.0, currentZoom * factor));
+                this.followZoom.value = newZoom.toFixed(2);
+                if (!this.playing || this.paused) {
+                    this.update(0);
+                }
+                return;
+            }
             e.preventDefault();
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -270,13 +284,24 @@ F1.HotlapSimulator = class HotlapSimulator {
     }
 
     _initCar() {
+        let startIdx = 0;
+        if (this.app && this.app.data && this.app.data.startNodeId && this.app.editor && this.hotlapPoints && this.hotlapPoints.length > 0) {
+            const cpIdx = this.app.data.controlPoints.findIndex(cp => cp.id === this.app.data.startNodeId);
+            if (cpIdx >= 0) {
+                startIdx = (cpIdx * this.app.editor.resolution) % this.hotlapPoints.length;
+            }
+        }
+        this.startIndex = startIdx;
+
         this.car = {
-            index: 0,
+            index: startIdx,
             dist: 0,
             speed: 0, // starts at 0
             color: this.carTeam ? this.carTeam.value : '#ff1801',
             icePower: 0,
             mgukPower: 0,
+            throttle: 0,
+            brake: 0,
             aeroMode: 'corner',
             accelG: 0,
             targetV: 0
@@ -441,7 +466,7 @@ F1.HotlapSimulator = class HotlapSimulator {
         let p = this.hotlapPoints[this.car.index];
         
         let isDrs = false;
-        if (this.lapsCompleted > 1) {
+        if (this.straightZones && this.straightZones.length > 0) {
             for (let z of this.straightZones) {
                 if (z.start <= z.end) {
                     if (this.car.index >= z.start && this.car.index <= z.end) isDrs = true;
@@ -449,38 +474,79 @@ F1.HotlapSimulator = class HotlapSimulator {
                     if (this.car.index >= z.start || this.car.index <= z.end) isDrs = true;
                 }
             }
+        } else {
+            // Automatically detect straights if no manual zones are defined
+            if (p.radius >= 400 || p.safeSpeed * 3.6 >= 250) {
+                isDrs = true;
+            }
         }
 
-        // Active Aerodynamics: Corner vs Straight Mode (Robust Hysteresis via Smoothed Speed)
-        let safeSpeedKph = p.safeSpeed * 3.6;
-        if (isDrs || safeSpeedKph > 310) {
-            this.car.aeroMode = 'straight';
-        } else if (safeSpeedKph < 280) {
-            this.car.aeroMode = 'corner';
-        }
+        this.car.aeroMode = isDrs ? 'straight' : 'corner';
         
-        // Prevent artificial speed clipping jumps
+        // 2026 Active Aerodynamics Speed Adjustments
         let targetV = p.safeSpeed;
-        if (this.car.aeroMode === 'straight') targetV = Math.min(targetV, 355/3.6);
-        else targetV = Math.min(targetV, 355/3.6); // Removed arbitrary 0.94 penalty to prevent stutter
+        let isCorner = p.radius < 700;
+
+        if (this.car.aeroMode === 'corner') {
+            // Corner Mode (Z-Mode): Increase allowed corner speed by ~10% (8-12%)
+            if (isCorner) {
+                targetV *= 1.10;
+            }
+            // Reduce maximum straight speed by ~12.5 km/h (10-15 km/h) due to higher drag
+            targetV = Math.min(targetV, 327.5 / 3.6);
+        } else {
+            // Straight Mode (X-Mode): Reduce maximum cornering speed by ~10% (8-12%) if entering a corner
+            if (isCorner) {
+                targetV *= 0.90;
+            }
+            // Increase maximum straight speed compared with Corner Mode
+            targetV = Math.min(targetV, 355 / 3.6);
+        }
 
         this.car.targetV = targetV;
         
         // 4. If current speed exceeds target speed, apply braking
         let isBraking = this.car.speed > targetV + 0.5;
 
-        // Battery Deployment Logic
+        // Calculate Brake & Throttle Pressure
         if (isBraking) {
-            this.deployCooldown = false; // Reset cooldown when braking
+            this.car.throttle = 0;
+            if (!this.wasBraking) {
+                this.initialBrakingSpeed = this.car.speed;
+                let speedLossKph = (this.initialBrakingSpeed - targetV) * 3.6;
+                if (speedLossKph >= 120) this.maxBrakePressure = 100;
+                else if (speedLossKph >= 60) this.maxBrakePressure = 80;
+                else if (speedLossKph >= 30) this.maxBrakePressure = 60;
+                else if (p.radius > 120) this.maxBrakePressure = 20;
+                else this.maxBrakePressure = 40;
+            }
+            let remRatio = (this.car.speed - targetV) / Math.max(0.5, (this.initialBrakingSpeed || this.car.speed) - targetV);
+            this.car.brake = Math.min(100, Math.max(0, Math.round(this.maxBrakePressure * Math.pow(Math.max(0, remRatio), 0.6))));
+            this.wasBraking = true;
+        } else {
+            this.car.brake = 0;
+            this.wasBraking = false;
+            
+            if (this.car.aeroMode === 'straight') {
+                this.car.throttle = 100;
+            } else {
+                let minThrottle = p.radius > 120 ? 70 : (p.radius > 60 ? 20 : 0);
+                if ((this.car.throttle || 0) < minThrottle) this.car.throttle = minThrottle;
+                
+                let rate;
+                if (p.radius < 30) rate = 100 / 0.7; // Hairpin: 0 to 100 in 0.7s
+                else if (p.radius <= 60) rate = 100 / 0.5; // Slow corner: 0 to 100 in 0.5s
+                else if (p.radius <= 120) rate = 80 / 0.3; // Medium corner: 20 to 100 in 0.3s
+                else rate = 30 / 0.2; // Fast corner: 70 to 100 in 0.2s
+                
+                this.car.throttle = Math.min(100, (this.car.throttle || 0) + rate * effectiveDt);
+            }
         }
 
         let wantDeploy = false;
-        let isAccelerating = this.car.speed < targetV - 0.5; 
-        let needsMgukToMaintainSpeed = this.car.speed >= 314 / 3.6;
-        
-        // Deploy on long straights or exits, never during braking or apex
-        if (!isBraking && this.batteryPct > 0 && !this.deployCooldown && (isDrs || p.radius > 40)) {
-            if (isAccelerating || needsMgukToMaintainSpeed) {
+        // Boost / Overtake Mode engages whenever throttle is high (>= 40%) and battery is available
+        if (!isBraking && (this.car.throttle || 0) >= 40 && this.batteryPct > 0) {
+            if (!this.deployCooldown) {
                 wantDeploy = true;
             }
         }
@@ -489,18 +555,20 @@ F1.HotlapSimulator = class HotlapSimulator {
             this.isDeploying = true;
         }
         
-        // Disable MGU-K if braking, or if cruising at a low target speed
-        if (isBraking || (!isAccelerating && !needsMgukToMaintainSpeed)) {
+        // Disable MGU-K when braking, when driver lifts (< 40% throttle), or when battery depleted
+        if (isBraking || (this.car.throttle || 0) < 40 || this.batteryPct <= 0) {
             this.isDeploying = false; 
-            this.deployTimer -= effectiveDt * 0.5; // Slow cool down
+            this.deployCooldown = false; // Reset cooldown immediately when driver lifts or brakes!
+            this.deployTimer -= effectiveDt * 0.5; // Cool down timer
             if (this.deployTimer < 0) this.deployTimer = 0;
         }
         
         if (this.isDeploying) {
             this.deployTimer += effectiveDt;
-            if (this.deployTimer >= 12.0 || this.batteryPct <= 0) {
+            // Maximum continuous duration: 10-12 seconds
+            if (this.deployTimer >= 11.0 || this.batteryPct <= 0) {
                 this.isDeploying = false;
-                this.deployCooldown = true; // Force cooldown until next braking zone
+                this.deployCooldown = true; // Temporary cooldown after max 11s burst
             }
         }
 
@@ -515,13 +583,13 @@ F1.HotlapSimulator = class HotlapSimulator {
         let kph = this.car.speed * 3.6;
         
         if (isBraking) {
-            this.car.speed -= 50.0 * effectiveDt; // 50 m/s^2 constant deceleration (approx 5.5g)
+            // Deceleration based on brake pressure: ~28 m/s^2 peak down to 15 m/s^2
+            let decel = 15.0 + (this.car.brake / 100.0) * 15.0;
+            this.car.speed -= decel * effectiveDt;
             if (this.car.speed < targetV) this.car.speed = targetV;
             
-            // Battery Recovery during braking (Simplified continuous approximation of the user's event-based braking)
-            // Heavy Braking = +2.5% per event. At 50 m/s^2, an average heavy braking zone takes ~1.0 second.
-            // Using a flat +2.5% per second of braking elegantly satisfies all braking severity tiers.
-            this.batteryPct += 2.5 * effectiveDt;
+            // Battery recovery: 100% brake -> +3.3% battery per second, scaling linearly
+            this.batteryPct += (this.car.brake / 100.0) * 3.3 * effectiveDt;
             if (this.batteryPct > 100.0) this.batteryPct = 100.0;
         } else {
             // Speed-Dependent Acceleration Curve
@@ -532,16 +600,25 @@ F1.HotlapSimulator = class HotlapSimulator {
             else if (kph >= 200) pct = 0.70;
             else if (kph >= 100) pct = 0.85;
             
-            // Base Acceleration reduced to stretch out the time spent reaching top speed
-            let baseAccel = this.isDeploying ? 10.5 : 7.5;
+            // Base Acceleration: roughly 20% increase in Overtake Mode (from 7.5 to 9.0 m/s^2)
+            let baseAccel = this.isDeploying ? 9.0 : 7.5;
             let accel = baseAccel * pct;
             
             this.car.icePower = 400; // ICE always providing power when accelerating
             
             if (this.isDeploying) {
-                this.batteryPct -= 4.1 * effectiveDt; // -4.1% battery per second
-                if (this.batteryPct < 0) this.batteryPct = 0;
-                this.car.mgukPower = 350; // MGU-K active
+                let throttle = this.car.throttle || 100;
+                if (throttle < 40) {
+                    this.car.mgukPower = 0;
+                } else if (throttle <= 70) {
+                    this.batteryPct -= 4.1 * 0.50 * effectiveDt; // 50% battery power
+                    if (this.batteryPct < 0) this.batteryPct = 0;
+                    this.car.mgukPower = 175;
+                } else {
+                    this.batteryPct -= 4.1 * effectiveDt; // 100% battery power
+                    if (this.batteryPct < 0) this.batteryPct = 0;
+                    this.car.mgukPower = 350;
+                }
             }
             
             if (this.turboLagTimer <= 0) {
@@ -549,7 +626,15 @@ F1.HotlapSimulator = class HotlapSimulator {
             }
             
             // Maximum absolute speeds
-            let maxCurrentSpeed = this.isDeploying ? 355/3.6 : 315/3.6;
+            let maxCurrentSpeed;
+            if (this.car.aeroMode === 'corner') {
+                maxCurrentSpeed = 327.5 / 3.6; // ~12.5 km/h slower than baseline Straight Mode due to drag
+            } else if (this.isDeploying) {
+                maxCurrentSpeed = 355 / 3.6; // Overtake Mode allows reaching 350-355 km/h
+            } else {
+                maxCurrentSpeed = 340 / 3.6; // Baseline Straight Mode without electric boost
+            }
+
             if (this.car.speed > maxCurrentSpeed) this.car.speed = maxCurrentSpeed;
             if (this.car.speed > targetV) this.car.speed = targetV;
         }
@@ -589,6 +674,9 @@ F1.HotlapSimulator = class HotlapSimulator {
 
                 if (this.car.index >= this.hotlapPoints.length) {
                     this.car.index = 0;
+                }
+
+                if (this.lapTimer > 2.0 && this.car.index === (this.startIndex || 0)) {
                     this.recoveredEnergyLap = 0; // Reset recovery limit for new lap
 
                     if (!this.missingSectors && this.activeSector >= 1 && this.activeSector <= 3) {
@@ -639,26 +727,30 @@ F1.HotlapSimulator = class HotlapSimulator {
                 let cy = (minY + maxY) / 2;
 
                 let targetScale = this.baseScaleMap * zoomMult;
-                this.app.preview.userScale += (targetScale - this.app.preview.userScale) * 0.1;
+                if (!this.playing || this.paused) {
+                    this.app.preview.userScale = targetScale;
+                } else {
+                    this.app.preview.userScale += (targetScale - this.app.preview.userScale) * 0.1;
+                }
 
                 let tf = this.app.preview._tf(track, this.app.data, this.canvas.width, this.canvas.height);
 
                 this.app.preview.userOx = (cx - this.camX) * tf.scale;
                 this.app.preview.userOy = (cy - this.camY) * tf.scale;
-                
-                this.app.preview.draw();
             } else {
                 let targetScale = this.baseScaleEditor * zoomMult;
-                this.scale += (targetScale - this.scale) * 0.1;
+                if (!this.playing || this.paused) {
+                    this.scale = targetScale;
+                } else {
+                    this.scale += (targetScale - this.scale) * 0.1;
+                }
                 this.ox = -this.camX;
                 this.oy = -this.camY;
             }
         }
 
         this.updateTelemetry();
-        if (this.viewType.value === 'editor' || !this.followCam.checked) {
-            this.render();
-        }
+        this.render();
     }
 
     updateTelemetry() {
@@ -679,16 +771,7 @@ F1.HotlapSimulator = class HotlapSimulator {
         document.getElementById('hotlap-time-readout').textContent = this.formatTime(this.lapTimer);
         document.getElementById('hotlap-lap-number').textContent = `Lap ${this.lapsCompleted}`;
 
-        let isDrs = false;
-        if (this.lapsCompleted > 1) {
-            for (let z of this.straightZones) {
-                if (z.start <= z.end) {
-                    if (this.car.index >= z.start && this.car.index <= z.end) isDrs = true;
-                } else {
-                    if (this.car.index >= z.start || this.car.index <= z.end) isDrs = true;
-                }
-            }
-        }
+        let isDrs = this.car.aeroMode === 'straight';
 
         let drsEl = document.getElementById('hotlap-drs-indicator');
         if (isDrs) {
@@ -704,19 +787,11 @@ F1.HotlapSimulator = class HotlapSimulator {
         let overtakeEl = document.getElementById('hotlap-overtake-indicator');
         
         if (this.isDeploying) {
-            if (this.car.aeroMode === 'straight') {
-                // On straights, BOTH Boost and Overtake are engaged
-                boostEl.style.background = '#00a1e8';
-                boostEl.style.color = '#fff';
-                overtakeEl.style.background = '#b138ff'; // purple for overtake
-                overtakeEl.style.color = '#fff';
-            } else {
-                // Partial deployment out of corners is just BOOST mode
-                boostEl.style.background = '#00a1e8'; // blue for boost
-                boostEl.style.color = '#fff';
-                overtakeEl.style.background = '#333';
-                overtakeEl.style.color = '#666';
-            }
+            // Boost Mode = Overtake Mode: Both indicators light up when deploying
+            boostEl.style.background = '#00a1e8';
+            boostEl.style.color = '#fff';
+            overtakeEl.style.background = '#b138ff';
+            overtakeEl.style.color = '#fff';
         } else {
             boostEl.style.background = '#333';
             boostEl.style.color = '#666';
@@ -746,6 +821,21 @@ F1.HotlapSimulator = class HotlapSimulator {
             
             let currentMj = (soc / 100) * 8.5;
             document.getElementById('tele-mj-text').textContent = `${currentMj.toFixed(2)} MJ`;
+            let throttle = Math.round(this.car.throttle || 0);
+            let brake = Math.round(this.car.brake || 0);
+            let throttleTextEl = document.getElementById('tele-throttle-text');
+            let throttleBarEl = document.getElementById('tele-throttle-bar');
+            let brakeTextEl = document.getElementById('tele-brake-text');
+            let brakeBarEl = document.getElementById('tele-brake-bar');
+            if (throttleTextEl && throttleBarEl) {
+                throttleTextEl.textContent = `${throttle}%`;
+                throttleBarEl.style.width = `${throttle}%`;
+            }
+            if (brakeTextEl && brakeBarEl) {
+                brakeTextEl.textContent = `${brake}%`;
+                brakeBarEl.style.width = `${brake}%`;
+            }
+
             document.getElementById('tele-aero-text').textContent = this.car.aeroMode === 'straight' ? 'Straight Mode' : 'Corner Mode';
         } catch (e) {
             document.getElementById('hotlap-lap-number').textContent = "ERROR: " + e.message;
